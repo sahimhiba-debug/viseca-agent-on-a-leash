@@ -228,7 +228,14 @@ def run_demo_scenario() -> DemoResult:
     resolution = resolve_authorization("AU_DEMO_0002", "block", state, resolved_at=t1 + timedelta(minutes=1))
 
     # Step 4: the legitimate continuation, back at the trusted merchant.
-    t2 = t1 + timedelta(minutes=5)
+    #
+    # Deliberately hours later, not minutes: re-ordering the same basket from the
+    # same merchant inside the one-hour duplicate window is exactly what the
+    # near-duplicate check exists to flag (it stopped requiring the price to match
+    # after deep-security finding V6), and it would rightly send this purchase to
+    # the customer a second time. A customer who declined a suspicious redirect and
+    # then completed the order later is the realistic shape of this story anyway.
+    t2 = t1 + timedelta(hours=3)
     event3 = _event(
         "AU_DEMO_0003", merchant=TRUSTED_MERCHANT, amount=299.0, item_details="27\" viewable, HDMI/DP, 3-year warranty. Returns accepted within 30 days.",
         mandate=snapshot, timestamp=t2, context=_context(), order_returnable="true",

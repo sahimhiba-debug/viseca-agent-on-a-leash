@@ -25,6 +25,7 @@ synthetic: there are no real cards, customers, payments, or money.").
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -47,10 +48,18 @@ class ChargeRecord:
 class MockPSP:
     """A minimal payment executor bound to one `RunState` (one run's decisions)."""
 
-    def __init__(self, state: RunState) -> None:
+    def __init__(self, state: RunState, *, clock: Callable[[], datetime] | None = None) -> None:
         self._state = state
         self._charges: dict[str, ChargeRecord] = {}
         self._charged_authorizations: set[str] = set()
+        # The clock used for SECURITY decisions (authority expiry) belongs to the
+        # payment boundary, not to whoever calls it. It was previously taken from
+        # the caller's `now=` argument, which meant anyone asking for a charge also
+        # got to say what time it was -- and could therefore charge an authority
+        # ten years after it expired by claiming it was still issue time. Tests
+        # inject a clock here, at construction, which is a trusted seam; `now=` on
+        # the call itself only timestamps the resulting record.
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
 
     def charge(
         self, *, charge_id: str, authorization_id: str, amount_chf: Decimal, merchant_id: str, now: datetime | None = None
@@ -94,26 +103,35 @@ class MockPSP:
                 f"requested charge CHF {amount_chf} exceeds the approved amount CHF {stored.billing_amount_chf}"
             )
 
-        # If a PaymentAuthority was issued for this authorization, it is the
-        # authoritative record of whether execution is still permitted, and it is
-        # checked HERE rather than only in `charge_via_authority` -- otherwise the
-        # authority would be opt-in, and a caller that reached for plain `charge()`
-        # would silently bypass both expiry and the customer's revocation. A
-        # revocation that only works if the caller chooses the polite door is not
-        # a revocation. (Fourth-pass finding; see docs/FINAL_ARCHITECTURE_ATTACK.md.)
+        # The PaymentAuthority is the authoritative record of whether execution is
+        # still permitted, and it is checked HERE rather than only in
+        # `charge_via_authority` -- otherwise it would be opt-in, and a caller
+        # reaching for plain `charge()` would bypass expiry and the customer's
+        # revocation. A revocation that only works if the caller chooses the polite
+        # door is not a revocation.
+        #
+        # Every chargeable ALLOW mints an authority, so its absence means authority
+        # state was lost or never properly established -- a reason to stop, not to
+        # proceed. This replaces a fail-OPEN default ("no authority means no
+        # constraint") that the previous pass introduced and asserted was safe; it
+        # was not. It is what allowed a human-approved step-up (which minted no
+        # authority) and a post-restart run (which restored none) to be charged
+        # after the customer had revoked. See docs/DEEP_SECURITY_RESEARCH.md.
         authority = self._state.get_authority(authorization_id)
-        if authority is not None:
-            if authority.revoked:
-                raise PaymentError(
-                    f"the payment authority for {authorization_id} has been revoked; refusing to charge"
-                )
-            if (now or datetime.now(timezone.utc)) > authority.expires_at:
-                raise PaymentError(
-                    f"the payment authority for {authorization_id} expired at "
-                    f"{authority.expires_at.isoformat()}; refusing to charge an expired authority"
-                )
+        if authority is None:
+            raise PaymentError(
+                f"{authorization_id} has no payment authority on record; refusing to charge. "
+                "An approved purchase always mints one, so this means authority state was lost."
+            )
+        if authority.revoked:
+            raise PaymentError(f"the payment authority for {authorization_id} has been revoked; refusing to charge")
+        if self._clock() > authority.expires_at:
+            raise PaymentError(
+                f"the payment authority for {authorization_id} expired at "
+                f"{authority.expires_at.isoformat()}; refusing to charge an expired authority"
+            )
 
-        record = ChargeRecord(charge_id, authorization_id, amount_chf, now or datetime.now(timezone.utc))
+        record = ChargeRecord(charge_id, authorization_id, amount_chf, now or self._clock())
         self._charges[charge_id] = record
         self._charged_authorizations.add(authorization_id)
         return record
@@ -144,7 +162,6 @@ class MockPSP:
         argument, so handing this method a stale copy taken before a revocation
         does not resurrect it.
         """
-        now = now or datetime.now(timezone.utc)
         if amount_chf > authority.amount_ceiling_chf:
             raise PaymentError(
                 f"requested charge CHF {amount_chf} exceeds the authority's own ceiling CHF {authority.amount_ceiling_chf}"

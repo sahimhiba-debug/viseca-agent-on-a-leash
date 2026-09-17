@@ -89,10 +89,10 @@ def test_plain_charge_refuses_a_revoked_authority():
 def test_plain_charge_refuses_an_expired_authority():
     state = _state()
     result = _allow(state)
-    psp = MockPSP(state)
     later = result.payment_authority.expires_at + timedelta(seconds=1)
+    psp = MockPSP(state, clock=lambda: later)
     with pytest.raises(PaymentError, match="expired"):
-        psp.charge(charge_id="CH1", authorization_id="AU1", amount_chf=Decimal("400"), merchant_id=MERCHANT_ID, now=later)
+        psp.charge(charge_id="CH1", authorization_id="AU1", amount_chf=Decimal("400"), merchant_id=MERCHANT_ID)
 
 
 def test_a_stale_authority_copy_cannot_resurrect_a_revoked_one():
@@ -108,17 +108,11 @@ def test_a_stale_authority_copy_cannot_resurrect_a_revoked_one():
         psp.charge_via_authority(charge_id="CH1", authority=stale_copy, amount_chf=Decimal("400"))
 
 
-def test_an_authorization_with_no_authority_still_charges_normally():
-    """The authority check must not become an accidental gate on decisions that
-    never issued one (every pre-existing caller path)."""
-    state = _state()
-    mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=500, currency="CHF", scope="purchase")])
-    event = make_event(mandate=mandate, authorization_id="AU9", amount=100.0, merchant_id=MERCHANT_ID)
-    evaluate_authorization(event, mandate, state)
-    state._authorities.clear()  # simulate a decision recorded without an authority
-    psp = MockPSP(state)
-    record = psp.charge(charge_id="CH9", authorization_id="AU9", amount_chf=Decimal("100"), merchant_id=MERCHANT_ID)
-    assert record.amount_chf == Decimal("100")
+# NOTE: a test asserting that an ALLOW with no authority on record "still charges
+# normally" used to live here. The deep-security pass proved that fail-OPEN default
+# wrong -- it is precisely what let a human-approved step-up and a post-restart run
+# be charged after the customer revoked. The inverted property is now asserted by
+# tests/security/test_authority_lifecycle.py::test_an_allow_with_no_authority_on_record_cannot_be_charged.
 
 
 # --- G3: the basket fingerprint must carry item identity ------------------------

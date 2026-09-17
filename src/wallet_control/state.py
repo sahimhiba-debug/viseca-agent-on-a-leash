@@ -390,12 +390,21 @@ class RunState:
                 continue
             if prior.basket_key != basket_key:
                 continue
-            if prior.billing_amount_chf != billing_amount_chf:
-                continue
             if abs(timestamp - prior.timestamp) > _DUPLICATE_WINDOW:
                 continue
+            # The amount deliberately does NOT have to match. Requiring it read
+            # "similar" as "identical", and a compromised agent evaded the whole
+            # check by moving the price one centime (deep-security finding V6).
+            # Ordering the same basket from the same merchant minutes later is the
+            # unwanted duplicate order whether or not the price moved -- but the
+            # reviewer is shown the difference, because "the same thing at a
+            # different price" is what they need to judge.
+            if prior.billing_amount_chf == billing_amount_chf:
+                money = f"and amount (CHF {billing_amount_chf})"
+            else:
+                money = f"at a different amount (CHF {prior.billing_amount_chf} before, CHF {billing_amount_chf} now)"
             return prior.authorization_id, (
-                f"same merchant, basket, and amount as {prior.authorization_id} "
+                f"same merchant and basket as {prior.authorization_id} {money}, "
                 f"{abs(timestamp - prior.timestamp)} apart"
             )
         return None
@@ -546,6 +555,28 @@ class RunState:
                 for d in self._decisions.values()
             ],
             "approved_spend": [[ts.isoformat(), str(amt)] for ts, amt in self._approved_spend],
+            # Authorities MUST be persisted. Omitting them (the pre-deep-security
+            # behaviour) meant a crash and restart resurrected revoked and expired
+            # authorities as unconstrained ones: the payment boundary looked for an
+            # authority, found none, and -- under the old fail-open default --
+            # charged anyway. Revocation that does not survive a restart is not
+            # revocation.
+            "authorities": [
+                {
+                    "authorization_id": a.authorization_id,
+                    "mandate_id": a.mandate_id,
+                    "merchant_id": a.merchant_id,
+                    "amount_ceiling_chf": str(a.amount_ceiling_chf),
+                    "currency": a.currency,
+                    "issued_at": a.issued_at.isoformat(),
+                    "expires_at": a.expires_at.isoformat(),
+                    "basket_fingerprint": list(a.basket_fingerprint),
+                    "policy_version": a.policy_version,
+                    "evidence_ref": a.evidence_ref,
+                    "revoked": a.revoked,
+                }
+                for a in self._authorities.values()
+            ],
             "recent_attempts": [
                 {
                     "authorization_id": a.authorization_id,
@@ -586,4 +617,18 @@ class RunState:
             )
             for a in snapshot["recent_attempts"]
         ]
+        for a in snapshot.get("authorities", ()):
+            state._authorities[a["authorization_id"]] = PaymentAuthority(
+                authorization_id=a["authorization_id"],
+                mandate_id=a["mandate_id"],
+                merchant_id=a["merchant_id"],
+                amount_ceiling_chf=Decimal(a["amount_ceiling_chf"]),
+                currency=a["currency"],
+                issued_at=datetime.fromisoformat(a["issued_at"]),
+                expires_at=datetime.fromisoformat(a["expires_at"]),
+                basket_fingerprint=tuple(tuple(line) for line in a["basket_fingerprint"]),
+                policy_version=a["policy_version"],
+                evidence_ref=a["evidence_ref"],
+                revoked=a["revoked"],
+            )
         return state

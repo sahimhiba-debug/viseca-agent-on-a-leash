@@ -106,10 +106,12 @@ def test_charge_via_authority_rejects_an_expired_authority():
     state = _state()
     event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0, merchant_id=MERCHANT_ID)
     result = evaluate_authorization(event, mandate, state)
-    psp = MockPSP(state)
+    # Expiry is judged by the payment boundary's own clock, never by a `now=` the
+    # caller supplies -- see tests/security/test_authority_lifecycle.py.
     way_later = result.payment_authority.expires_at + timedelta(seconds=1)
+    psp = MockPSP(state, clock=lambda: way_later)
     with pytest.raises(PaymentError, match="expired"):
-        psp.charge_via_authority(charge_id="CH1", authority=result.payment_authority, amount_chf=Decimal("50"), now=way_later)
+        psp.charge_via_authority(charge_id="CH1", authority=result.payment_authority, amount_chf=Decimal("50"))
     assert not psp.is_charged("AU1")
 
 

@@ -220,7 +220,14 @@ def resolve_run_authorization(run_id: str, authorization_id: str, req: ResolveRe
     if run.state.get_stored_decision(authorization_id) is None:
         raise HTTPException(404, f"{authorization_id} was never decided in this run")
     try:
-        result = resolve_authorization(authorization_id, req.decision, run.state, resolved_at=datetime.now(timezone.utc))
+        # `mandate=` is required, not optional: without it a human-approved step-up
+        # mints no PaymentAuthority, which meant it could not be revoked and -- under
+        # the old fail-open payment default -- was charged even after the customer
+        # revoked. The purchase the customer was actually asked about was the one
+        # that escaped their revocation. See docs/DEEP_SECURITY_RESEARCH.md (V2).
+        result = resolve_authorization(
+            authorization_id, req.decision, run.state, resolved_at=datetime.now(timezone.utc), mandate=run.mandate.snapshot()
+        )
     except ValueError as exc:
         # Covers both "was never put to review" and "already resolved with a
         # different answer" -- both are 409 Conflict: the request is well-formed

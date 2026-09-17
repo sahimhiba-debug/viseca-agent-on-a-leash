@@ -291,6 +291,10 @@ class LiveWorker:
             human_decision,  # type: ignore[arg-type]
             handle.state,
             resolved_at=datetime.now(timezone.utc),
+            # Required: a human-approved step-up must mint a payment authority like
+            # any other approval, or it cannot later be revoked. See
+            # docs/DEEP_SECURITY_RESEARCH.md (V2).
+            mandate=handle.mandate,
         )
         self._save_checkpoint(handle)
         if customer_message is None:

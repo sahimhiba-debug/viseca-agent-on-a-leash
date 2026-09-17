@@ -48,6 +48,47 @@ _NO_RULES_RULE = HardRule(field="mandate.has_no_rules", operator="=", value="fal
 _AMOUNT_INTEGRITY_RULE = HardRule(field="authorization.amount_integrity", operator="=", value="true")
 _AMOUNT_INTEGRITY_TOLERANCE_CHF = Decimal("0.02")  # allows for independent double-rounding, nothing more
 
+_AUTHORITY_STATUS_RULE = HardRule(field="authorization.authority_status", operator="=", value="active")
+_CARD_STATUS_RULE = HardRule(field="authorization.card_status_at_attempt", operator="=", value="active")
+_CARD_BINDING_RULE = HardRule(field="authorization.card_id_binding", operator="=", value="true")
+_MANDATE_BINDING_RULE = HardRule(field="authorization.mandate_id_binding", operator="=", value="true")
+
+# The exact enums from data/official/schemas/authorization_event.schema.json. A
+# value outside these sets is not assumed benign -- it is treated as unknown.
+_KNOWN_DEAD_AUTHORITY_STATUSES = frozenset({"revoked", "expired"})
+_KNOWN_DEAD_CARD_STATUSES = frozenset({"blocked"})
+
+
+def _platform_status_evaluations(auth: dict[str, Any]) -> list[RuleEvaluation]:
+    """Evaluate the platform's authority/card status fields (see the call site for
+    why these are hard failures rather than uncertainty when recognised)."""
+    out: list[RuleEvaluation] = []
+    for raw, rule, dead, label in (
+        (auth.get("authority_status"), _AUTHORITY_STATUS_RULE, _KNOWN_DEAD_AUTHORITY_STATUSES, "authority_status"),
+        (auth.get("card_status_at_attempt"), _CARD_STATUS_RULE, _KNOWN_DEAD_CARD_STATUSES, "card_status_at_attempt"),
+    ):
+        if raw == "active":
+            out.append(RuleEvaluation(rule=rule, outcome="pass", detail=f"{label}=active", source="safety"))
+        elif raw in dead:
+            out.append(
+                RuleEvaluation(
+                    rule=rule,
+                    outcome="fail",
+                    detail=f"the platform reports {label}={raw!r}; this purchase is not authorized to proceed",
+                    source="safety",
+                )
+            )
+        else:
+            out.append(
+                RuleEvaluation(
+                    rule=rule,
+                    outcome="unknown",
+                    detail=f"{label}={raw!r} is not a status this engine version recognizes",
+                    source="safety",
+                )
+            )
+    return out
+
 
 @dataclass(frozen=True)
 class EngineDecision:
@@ -308,6 +349,49 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
                 source="safety",
             )
         )
+    # The platform's own statement about whether this purchase may proceed at all.
+    # `authority_status` and `card_status_at_attempt` are REQUIRED fields of the
+    # official event schema and are the most authoritative signals in the whole
+    # event: they are the platform saying the authority behind this purchase has
+    # been revoked or has expired, or that the card is blocked. Ignoring them --
+    # which this engine did until the deep-security pass -- meant a revoked
+    # authority still produced ALLOW and still charged. All 45 official rows carry
+    # "active"/"active", which is exactly why no fixture ever exercised it.
+    #
+    # A recognised negative is a hard failure, NOT uncertainty: the customer
+    # revoking their authority is not a question to put back to the customer, and
+    # an `approve`-on-uncertainty policy must not be able to soften it. Anything
+    # unrecognised (a new enum value, an empty string, a case variant, a missing
+    # field) is genuinely missing information and goes through uncertainty_policy.
+    evaluations.extend(_platform_status_evaluations(auth))
+
+    # Does this event even belong to this run? `card_id` is what the
+    # merchant-familiarity lookup is keyed on, so an event carrying a different
+    # card's identity borrowed that card's purchase history and could make an
+    # unfamiliar merchant look familiar; `mandate_id` decides whose rules these
+    # are. Both were previously taken from the event and never checked against the
+    # run, which let the event answer "whose authority is this?" itself. Compared
+    # exactly: a case variant or a value padded with an invisible character is a
+    # different identity, not a near-enough one.
+    if auth.get("card_id") != state.card_id:
+        evaluations.append(
+            RuleEvaluation(
+                rule=_CARD_BINDING_RULE,
+                outcome="fail",
+                detail=f"event card_id={auth.get('card_id')!r} is not this run's card {state.card_id!r}",
+                source="safety",
+            )
+        )
+    if auth.get("mandate_id") != mandate.mandate_id:
+        evaluations.append(
+            RuleEvaluation(
+                rule=_MANDATE_BINDING_RULE,
+                outcome="fail",
+                detail=f"event mandate_id={auth.get('mandate_id')!r} is not this run's mandate {mandate.mandate_id!r}",
+                source="safety",
+            )
+        )
+
     if duplicate_of is not None:
         evaluations.append(RuleEvaluation(rule=_DUPLICATE_RULE, outcome="unknown", detail=duplicate_reason or "", source="safety"))
     if not mandate.hard_rules:
