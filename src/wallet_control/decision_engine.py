@@ -1,0 +1,220 @@
+"""The deterministic wallet-control decision engine.
+
+This is where "the agent proposes, the control layer decides" is actually
+enforced. Given one authorization event, the confirmed mandate snapshot bound to
+this run, and the run's accumulated state, it returns exactly one of ALLOW /
+REVIEW / BLOCK, with the evidence and rule outcomes that produced it.
+
+No language model sits in this path. Every input here is either a platform-
+supplied structured field, a customer-authored hard rule, or a signal this
+engine derived itself from trustworthy history/state -- never merchant-supplied
+text (see `facts.py` for where that boundary is actually drawn).
+
+Decision priority (matches the three-way distinction technical_details.md and
+challenge.md ask for):
+
+  1. Any hard rule clearly FAILS  -> BLOCK. A clear violation is never softened
+     by an uncertain fact elsewhere.
+  2. No failure, but something is UNKNOWN -> apply the mandate's own
+     `uncertainty_policy` (ask/decline/approve). This is the customer's explicit
+     choice about how to handle insufficient information, not the engine's.
+  3. Every hard rule PASSES -> ALLOW.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
+
+from .facts import PurchaseFacts, build_purchase_facts
+from .intervention import InterventionKind, classify_intervention
+from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy
+from .money import to_decimal
+from .rules import RuleContext, RuleEvaluation, evaluate_rule
+from .state import RunState
+from .viseca_mapping import Decision
+
+_DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", value="false")
+
+
+@dataclass(frozen=True)
+class EngineDecision:
+    authorization_id: str
+    decision: Decision
+    reason_codes: tuple[str, ...]
+    customer_message: str
+    evidence: tuple[str, ...]
+    rule_evaluations: tuple[RuleEvaluation, ...]
+    intervention: InterventionKind
+    facts: PurchaseFacts | None
+    idempotent_replay: bool = False
+
+
+_TERMINAL_INTERVENTION: dict[Decision, InterventionKind] = {"allow": "allow", "block": "never", "review": "ask_this_time"}
+
+
+def _basket_key(items: list[dict[str, Any]]) -> tuple[tuple[str, int], ...]:
+    return tuple(sorted((line["item_id"], line["quantity"]) for line in items))
+
+
+def _requested_categories(mandate: MandateSnapshot) -> frozenset[str] | None:
+    for rule in mandate.hard_rules:
+        if rule.field == "item.category" and rule.operator == "in":
+            return frozenset(rule.value)
+    return None
+
+
+def _projected_period_spend(mandate: MandateSnapshot, state: RunState, as_of: datetime, this_amount: Decimal) -> dict[int, Decimal]:
+    projected: dict[int, Decimal] = {}
+    for rule in mandate.hard_rules:
+        if rule.field == "authorization.billing_amount_chf" and rule.scope == "period" and rule.period_days:
+            prior = state.rolling_spend_chf(as_of, rule.period_days)
+            projected[rule.period_days] = prior + this_amount
+    return projected
+
+
+def _decide(evaluations: list[RuleEvaluation], uncertainty_policy: UncertaintyPolicy) -> tuple[Decision, tuple[str, ...]]:
+    failures = [e for e in evaluations if e.outcome == "fail"]
+    if failures:
+        return "block", tuple(f"hard_rule_failed:{e.rule.field}" for e in failures)
+
+    unknowns = [e for e in evaluations if e.outcome == "unknown"]
+    if unknowns:
+        reason_codes = tuple(f"uncertain:{e.rule.field}" for e in unknowns)
+        if uncertainty_policy == UncertaintyPolicy.DECLINE:
+            return "block", reason_codes
+        if uncertainty_policy == UncertaintyPolicy.APPROVE:
+            return "allow", reason_codes
+        return "review", reason_codes
+
+    return "allow", ("all_hard_rules_satisfied",)
+
+
+def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], facts: PurchaseFacts) -> str:
+    if decision == "allow":
+        return f"Approved: CHF {facts.billing_amount_chf} at {facts.merchant_name} matches your wallet policy."
+    problems = [e for e in evaluations if e.outcome in ("fail", "unknown")]
+    detail = "; ".join(f"{e.rule.field} ({e.outcome}): {e.detail}" for e in problems) or "no specific rule detail"
+    verb = "Declined" if decision == "block" else "Needs your confirmation"
+    return f"{verb}: CHF {facts.billing_amount_chf} at {facts.merchant_name} -- {detail}"
+
+
+def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, state: RunState) -> EngineDecision:
+    """Evaluate one `authorization.request` event against `mandate` using `state`.
+
+    Idempotent: calling this twice with the same `authorization_id` returns the
+    original recorded decision the second time, without re-evaluating rules or
+    double-counting spend (technical_details.md step 6 and step 8).
+    """
+    auth = event["authorization"]
+    authorization_id = auth["authorization_id"]
+
+    stored = state.get_stored_decision(authorization_id)
+    if stored is not None:
+        return EngineDecision(
+            authorization_id=authorization_id,
+            decision=stored.decision,
+            reason_codes=("repeated_delivery",),
+            customer_message="This purchase was already decided; returning the recorded result unchanged.",
+            evidence=(f"original decision recorded at {stored.timestamp.isoformat()} for CHF {stored.billing_amount_chf}",),
+            rule_evaluations=(),
+            intervention=_TERMINAL_INTERVENTION[stored.decision],
+            facts=None,
+            idempotent_replay=True,
+        )
+
+    merchant_id = auth["merchant"]["merchant_id"]
+    card_id = auth["card_id"]
+    device_id = auth["customer_device_id"]
+    timestamp = datetime.fromisoformat(auth["timestamp"].replace("Z", "+00:00"))
+    billing_amount_chf = to_decimal(auth["billing_amount_chf"])
+    basket_key = _basket_key(auth["items"])
+
+    merchant_familiar = state.history.is_familiar(card_id, merchant_id)
+    session_risk, session_reasons = state.session_signals(device_id, auth["recent_attempt_count_10m"], merchant_familiar)
+    duplicate = state.find_similar_recent(
+        authorization_id=authorization_id,
+        merchant_id=merchant_id,
+        basket_key=basket_key,
+        billing_amount_chf=billing_amount_chf,
+        timestamp=timestamp,
+    )
+    duplicate_of, duplicate_reason = duplicate if duplicate else (None, None)
+
+    facts = build_purchase_facts(
+        event,
+        merchant_familiar=merchant_familiar,
+        session_integrity_risk=session_risk,
+        session_integrity_reasons=session_reasons,
+        duplicate_of=duplicate_of,
+        duplicate_reason=duplicate_reason,
+    )
+
+    ctx = RuleContext(
+        requested_item_categories=_requested_categories(mandate),
+        projected_period_spend_chf=_projected_period_spend(mandate, state, facts.timestamp, facts.billing_amount_chf),
+    )
+    evaluations = [evaluate_rule(rule, facts, ctx) for rule in mandate.hard_rules]
+
+    if duplicate_of is not None:
+        evaluations.append(RuleEvaluation(rule=_DUPLICATE_RULE, outcome="unknown", detail=duplicate_reason or ""))
+
+    decision, reason_codes = _decide(evaluations, mandate.uncertainty_policy)
+
+    state.remember_attempt(
+        authorization_id=authorization_id,
+        merchant_id=merchant_id,
+        basket_key=basket_key,
+        billing_amount_chf=billing_amount_chf,
+        timestamp=timestamp,
+        decision=decision,
+    )
+    state.record_decision(authorization_id, decision, facts.billing_amount_chf, facts.timestamp)
+
+    evidence = tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in evaluations)
+    return EngineDecision(
+        authorization_id=authorization_id,
+        decision=decision,
+        reason_codes=reason_codes,
+        customer_message=_customer_message(decision, evaluations, facts),
+        evidence=evidence,
+        rule_evaluations=tuple(evaluations),
+        intervention=classify_intervention(decision, tuple(evaluations)),
+        facts=facts,
+        idempotent_replay=False,
+    )
+
+
+def resolve_authorization(
+    authorization_id: str,
+    human_decision: Decision,
+    state: RunState,
+    *,
+    billing_amount_chf: Decimal,
+    timestamp: datetime,
+) -> EngineDecision:
+    """Apply a real customer's answer to a `review`ed authorization.
+
+    Scoped to exactly this authorization_id -- see `state.RunState.record_resolution`
+    -- and never touches the mandate. "A yes is this authorization. It is not a new
+    wallet."
+    """
+    if human_decision == "review":
+        raise ValueError("a human resolution must be 'allow' or 'block', not 'review'")
+    existing = state.get_stored_decision(authorization_id)
+    if existing is None:
+        raise ValueError(f"cannot resolve {authorization_id}: it was never sent to the customer for review")
+    stored = state.record_resolution(authorization_id, human_decision, billing_amount_chf, timestamp)
+    return EngineDecision(
+        authorization_id=authorization_id,
+        decision=stored.decision,
+        reason_codes=("customer_resolution",),
+        customer_message="The customer's answer has been recorded for this purchase only.",
+        evidence=(f"resolved by the customer at {timestamp.isoformat()}",),
+        rule_evaluations=(),
+        intervention=_TERMINAL_INTERVENTION[stored.decision],
+        facts=None,
+        idempotent_replay=False,
+    )

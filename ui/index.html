@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Agent on a Leash -- Wallet Control Demo</title>
+<style>
+  :root { color-scheme: light; --allow:#1a7f37; --block:#c1121f; --review:#b8860b; --bg:#f7f7f9; --card:#ffffff; --border:#e2e2e6; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, sans-serif; margin:0; background:var(--bg); color:#1c1c1e; }
+  header { padding:20px 28px; background:#111827; color:#fff; }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:4px 0 0; color:#a8b0c0; font-size:13px; }
+  main { max-width:1100px; margin:0 auto; padding:24px; display:grid; grid-template-columns: 320px 1fr; gap:20px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+  h2 { font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:#555; margin:0 0 10px; }
+  select, textarea, button, input { font:inherit; }
+  select, textarea { width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; }
+  button { cursor:pointer; border:none; border-radius:6px; padding:8px 14px; font-weight:600; }
+  .btn-primary { background:#111827; color:#fff; }
+  .btn-allow { background:var(--allow); color:#fff; }
+  .btn-block { background:var(--block); color:#fff; }
+  .btn-ghost { background:#eee; }
+  .decision-row { border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; font-weight:700; color:#fff; }
+  .badge.allow { background:var(--allow); }
+  .badge.block { background:var(--block); }
+  .badge.review { background:var(--review); }
+  .meta { color:#666; font-size:13px; margin:4px 0; }
+  .evidence { font-size:12px; color:#444; background:#f2f2f5; border-radius:6px; padding:8px; margin-top:6px; white-space:pre-wrap; }
+  .rule { font-family: ui-monospace, monospace; font-size:12px; background:#f2f2f5; padding:6px 8px; border-radius:6px; margin-bottom:4px; }
+  .principle { font-style:italic; color:#a8b0c0; }
+  .row-actions { margin-top:8px; display:flex; gap:8px; }
+  .muted { color:#888; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent on a Leash -- Wallet Control</h1>
+  <p class="principle">The agent is autonomous. The authority is not.</p>
+</header>
+<main>
+  <div>
+    <div class="card">
+      <h2>1. Pick a scenario</h2>
+      <select id="scenarioSelect"></select>
+      <div class="muted" id="scenarioInstruction" style="margin-top:8px"></div>
+      <button class="btn-primary" style="margin-top:10px; width:100%" onclick="runScenario()">Run scenario</button>
+    </div>
+
+    <div class="card">
+      <h2>2. Try your own instruction</h2>
+      <textarea id="customInstruction" rows="3">Buy groceries for CHF 50 or less from a shop I use regularly. Ask me when uncertain.</textarea>
+      <button class="btn-ghost" style="margin-top:8px; width:100%" onclick="previewInstruction()">Preview compiled rules</button>
+      <div id="previewOutput"></div>
+    </div>
+
+    <div class="card" id="mandateCard" style="display:none">
+      <h2>Confirmed wallet policy</h2>
+      <div id="mandateRules"></div>
+      <div class="muted" id="mandateUncertainty"></div>
+      <div class="row-actions">
+        <button class="btn-block" onclick="revokeMandate()">Revoke mandate</button>
+        <button class="btn-ghost" onclick="checkRerun()">Try to start a new run</button>
+      </div>
+      <div class="muted" id="revokeStatus"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>3. Decisions (agent-proposed purchases)</h2>
+      <div id="decisions" class="muted">Run a scenario to see decisions here.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = "";
+let currentRunId = null;
+
+async function loadScenarios() {
+  const res = await fetch(`${API}/api/scenarios`);
+  const scenarios = await res.json();
+  const sel = document.getElementById("scenarioSelect");
+  sel.innerHTML = scenarios.map(s => `<option value="${s.scenario_id}">${s.scenario_id} -- ${s.scenario_name}</option>`).join("");
+  sel.onchange = () => showInstruction(scenarios);
+  showInstruction(scenarios);
+  function showInstruction(list) {
+    const s = list.find(x => x.scenario_id === sel.value);
+    document.getElementById("scenarioInstruction").textContent = s ? `"${s.cardholder_instruction}"` : "";
+  }
+}
+
+async function previewInstruction() {
+  const instruction = document.getElementById("customInstruction").value;
+  const res = await fetch(`${API}/api/mandates/compile`, {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({instruction})
+  });
+  const body = await res.json();
+  const out = document.getElementById("previewOutput");
+  out.innerHTML = `
+    <div class="meta" style="margin-top:8px">Uncertainty policy: <b>${body.uncertainty_policy}</b></div>
+    ${body.hard_rules.map(r => `<div class="rule">${r.field} ${r.operator} ${JSON.stringify(r.value)}${r.scope==='period' ? ' / rolling '+r.period_days+'d' : ''}</div>`).join("")}
+    ${body.open_questions.length ? `<div class="evidence"><b>Open questions for the customer:</b>\n${body.open_questions.join("\n")}</div>` : ""}
+  `;
+}
+
+async function runScenario() {
+  const scenarioId = document.getElementById("scenarioSelect").value;
+  const res = await fetch(`${API}/api/scenarios/${scenarioId}/run`, {method:"POST"});
+  const body = await res.json();
+  currentRunId = body.run_id;
+  renderMandate(body.mandate);
+  renderDecisions(body.decisions);
+}
+
+function renderMandate(mandate) {
+  document.getElementById("mandateCard").style.display = "block";
+  document.getElementById("mandateRules").innerHTML = mandate.hard_rules
+    .map(r => `<div class="rule">${r.field} ${r.operator} ${JSON.stringify(r.value)}${r.scope==='period' ? ' / rolling '+r.period_days+'d' : ''}</div>`).join("");
+  document.getElementById("mandateUncertainty").textContent = `uncertainty_policy: ${mandate.uncertainty_policy} -- status: ${mandate.status}`;
+  document.getElementById("revokeStatus").textContent = "";
+}
+
+function renderDecisions(decisions) {
+  const el = document.getElementById("decisions");
+  el.innerHTML = decisions.map(d => `
+    <div class="decision-row" id="row-${d.authorization_id}">
+      <span class="badge ${d.decision}">${d.decision.toUpperCase()}</span>
+      <b>${d.merchant_name}</b> -- CHF ${d.amount_chf}
+      <div class="meta">${d.purchase_description}</div>
+      <div class="meta">${d.customer_message}</div>
+      <div class="evidence">${d.evidence.join("\n")}</div>
+      ${d.decision === "review" ? `
+        <div class="row-actions">
+          <button class="btn-allow" onclick="resolveAuth('${d.authorization_id}','allow')">Customer approves</button>
+          <button class="btn-block" onclick="resolveAuth('${d.authorization_id}','block')">Customer declines</button>
+        </div>` : ""}
+    </div>
+  `).join("");
+}
+
+async function resolveAuth(authorizationId, decision) {
+  const res = await fetch(`${API}/api/runs/${currentRunId}/authorizations/${authorizationId}/resolve`, {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({decision})
+  });
+  const body = await res.json();
+  const row = document.getElementById(`row-${authorizationId}`);
+  row.querySelector(".badge").className = `badge ${body.decision}`;
+  row.querySelector(".badge").textContent = body.decision.toUpperCase();
+  row.querySelectorAll(".row-actions button").forEach(b => b.disabled = true);
+}
+
+async function revokeMandate() {
+  const res = await fetch(`${API}/api/runs/${currentRunId}/revoke`, {method:"POST"});
+  const body = await res.json();
+  document.getElementById("revokeStatus").textContent = `Mandate status: ${body.mandate_status}. Decisions already made in this run are unaffected.`;
+}
+
+async function checkRerun() {
+  const res = await fetch(`${API}/api/runs/${currentRunId}/rerun-check`, {method:"POST"});
+  const body = await res.json();
+  document.getElementById("revokeStatus").textContent = res.ok
+    ? "Mandate is still active: it could start a new run."
+    : `Blocked: ${body.detail}`;
+}
+
+loadScenarios();
+</script>
+</body>
+</html>

@@ -1,0 +1,331 @@
+"""Turn a customer's natural-language instruction into executable hard rules.
+
+This is the "frontend" half of the challenge (challenge.md, Objective #1): translate
+free text into clear, executable permissions, while making any uncertainty visible
+so the customer can review it before confirming.
+
+Design stance
+--------------
+This is a small, auditable, *rule-based* compiler -- not an LLM in the money path.
+The reasons are architectural, not a shortcut:
+
+  * technical_details.md explicitly asks for a solution that "must still give a
+    predictable response when the model or another external service is
+    unavailable" -- a regex/lexicon compiler has no such failure mode.
+  * challenge.md's technical preference is for the decision engine to stay
+    deterministic and low-latency; policy *compilation* happens once, at mandate
+    creation time, off the hot path, but keeping it deterministic too means the
+    customer sees the exact same permissions on every retry.
+  * It must not silently invent authority: every phrase this compiler cannot map
+    to a rule becomes a visible `open_question`, never a guess baked into
+    `hard_rules`.
+
+Field vocabulary
+-----------------
+The API storage format is `{field, operator, value, currency?, scope?, period_days?}`
+and explicitly says the field name is "a convention for your engine to interpret,
+not a formula the API runs" (technical_details.md, step 2). This compiler defines a
+small vocabulary of such fields; `rules.py` is the one place that evaluates them
+against purchase facts:
+
+  authorization.billing_amount_chf   <=  N   (scope=purchase)              per-order ceiling
+  authorization.billing_amount_chf   <=  N   (scope=period, period_days=D) rolling-window ceiling
+  merchant.category                  in  [..]                              retailer-type requirement
+  merchant.familiar                  =   "true"                            previously-used merchant required
+  item.category                      in  [..]                              requested item category
+  item.unrequested_present           =   "false"                           no items beyond what was asked for
+  order.return_window_days           >=  N                                 minimum return window
+  session.integrity_risk             =   "false"                           no active session/device anomaly
+
+Every one of these is a *hard* rule: it can only ever narrow what is allowed,
+never widen it (see `mandate.Mandate.tighten_hard_rules`).
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+
+from .mandate import HardRule, UncertaintyPolicy
+
+# A small, explicit lexicon mapping everyday nouns to the shared category
+# vocabulary used across merchants.csv / items.csv (see data_dictionary.md,
+# "Category vocabulary"). This is intentionally short and reviewable -- if the
+# customer names something outside it, the compiler raises an open_question
+# instead of guessing.
+_ITEM_CATEGORY_LEXICON: dict[str, str] = {
+    "grocery": "groceries",
+    "groceries": "groceries",
+    "food": "groceries",
+    "running shoe": "sporting_goods",
+    "running shoes": "sporting_goods",
+    "shoe": "sporting_goods",
+    "shoes": "sporting_goods",
+    "sports": "sporting_goods",
+    "sporting": "sporting_goods",
+    "monitor": "electronics",
+    "electronics": "electronics",
+    "clothing": "clothing",
+    "clothes": "clothing",
+    "jacket": "clothing",
+    "coat": "clothing",
+}
+
+_RETAILER_TYPE_LEXICON: dict[str, str] = {
+    "sports retailer": "sporting_goods",
+    "sporting goods retailer": "sporting_goods",
+    "sports shop": "sporting_goods",
+    "electronics retailer": "electronics",
+    "electronics seller": "electronics",
+    "grocery shop": "groceries",
+    "grocer": "groceries",
+    "supermarket": "groceries",
+    "clothing retailer": "clothing",
+    "clothes shop": "clothing",
+}
+
+_AMOUNT_RE = re.compile(
+    r"""
+    (?:
+        (?:no\ more\ than|not\ more\ than|up\ to|at\ most|pay\ no\ more\ than)\s*
+        CHF\s*(?P<v1>[\d.,]+)
+        | CHF\s*(?P<v2>[\d.,]+)\s*(?:or\ less|or\ below)
+        | at\ or\ below\s*CHF\s*(?P<v3>[\d.,]+)
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_ROLLING_RE = re.compile(
+    r"""
+    (?:across|over|within)\s+any\s+(?P<days>\d+|seven|thirty|fourteen)\s*
+    day s? .{0,40}? CHF\s*(?P<amount>[\d.,]+)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_WORDS_TO_NUM = {"seven": 7, "fourteen": 14, "thirty": 30}
+
+_PER_ORDER_LABEL_RE = re.compile(
+    r"(?:per\s+order|each\s+order|per\s+purchase|per\s+transaction)", re.IGNORECASE
+)
+
+_FAMILIARITY_RE = re.compile(
+    r"""
+    (?:shop|shops|seller|sellers|merchant|merchants|retailer)\s+
+    (?:i\s+(?:use|have\ used|'ve\ used|have\ bought\ from|'ve\ bought\ from)|
+       i\ use\ regularly|i\ have\ used\ before|i've\ used\ before|
+       i\ have\ bought\ from\ before|i've\ bought\ from\ before)
+    (?:\s+(?:regularly|before))?
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_RETAILER_TYPE_RE = re.compile(
+    r"(?:only\s+from|from)\s+a\s+(specialist\s+)?([a-z ]+?)(?:\s*,|\s+only|\s+that|\.|$)",
+    re.IGNORECASE,
+)
+
+_RETURN_WINDOW_RE = re.compile(
+    r"return(?:ed|able)?\s*(?:within)?\s*(?P<days>\d+)\s*days?\s*(?P<or_more>or\ more)?",
+    re.IGNORECASE,
+)
+
+_NO_ADDONS_RE = re.compile(
+    r"(?:do\s+not\s+add|don't\s+add|nothing\s+(?:i|you)\s+did\s+not\s+ask\s+for|"
+    r"no\s+unrequested|only\s+what\s+i\s+asked\s+for)",
+    re.IGNORECASE,
+)
+
+_SESSION_INTEGRITY_RE = re.compile(
+    r"(?:pause|stop|halt).{0,60}?(?:someone\ other\ than\ me|not\ me|session|device)",
+    re.IGNORECASE,
+)
+
+_ITEM_MENTION_RE = re.compile(
+    r"\b(" + "|".join(sorted(_ITEM_CATEGORY_LEXICON, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
+
+# A hyphenated compound adjective immediately modifying a product noun ("road-running
+# shoes", "27-inch monitor") is a common, generic way English names a product
+# *variant* -- exactly the distinction a same-category substitution (trail-running
+# shoes for road-running shoes) or a wrong-but-plausible item (a cycling helmet from
+# the same sports retailer) would fail to satisfy. This is a general phrase pattern,
+# not a per-scenario special case: it fires on hyphenated modifiers anywhere they
+# appear next to a recognized item noun.
+_ITEM_MODIFIER_RE = re.compile(
+    r"\b([a-z0-9]+-[a-z0-9]+)\b(?:\s+\w+){0,3}?\s+\b(?:"
+    + "|".join(sorted(_ITEM_CATEGORY_LEXICON, key=len, reverse=True))
+    + r")\b",
+    re.IGNORECASE,
+)
+
+# "size 43", "in size M" -- a specific, generic size requirement.
+_SIZE_RE = re.compile(r"\bsize\s+([A-Za-z0-9]+)\b", re.IGNORECASE)
+
+_UNCERTAINTY_ASK_RE = re.compile(r"ask\s+me\s+when\s+uncertain|ask\s+if\s+uncertain", re.IGNORECASE)
+_UNCERTAINTY_DECLINE_RE = re.compile(r"decline\s+(?:it\s+)?when\s+uncertain|reject\s+if\s+uncertain", re.IGNORECASE)
+_UNCERTAINTY_APPROVE_RE = re.compile(r"approve\s+(?:it\s+)?when\s+uncertain|allow\s+if\s+uncertain", re.IGNORECASE)
+
+
+def _parse_amount(raw: str) -> float:
+    return float(raw.replace(",", ""))
+
+
+@dataclass
+class CompiledPolicy:
+    hard_rules: list[HardRule] = field(default_factory=list)
+    uncertainty_policy: UncertaintyPolicy = UncertaintyPolicy.ASK
+    guidance: list[str] = field(default_factory=list)
+    open_questions: list[str] = field(default_factory=list)
+
+
+def compile_instruction(instruction: str) -> CompiledPolicy:
+    """Compile one customer instruction into hard rules the decision engine can run.
+
+    Never invents a rule the text does not support, and never treats absence of a
+    recognizable phrase as silent permission -- unparsed intent becomes an
+    `open_question` shown to the customer before they confirm the mandate.
+    """
+    text = instruction.strip()
+    rules: list[HardRule] = []
+    guidance: list[str] = []
+    open_questions: list[str] = []
+
+    # --- per-order amount ceiling -------------------------------------------------
+    per_order_amount: float | None = None
+    m = _AMOUNT_RE.search(text)
+    if m:
+        raw = m.group("v1") or m.group("v2") or m.group("v3")
+        per_order_amount = _parse_amount(raw)
+
+    # --- rolling-window ceiling ("across any N days ... CHF X") --------------------
+    rolling_amount: float | None = None
+    rolling_days: int | None = None
+    rm = _ROLLING_RE.search(text)
+    if rm:
+        days_raw = rm.group("days").lower()
+        rolling_days = _WORDS_TO_NUM.get(days_raw, None)
+        if rolling_days is None:
+            rolling_days = int(days_raw)
+        rolling_amount = _parse_amount(rm.group("amount"))
+
+    if per_order_amount is not None:
+        rules.append(
+            HardRule(
+                field="authorization.billing_amount_chf",
+                operator="<=",
+                value=per_order_amount,
+                currency="CHF",
+                scope="purchase",
+            )
+        )
+        guidance.append(f"Each order must total CHF {per_order_amount:g} or less, including delivery.")
+    else:
+        open_questions.append(
+            "No per-order spending ceiling was recognized in the instruction. "
+            "Purchases will not be limited by amount unless a rolling limit below applies."
+        )
+
+    if rolling_amount is not None and rolling_days is not None:
+        rules.append(
+            HardRule(
+                field="authorization.billing_amount_chf",
+                operator="<=",
+                value=rolling_amount,
+                currency="CHF",
+                scope="period",
+                period_days=rolling_days,
+            )
+        )
+        guidance.append(
+            f"The total across any rolling {rolling_days}-day window must stay at or below CHF {rolling_amount:g}."
+        )
+
+    # --- merchant familiarity -------------------------------------------------------
+    if _FAMILIARITY_RE.search(text):
+        rules.append(HardRule(field="merchant.familiar", operator="=", value="true"))
+        guidance.append(
+            "The seller must be one this card has purchased from before "
+            "(judged from the supplied authorization history)."
+        )
+
+    # --- retailer type (merchant category) -------------------------------------------
+    retailer_category: str | None = None
+    for phrase, category in _RETAILER_TYPE_LEXICON.items():
+        if re.search(rf"\b{re.escape(phrase)}\b", text, re.IGNORECASE):
+            retailer_category = category
+            break
+    if retailer_category is None:
+        rt_match = _RETAILER_TYPE_RE.search(text)
+        # Ignore matches that are really a familiarity phrase in disguise ("from a
+        # shop I use regularly") -- those name no category at all, and are handled
+        # separately by _FAMILIARITY_RE below.
+        if rt_match and not re.search(r"\bi\b|\bi've\b|\bi have\b", rt_match.group(2), re.IGNORECASE):
+            open_questions.append(
+                f"The instruction names a retailer type ({rt_match.group(2).strip()!r}) "
+                "that is not in the known category lexicon; it was not turned into a rule."
+            )
+    if retailer_category is not None:
+        rules.append(HardRule(field="merchant.category", operator="in", value=[retailer_category]))
+        guidance.append(f"The seller's own category must be {retailer_category!r} (a specialist retailer of that kind).")
+
+    # --- requested item category -----------------------------------------------------
+    item_categories = sorted({_ITEM_CATEGORY_LEXICON[m.group(1).lower()] for m in _ITEM_MENTION_RE.finditer(text)})
+    if item_categories:
+        rules.append(HardRule(field="item.category", operator="in", value=item_categories))
+        guidance.append(f"Purchases must be for the requested kind of item ({', '.join(item_categories)}).")
+
+    # --- specific product variant (hyphenated modifier next to an item noun) --------
+    modifier_match = _ITEM_MODIFIER_RE.search(text)
+    if modifier_match:
+        modifier = modifier_match.group(1)
+        rules.append(HardRule(field="item.name_contains", operator="=", value=modifier))
+        guidance.append(f"The purchased item's name must match the requested variant ({modifier!r}), not just its category.")
+
+    # --- specific size --------------------------------------------------------------
+    size_match = _SIZE_RE.search(text)
+    if size_match:
+        size_value = size_match.group(1)
+        rules.append(HardRule(field="item.size", operator="=", value=size_value))
+        guidance.append(f"The item must be in the requested size ({size_value}).")
+
+    # --- return window ------------------------------------------------------------
+    rw = _RETURN_WINDOW_RE.search(text)
+    if rw:
+        days = int(rw.group("days"))
+        op = ">=" if rw.group("or_more") else ">="
+        rules.append(HardRule(field="order.return_window_days", operator=op, value=days))
+        guidance.append(f"The order must be returnable within at least {days} days.")
+
+    # --- no unrequested add-ons -----------------------------------------------------
+    if _NO_ADDONS_RE.search(text):
+        rules.append(HardRule(field="item.unrequested_present", operator="=", value="false"))
+        guidance.append("The basket must not contain items beyond what was requested.")
+
+    # --- session integrity ----------------------------------------------------------
+    if _SESSION_INTEGRITY_RE.search(text):
+        rules.append(HardRule(field="session.integrity_risk", operator="=", value="false"))
+        guidance.append("Purchases are paused if the session shows signs of not being driven by the customer.")
+
+    # --- uncertainty policy -----------------------------------------------------------
+    if _UNCERTAINTY_DECLINE_RE.search(text):
+        uncertainty_policy = UncertaintyPolicy.DECLINE
+    elif _UNCERTAINTY_APPROVE_RE.search(text):
+        uncertainty_policy = UncertaintyPolicy.APPROVE
+    elif _UNCERTAINTY_ASK_RE.search(text):
+        uncertainty_policy = UncertaintyPolicy.ASK
+    else:
+        uncertainty_policy = UncertaintyPolicy.ASK
+        open_questions.append(
+            "No explicit uncertainty preference was found; defaulting to 'ask the customer' "
+            "when the engine cannot be confident."
+        )
+
+    return CompiledPolicy(
+        hard_rules=rules,
+        uncertainty_policy=uncertainty_policy,
+        guidance=guidance,
+        open_questions=open_questions,
+    )
