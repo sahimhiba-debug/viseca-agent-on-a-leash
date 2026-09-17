@@ -6,8 +6,10 @@ repeated delivery, and step_up/resolve staying separate from the automated poll 
 
 from __future__ import annotations
 
+import pytest
+
 from tests.helpers import make_event, make_mandate
-from wallet_control.live_worker import LiveWorker
+from wallet_control.live_worker import FatalWorkerError, LiveWorker
 from wallet_control.mandate import HardRule
 from wallet_control.state import HistoryIndex
 from wallet_control.viseca_client import VisecaApiError
@@ -16,9 +18,11 @@ from wallet_control.viseca_client import VisecaApiError
 class FakeVisecaClient:
     """Implements just the subset of VisecaClient's interface LiveWorker uses."""
 
-    def __init__(self, envelopes: list[dict | None], fail_polls: int = 0, authorizations_listing=None):
+    def __init__(self, envelopes: list[dict | None], fail_polls: int = 0, fail_status: int = 503, authorizations_listing=None, submit_fail_status: int | None = None):
         self._envelopes = list(envelopes)
         self._fail_polls = fail_polls
+        self._fail_status = fail_status
+        self._submit_fail_status = submit_fail_status
         self.submitted: list[dict] = []
         self.resolved: list[dict] = []
         self._authorizations_listing = authorizations_listing if authorizations_listing is not None else {"data": []}
@@ -26,12 +30,14 @@ class FakeVisecaClient:
     def next_decision_request(self, wait: int = 25):
         if self._fail_polls > 0:
             self._fail_polls -= 1
-            raise VisecaApiError(503, {"error": "temporarily unavailable"})
+            raise VisecaApiError(self._fail_status, {"error": "unavailable"})
         if not self._envelopes:
             return None
         return self._envelopes.pop(0)
 
     def submit_decision(self, authorization_id, decision, **kwargs):
+        if self._submit_fail_status is not None:
+            raise VisecaApiError(self._submit_fail_status, {"error": "rejected"})
         self.submitted.append({"authorization_id": authorization_id, "decision": decision, **kwargs})
         return {"authorization_id": authorization_id, "decision": decision}
 
@@ -142,8 +148,6 @@ def test_cannot_resolve_an_authorization_that_is_not_pending():
     client = FakeVisecaClient([_envelope(event), None])
     worker = _worker_with_run(client, mandate)
     worker.run_forever(wait_seconds=1, max_events=1)  # AU1 gets auto-approved, not step_up
-    import pytest
-
     with pytest.raises(ValueError):
         worker.resolve("RUN1", "AU1", "allow")
 
@@ -212,3 +216,43 @@ def test_reconcile_run_never_raises_when_the_listing_call_itself_fails():
     client = FailingClient([])
     worker = _worker_with_run(client, mandate)
     assert worker.reconcile_run("RUN1") == 0
+
+
+def test_a_401_on_poll_stops_the_worker_instead_of_retrying_forever():
+    """An expired/wrong bearer key will never fix itself by retrying; spinning on
+    it forever would silently burn the team's rate limit while looking, from the
+    outside, like a worker that is merely slow."""
+    mandate = make_mandate(hard_rules=[])
+    client = FakeVisecaClient([], fail_polls=1, fail_status=401)
+    worker = _worker_with_run(client, mandate)
+    with pytest.raises(FatalWorkerError):
+        worker.run_forever(wait_seconds=1, max_polls=10)
+
+
+def test_a_403_on_poll_also_stops_the_worker():
+    mandate = make_mandate(hard_rules=[])
+    client = FakeVisecaClient([], fail_polls=1, fail_status=403)
+    worker = _worker_with_run(client, mandate)
+    with pytest.raises(FatalWorkerError):
+        worker.run_forever(wait_seconds=1, max_polls=10)
+
+
+def test_a_transient_503_on_poll_does_not_stop_the_worker():
+    mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=1000, currency="CHF", scope="purchase")])
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    client = FakeVisecaClient([_envelope(event), None], fail_polls=2, fail_status=503)
+    worker = _worker_with_run(client, mandate)
+    processed = worker.run_forever(wait_seconds=1, max_events=1)
+    assert processed == 1
+    assert client.submitted[0]["decision"] == "approve"
+
+
+def test_a_401_on_submit_does_not_retry_and_is_logged_not_swallowed(caplog):
+    mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=1000, currency="CHF", scope="purchase")])
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    client = FakeVisecaClient([_envelope(event), None], submit_fail_status=401)
+    worker = _worker_with_run(client, mandate)
+    with caplog.at_level("ERROR"):
+        worker.run_forever(wait_seconds=1, max_events=1)
+    assert client.submitted == []  # never recorded as successfully submitted
+    assert any("fatal auth error" in r.message for r in caplog.records)

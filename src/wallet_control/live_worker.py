@@ -63,6 +63,22 @@ logger = logging.getLogger("wallet_control.live_worker")
 ENGINE_VERSION = "wallet-control/0.1.0"
 _SUBMIT_RETRY_DELAYS = (0.5, 1.5, 3.0)  # seconds; bounded retry for transient submit failures
 
+# 401/403 mean the bearer key is missing, wrong, or has been revoked -- retrying
+# the exact same request will never succeed, and spinning on it forever would
+# silently burn the team's rate limit while looking, from the outside, like a
+# worker that is merely slow. Every OTHER failure (a network error normalized to
+# status 0, 429, 5xx, or an unexpected shape) is treated as transient and retried
+# indefinitely with backoff, matching this module's "never approve on failure,
+# degrade to waiting" contract. 404/400/409 on a specific call are handled by that
+# call's own caller, not here, since they are request-specific, not connection-wide.
+_FATAL_POLL_STATUS_CODES = frozenset({401, 403})
+
+
+class FatalWorkerError(RuntimeError):
+    """Raised out of `run_forever` when the API rejects our credentials outright
+    (401/403). Retrying is pointless; this must be surfaced loudly to whatever is
+    supervising the worker, not silently retried forever."""
+
 
 @dataclass
 class RunHandle:
@@ -185,6 +201,9 @@ class LiveWorker:
             try:
                 envelope = self._client.next_decision_request(wait=wait_seconds)
             except VisecaApiError as exc:
+                if exc.status_code in _FATAL_POLL_STATUS_CODES:
+                    logger.error("poll failed with a fatal auth error (%s); stopping rather than retrying forever", exc)
+                    raise FatalWorkerError(f"authentication failed while polling: {exc}") from exc
                 logger.warning("poll failed (%s); backing off and retrying, no decision was made", exc)
                 time.sleep(1.0)
                 continue
@@ -256,6 +275,9 @@ class LiveWorker:
                 return
             except VisecaApiError as exc:
                 last_exc = exc
+                if exc.status_code in _FATAL_POLL_STATUS_CODES:
+                    logger.error("submit_decision failed for %s with a fatal auth error (%s); not retrying", result.authorization_id, exc)
+                    break
                 logger.warning("submit_decision failed for %s (%s); retrying", result.authorization_id, exc)
         logger.error("submit_decision permanently failed for %s: %s", result.authorization_id, last_exc)
 
