@@ -29,12 +29,18 @@ from decimal import Decimal
 from typing import Any
 
 from .drift import AuthorizationDrift, compute_drift
-from .facts import PurchaseFacts, build_purchase_facts
+from .facts import (
+    PurchaseFacts,
+    build_purchase_facts,
+    extract_return_window_days,
+    extract_stated_size,
+    mentions_final_sale,
+)
 from .intervention import InterventionKind, classify_intervention
 from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy, mandate_policy_version
 from .money import to_chf, to_decimal
 from .rules import RuleContext, RuleEvaluation, evaluate_rule
-from .state import PaymentAuthority, RunState
+from .state import BasketKey, PaymentAuthority, RunState
 from .viseca_mapping import Decision
 
 _DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", value="false")
@@ -80,8 +86,56 @@ class EngineDecision:
 _TERMINAL_INTERVENTION: dict[Decision, InterventionKind] = {"allow": "allow", "block": "never", "review": "ask_this_time"}
 
 
-def _basket_key(items: list[dict[str, Any]]) -> tuple[tuple[str, int], ...]:
-    return tuple(sorted((line["item_id"], line["quantity"]) for line in items))
+def _basket_key(items: list[dict[str, Any]]) -> BasketKey:
+    """Fingerprint of what was actually in the basket, used to tell a harmless
+    repeated delivery from the same authorization_id arriving with a DIFFERENT
+    purchase (`authorization_id_conflict`).
+
+    `item_name` is included alongside `item_id` and `quantity` because the name is
+    what every `item.*` rule actually reads and what the customer is shown: a
+    re-delivery that keeps the same item_id but renames the line from "Monitor" to
+    "Gold bar" is a semantically different purchase, and without the name in the
+    fingerprint it inherited the original ALLOW unexamined (fourth-pass finding;
+    see docs/FINAL_ARCHITECTURE_ATTACK.md).
+
+    `unit_price` is deliberately NOT included: the security-relevant money figure
+    is `billing_amount_chf`, which is compared separately, and no rule in the
+    official vocabulary reads a per-line price (per-item ceilings are a documented
+    non-feature). Re-allocating the same total across lines therefore changes no
+    decision, and folding it in would only add fingerprint churn.
+
+    The last three elements are the facts DERIVED from `item_details`, never the
+    raw text. This is load-bearing in both directions:
+
+      * A re-delivery that keeps the money and the basket identical but rewrites
+        the merchant's text so that a derived fact moves -- "size 43" becoming
+        "size 38", or a returnable order becoming FINAL SALE -- is a different
+        purchase in every way a rule can see, and previously inherited the
+        original ALLOW without ever being re-evaluated (fourth-pass finding).
+      * Fingerprinting the raw string instead would fail the opposite way: every
+        cosmetic edit, re-encoding or whitespace change by the merchant would
+        fork an ordinary network retry into a false conflict. The extractors
+        already NFKC-normalize and strip invisible characters, so obfuscation
+        noise that moves no fact moves no fingerprint either.
+
+    `order_returnable` also feeds the effective return window but is a
+    PLATFORM-supplied field rather than merchant text, so it sits in a different
+    trust tier and is not fingerprinted here; see docs/FINAL_ARCHITECTURE_ATTACK.md
+    for that residual and why it was scoped out rather than silently folded in.
+    """
+    return tuple(
+        sorted(
+            (
+                line["item_id"],
+                line["item_name"],
+                line["quantity"],
+                extract_return_window_days(line.get("item_details", "")),
+                mentions_final_sale(line.get("item_details", "")),
+                extract_stated_size(line.get("item_details", "")),
+            )
+            for line in items
+        )
+    )
 
 
 def _requested_categories(mandate: MandateSnapshot) -> frozenset[str] | None:

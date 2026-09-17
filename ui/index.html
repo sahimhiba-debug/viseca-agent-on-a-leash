@@ -233,7 +233,12 @@ async function resolveAuth(authorizationId, decision) {
 async function revokeMandate() {
   const res = await fetch(`${API}/api/runs/${currentRunId}/revoke`, {method:"POST"});
   const body = await res.json();
-  document.getElementById("revokeStatus").textContent = `Mandate status: ${body.mandate_status}. Decisions already made in this run are unaffected.`;
+  const killed = body.revoked_payment_authorities || [];
+  document.getElementById("revokeStatus").textContent =
+    `Mandate status: ${body.mandate_status}. Decisions already made in this run are unaffected, `
+    + (killed.length
+        ? `but ${killed.length} outstanding payment authority(ies) were revoked (${killed.join(", ")}) -- approved money that had not moved yet can no longer be charged.`
+        : `and there were no outstanding payment authorities left to revoke.`);
 }
 
 async function checkRerun() {

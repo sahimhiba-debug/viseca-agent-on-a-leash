@@ -1,5 +1,13 @@
 # Verifiable Agentic Wallet -- final architecture
 
+> **Superseded in part by `docs/FINAL_ARCHITECTURE_ATTACK.md` (fourth pass).**
+> That pass found and fixed four real vulnerabilities, three of them in code this
+> document describes as hardened, and narrowed two claims made below:
+> `PaymentAuthority`'s `policy_version` and `basket_fingerprint` are **provenance,
+> not enforced bindings**, and enforcement of expiry/revocation now lives in
+> `MockPSP.charge()` rather than only in `charge_via_authority()`. Read that
+> document first where the two disagree.
+
 This document describes the architecture as it was actually built on the
 `rnd/verifiable-agentic-wallet` branch, after the R&D pass in
 `docs/RND_FINAL_DECISION.md`. It supersedes nothing in `docs/ARCHITECTURE.md`

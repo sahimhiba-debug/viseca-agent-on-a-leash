@@ -33,6 +33,16 @@ from typing import Literal
 
 Decision = Literal["allow", "review", "block"]
 
+# One basket line as it is frozen into a purchase fingerprint:
+#   (item_id, item_name, quantity, return_window_days, final_sale, stated_size)
+# The last three are facts DERIVED from the merchant's untrusted `item_details`,
+# never the raw text -- see `decision_engine._basket_key`, which is the only
+# producer of this type, for why that distinction is load-bearing in both
+# directions. Every element is JSON-native so `RunState.to_snapshot()` round-trips
+# it without a custom encoder.
+BasketLineKey = tuple[str, str, int, int | None, bool, str | None]
+BasketKey = tuple[BasketLineKey, ...]
+
 # How long a PaymentAuthority remains valid for execution after being issued.
 # Not specified anywhere in technical_details.md (the official contract has no
 # payment-execution endpoint at all -- see docs/VISECA_INTEGRATION.md); chosen as
@@ -111,7 +121,7 @@ class StoredDecision:
     timestamp: datetime
     counted_in_spend: bool  # True once an approve has been counted into rolling spend
     merchant_id: str
-    basket_key: tuple[tuple[str, int], ...]
+    basket_key: BasketKey
     was_reviewed: bool = False  # True iff this authorization was ever put to REVIEW
     resolved_at: datetime | None = None  # real-clock time of a human's answer, audit-only
     reason_codes: tuple[str, ...] = ()
@@ -131,9 +141,22 @@ class PaymentAuthority:
     or verifier in this challenge's sandbox, so a "signature" no one can check
     would be theatre, not security (see AGENTIC_COMMERCE_RESEARCH.md's honest
     classification table). What this object provides instead is a single,
-    self-contained, inspectable record of exactly what was authorized, which
-    `payment.MockPSP.charge_via_authority` re-verifies as a whole rather than as
-    scattered fields.
+    self-contained, inspectable RECORD of exactly what was granted.
+
+    Be precise about where the security actually lives, because the fourth pass
+    found this easy to overstate (docs/FINAL_ARCHITECTURE_ATTACK.md §5):
+
+      * ENFORCED, in `payment.MockPSP.charge()` and re-read from live run state on
+        every execution attempt: the bound authorization, merchant, approved
+        amount, single-use, expiry, and revocation. `charge()` -- not just
+        `charge_via_authority()` -- applies these, so there is no bypass door.
+      * PROVENANCE ONLY, recorded but not enforced: `policy_version` and
+        `basket_fingerprint`. A run is bound to one mandate snapshot taken at run
+        start, so the policy cannot change beneath an outstanding authority and an
+        enforcement branch would be unreachable; the basket is frozen at the
+        DECISION layer by `authorization_id_conflict` instead, which is where the
+        comparison is actually possible (the charge path receives an amount, not a
+        basket).
     """
 
     authorization_id: str
@@ -143,7 +166,7 @@ class PaymentAuthority:
     currency: str
     issued_at: datetime  # real clock -- see DEFAULT_AUTHORITY_TTL's docstring
     expires_at: datetime
-    basket_fingerprint: tuple[tuple[str, int], ...]
+    basket_fingerprint: BasketKey
     policy_version: str  # a short hash of the mandate's hard_rules at issue time
     evidence_ref: str  # opaque pointer back to the EngineDecision that issued this
     revoked: bool = False
@@ -191,7 +214,7 @@ class _RecentAttempt:
 
     authorization_id: str
     merchant_id: str
-    basket_key: tuple[tuple[str, int], ...]
+    basket_key: BasketKey
     billing_amount_chf: Decimal
     timestamp: datetime
 
@@ -214,7 +237,7 @@ class RunState:
         return self._decisions.get(authorization_id)
 
     def check_repeat_fingerprint(
-        self, authorization_id: str, *, merchant_id: str, basket_key: tuple[tuple[str, int], ...], billing_amount_chf: Decimal
+        self, authorization_id: str, *, merchant_id: str, basket_key: BasketKey, billing_amount_chf: Decimal
     ) -> bool:
         """True if a stored decision exists for `authorization_id` AND its
         merchant/basket/amount match what is being re-delivered now -- i.e. this is
@@ -241,7 +264,7 @@ class RunState:
         timestamp: datetime,
         *,
         merchant_id: str,
-        basket_key: tuple[tuple[str, int], ...],
+        basket_key: BasketKey,
     ) -> StoredDecision:
         if authorization_id in self._decisions:
             return self._decisions[authorization_id]  # never overwrite; first outcome for an ID is final here
@@ -348,7 +371,7 @@ class RunState:
         *,
         authorization_id: str,
         merchant_id: str,
-        basket_key: tuple[tuple[str, int], ...],
+        basket_key: BasketKey,
         billing_amount_chf: Decimal,
         timestamp: datetime,
     ) -> tuple[str, str] | None:
@@ -382,7 +405,7 @@ class RunState:
         *,
         authorization_id: str,
         merchant_id: str,
-        basket_key: tuple[tuple[str, int], ...],
+        basket_key: BasketKey,
         billing_amount_chf: Decimal,
         timestamp: datetime,
     ) -> None:
@@ -458,6 +481,37 @@ class RunState:
         revoked = replace(existing, revoked=True)
         self._authorities[authorization_id] = revoked
         return revoked
+
+    def revoke_outstanding_authorities(self) -> tuple[str, ...]:
+        """Revoke every still-valid authority in this run, returning the
+        authorization_ids actually revoked. Called when the customer revokes the
+        mandate: money that has been authorized but not yet spent must stop.
+
+        This is about our own synthetic capability object, not about official
+        decision semantics: technical_details.md leaves the effect of revocation
+        on already-queued authorizations unspecified, and this code does not
+        invent a guarantee there -- `StoredDecision` records are untouched, so
+        what the engine already told the platform stays exactly as it was. What
+        changes is only whether money that has NOT yet moved may still move. For
+        a customer's emergency brake, fail-closed is the only defensible default.
+
+        There is deliberately no "revoke only the authorities minted under an
+        older policy version" variant: a run is bound to one mandate snapshot
+        taken at run start (both `api.py` and `live_worker.py` build it once per
+        run_id, per technical_details.md "An existing run keeps its original
+        snapshot"), and authorities live inside one `RunState`, so a policy
+        version cannot change underneath an outstanding authority. That variant
+        would be an unreachable branch, and `policy_version` on the authority is
+        therefore provenance -- what it was minted under -- not an enforced
+        binding. See docs/FINAL_ARCHITECTURE_ATTACK.md for the full analysis.
+        """
+        revoked: list[str] = []
+        for authorization_id, authority in list(self._authorities.items()):
+            if authority.revoked:
+                continue
+            self._authorities[authorization_id] = replace(authority, revoked=True)
+            revoked.append(authorization_id)
+        return tuple(revoked)
 
     # --- crash-recovery snapshot -----------------------------------------------------
     # `RunState` otherwise lives only in process memory (see docs/ARCHITECTURE.md,

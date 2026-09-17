@@ -232,3 +232,46 @@ by: `test_capability_and_drift.py::test_property_final_decision_is_never_more_pe
 combinations), and by every existing decision-outcome test continuing to pass
 unchanged after `drift`/`policy_verdict`/`security_verdict` were added as
 purely additive fields on `EngineDecision`.
+
+**I29 (added in the fourth/arbitration pass). Revoking the mandate revokes every
+outstanding payment authority in that run.**
+`RunState.revoke_outstanding_authorities()`, called from the demo API's revoke
+endpoint, marks every not-yet-revoked authority revoked; `MockPSP` then refuses to
+execute them. Before this, a customer could hit their emergency brake and an
+already-approved-but-unspent authority would still charge. Deliberately scoped to
+our own synthetic capability object: `StoredDecision` records are untouched, so
+nothing the engine already told the platform changes -- technical_details.md
+leaves revocation-while-queued unspecified and this does not invent a guarantee
+there. Tested by: `test_final_arbitration.py::test_revoking_outstanding_authorities_stops_an_unspent_charge`,
+`::test_revocation_does_not_rewrite_the_recorded_decision`,
+`test_api.py::test_revoking_the_mandate_also_kills_outstanding_payment_authorities`.
+
+**I30 (fourth pass). Expiry and revocation are enforced at the payment boundary
+itself, not only in the ergonomic wrapper.**
+`MockPSP.charge()` re-reads the authority from `RunState` and refuses a revoked or
+expired one, so reaching for plain `charge()` cannot bypass either. Because the
+live record is consulted rather than the caller-supplied object, handing
+`charge_via_authority` a stale copy captured before a revocation does not
+resurrect it. Tested by: `test_final_arbitration.py::test_plain_charge_refuses_a_revoked_authority`,
+`::test_plain_charge_refuses_an_expired_authority`,
+`::test_a_stale_authority_copy_cannot_resurrect_a_revoked_one`,
+`::test_an_authorization_with_no_authority_still_charges_normally`.
+
+**I31 (fourth pass). The repeat-delivery fingerprint carries item identity.**
+`_basket_key` includes `item_name`, so re-sending an authorization_id with the
+line renamed (same item_id, quantity and total) is an `authorization_id_conflict`
+rather than an inherited ALLOW. Tested by:
+`test_final_arbitration.py::test_renaming_a_line_under_the_same_authorization_id_is_a_conflict`.
+
+**I32 (fourth pass). The fingerprint carries the facts DERIVED from merchant text,
+never the text itself.**
+`_basket_key` includes the stated size, return window and final-sale flag
+extracted from `item_details`. A re-delivery whose text moves one of those facts
+(e.g. "size 43; returns accepted within 30 days" -> "size 38; FINAL SALE") is a
+conflict, even though merchant, amount, item_id and quantity are unchanged --
+previously it inherited the stored ALLOW without re-evaluation, despite those
+facts being a double rule failure when evaluated fresh. Fingerprinting the raw
+string instead would fail the opposite way, forking ordinary retries on cosmetic
+edits; both directions are pinned by mutation testing. Tested by:
+`test_final_arbitration.py::test_details_only_change_that_moves_a_derived_fact_cannot_inherit_the_allow`,
+`::test_cosmetic_only_details_noise_does_not_fork_a_valid_retry`.

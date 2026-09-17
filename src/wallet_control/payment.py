@@ -94,6 +94,25 @@ class MockPSP:
                 f"requested charge CHF {amount_chf} exceeds the approved amount CHF {stored.billing_amount_chf}"
             )
 
+        # If a PaymentAuthority was issued for this authorization, it is the
+        # authoritative record of whether execution is still permitted, and it is
+        # checked HERE rather than only in `charge_via_authority` -- otherwise the
+        # authority would be opt-in, and a caller that reached for plain `charge()`
+        # would silently bypass both expiry and the customer's revocation. A
+        # revocation that only works if the caller chooses the polite door is not
+        # a revocation. (Fourth-pass finding; see docs/FINAL_ARCHITECTURE_ATTACK.md.)
+        authority = self._state.get_authority(authorization_id)
+        if authority is not None:
+            if authority.revoked:
+                raise PaymentError(
+                    f"the payment authority for {authorization_id} has been revoked; refusing to charge"
+                )
+            if (now or datetime.now(timezone.utc)) > authority.expires_at:
+                raise PaymentError(
+                    f"the payment authority for {authorization_id} expired at "
+                    f"{authority.expires_at.isoformat()}; refusing to charge an expired authority"
+                )
+
         record = ChargeRecord(charge_id, authorization_id, amount_chf, now or datetime.now(timezone.utc))
         self._charges[charge_id] = record
         self._charged_authorizations.add(authorization_id)
@@ -111,21 +130,21 @@ class MockPSP:
         """R&D Track A: execute a charge against a `PaymentAuthority` as a single,
         self-contained object, rather than four independently-supplied parameters.
 
-        Additive alongside `charge()` (not a replacement) so the existing,
-        extensively tested `charge()` path is completely unchanged -- this method
-        adds exactly two checks a bare `charge()` call cannot express (expiry and
-        explicit revocation), then delegates everything else (merchant binding,
-        amount ceiling, idempotency, one-execution-per-authorization) to `charge()`
-        itself, so there is exactly one place those checks are implemented.
+        This is an ERGONOMIC wrapper, not a separate security layer, and the
+        docs say so plainly: every binding it relies on (merchant, approved
+        amount, single execution, expiry, revocation) is enforced inside
+        `charge()` against the run's own live records, so reaching for `charge()`
+        directly cannot bypass any of it. The one check that genuinely belongs
+        here is the ceiling carried by the PASSED authority object, which may be
+        narrower than the originally approved amount (an attenuated grant);
+        `charge()` only knows the approved amount, not that narrowing.
+
+        Note the deliberate asymmetry: expiry and revocation are re-read from
+        `self._state` inside `charge()` rather than trusted from the `authority`
+        argument, so handing this method a stale copy taken before a revocation
+        does not resurrect it.
         """
         now = now or datetime.now(timezone.utc)
-        if authority.revoked:
-            raise PaymentError(f"the payment authority for {authority.authorization_id} has been revoked; refusing to charge")
-        if now > authority.expires_at:
-            raise PaymentError(
-                f"the payment authority for {authority.authorization_id} expired at {authority.expires_at.isoformat()} "
-                f"(now={now.isoformat()}); refusing to charge an expired authority"
-            )
         if amount_chf > authority.amount_ceiling_chf:
             raise PaymentError(
                 f"requested charge CHF {amount_chf} exceeds the authority's own ceiling CHF {authority.amount_ceiling_chf}"

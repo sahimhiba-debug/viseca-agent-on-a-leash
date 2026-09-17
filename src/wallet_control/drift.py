@@ -32,6 +32,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
 
+from .state import BasketKey
+
 Classification = Literal["none", "narrowing", "widening", "unrelated_change"]
 
 
@@ -60,10 +62,10 @@ def compute_drift(
     *,
     reference_authorization_id: str,
     prior_merchant_id: str,
-    prior_basket_key: tuple[tuple[str, int], ...],
+    prior_basket_key: BasketKey,
     prior_amount_chf: Decimal,
     current_merchant_id: str,
-    current_basket_key: tuple[tuple[str, int], ...],
+    current_basket_key: BasketKey,
     current_amount_chf: Decimal,
 ) -> AuthorizationDrift:
     changed: list[DriftField] = []
@@ -79,9 +81,13 @@ def compute_drift(
     elif prior_merchant_id != current_merchant_id:
         classification = "unrelated_change"
     else:
-        prior_items = dict(prior_basket_key)
-        current_items = dict(current_basket_key)
-        new_items = set(current_items) - set(prior_items)
+        # Compare on the item identity (first element) only. The basket key also
+        # carries name and quantity, so it is NOT a mapping and must not be fed to
+        # dict() -- a "new item" here means an item_id that was not in the basket
+        # before, not merely a line whose quantity or name changed.
+        prior_items = {entry[0] for entry in prior_basket_key}
+        current_items = {entry[0] for entry in current_basket_key}
+        new_items = current_items - prior_items
         amount_increased = current_amount_chf > prior_amount_chf
         classification = "widening" if (new_items or amount_increased) else "narrowing"
 

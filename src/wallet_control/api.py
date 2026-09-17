@@ -239,7 +239,18 @@ def revoke_run_mandate(run_id: str) -> dict[str, Any]:
     this demo does not claim to resolve that ambiguity."""
     run = _require_run(run_id)
     run.mandate.revoke()
-    return {"run_id": run_id, "mandate_status": run.mandate.status.value}
+    # Revocation must also stop money that has been authorized but not yet spent.
+    # Without this, a customer could hit their emergency brake and an outstanding
+    # PaymentAuthority would still execute (fourth-pass finding; see
+    # docs/FINAL_ARCHITECTURE_ATTACK.md). Only our own synthetic capability object
+    # is affected -- already-recorded decisions are untouched, so nothing the
+    # engine previously told the platform changes.
+    revoked_authorities = run.state.revoke_outstanding_authorities()
+    return {
+        "run_id": run_id,
+        "mandate_status": run.mandate.status.value,
+        "revoked_payment_authorities": list(revoked_authorities),
+    }
 
 
 @app.post("/api/runs/{run_id}/rerun-check")

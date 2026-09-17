@@ -77,6 +77,19 @@ def test_unknown_run_id_is_404_not_500():
     assert r.status_code == 404
 
 
+def test_revoking_the_mandate_also_kills_outstanding_payment_authorities():
+    """The customer's emergency brake must stop money that has been authorized but
+    not yet spent (fourth-pass finding; docs/FINAL_ARCHITECTURE_ATTACK.md)."""
+    r = client.post("/api/scenarios/SCEN0001/run")
+    run_id = r.json()["run_id"]
+    allowed = [d for d in r.json()["decisions"] if d["decision"] == "allow" and d["payment_authority"]]
+    assert allowed, "expected at least one ALLOW carrying a payment authority"
+
+    revoked = client.post(f"/api/runs/{run_id}/revoke").json()
+    assert revoked["mandate_status"] == "revoked"
+    assert set(revoked["revoked_payment_authorities"]) >= {d["authorization_id"] for d in allowed}
+
+
 def test_rnd_demo_endpoint_exposes_tracks_a_d_e():
     """The new, clearly-synthetic R&D demo (docs/RND_FINAL_DECISION.md) is served
     entirely separately from `/api/scenarios`, which only ever serves the official
