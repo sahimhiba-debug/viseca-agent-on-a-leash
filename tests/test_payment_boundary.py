@@ -130,3 +130,18 @@ def test_reusing_a_charge_id_for_a_different_amount_on_the_same_authorization_is
     psp.charge(charge_id="CH1", authorization_id="AU1", amount_chf=Decimal("30"), merchant_id=MERCHANT_ID)
     with pytest.raises(PaymentError):
         psp.charge(charge_id="CH1", authorization_id="AU1", amount_chf=Decimal("50"), merchant_id=MERCHANT_ID)
+
+
+@pytest.mark.parametrize("bad_amount", [Decimal("0"), Decimal("-1"), Decimal("-50.00")])
+def test_zero_or_negative_charge_amount_is_refused(bad_amount):
+    """Phase 16: 'malformed amount, negative amount, zero amount' against the
+    payment layer directly. A charge for CHF 0 or less is never a legitimate
+    execution of an approved purchase."""
+    mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=100, currency="CHF", scope="purchase")])
+    state = _state()
+    psp = MockPSP(state)
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    evaluate_authorization(event, mandate, state)
+    with pytest.raises(PaymentError):
+        psp.charge(charge_id="CH1", authorization_id="AU1", amount_chf=bad_amount, merchant_id=MERCHANT_ID)
+    assert not psp.is_charged("AU1")

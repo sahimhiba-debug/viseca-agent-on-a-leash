@@ -72,6 +72,9 @@ class MockPSP:
                 )
             return existing  # exact retry of the same charge request: return the original, don't re-execute
 
+        if amount_chf <= 0:
+            raise PaymentError(f"charge amount must be positive, got CHF {amount_chf}")
+
         stored = self._state.get_stored_decision(authorization_id)
         if stored is None:
             raise PaymentError(f"{authorization_id} has not been decided yet; nothing to charge against")

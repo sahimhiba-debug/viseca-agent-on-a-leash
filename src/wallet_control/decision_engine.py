@@ -199,6 +199,14 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
 
     # Always-on safety checks, independent of what the customer's mandate says --
     # these are control-layer integrity concerns, not policy the customer opted into.
+    # The official schema requires amount/billing_amount_chf > 0 (exclusiveMinimum
+    # 0), but a malformed or tampered event must not be trusted to have honored
+    # that -- a non-positive amount is rejected here regardless of schema validation
+    # upstream.
+    if billing_amount_chf <= 0:
+        evaluations.append(
+            RuleEvaluation(rule=_AMOUNT_INTEGRITY_RULE, outcome="fail", detail=f"billing_amount_chf={billing_amount_chf} is not positive")
+        )
     expected_chf = to_chf(to_decimal(auth["amount"]), auth["currency"])
     if abs(expected_chf - billing_amount_chf) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
         evaluations.append(

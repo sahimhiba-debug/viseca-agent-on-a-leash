@@ -132,6 +132,16 @@ def test_amount_integrity_check_blocks_a_mismatched_billing_amount():
     assert any("amount_integrity" in code for code in result.reason_codes)
 
 
+def test_non_positive_billing_amount_is_blocked():
+    """Phase 16: 'malformed amount, negative amount, zero amount'. The official
+    schema requires amount/billing_amount_chf > 0, but a malformed or tampered
+    event must not be trusted to have honored that."""
+    mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=1000, currency="CHF", scope="purchase")])
+    event = make_event(mandate=mandate, amount=0.0, currency="CHF", billing_amount_chf=0.0)
+    result = evaluate_authorization(event, mandate, _state())
+    assert result.decision == "block"
+
+
 def test_amount_integrity_check_passes_for_consistent_data():
     mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=1000, currency="CHF", scope="purchase")])
     event = make_event(mandate=mandate, amount=100.0, currency="USD", billing_amount_chf=87.0)  # 100 * 0.87 = 87.00
