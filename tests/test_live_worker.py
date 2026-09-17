@@ -16,11 +16,12 @@ from wallet_control.viseca_client import VisecaApiError
 class FakeVisecaClient:
     """Implements just the subset of VisecaClient's interface LiveWorker uses."""
 
-    def __init__(self, envelopes: list[dict | None], fail_polls: int = 0):
+    def __init__(self, envelopes: list[dict | None], fail_polls: int = 0, authorizations_listing=None):
         self._envelopes = list(envelopes)
         self._fail_polls = fail_polls
         self.submitted: list[dict] = []
         self.resolved: list[dict] = []
+        self._authorizations_listing = authorizations_listing if authorizations_listing is not None else {"data": []}
 
     def next_decision_request(self, wait: int = 25):
         if self._fail_polls > 0:
@@ -37,6 +38,9 @@ class FakeVisecaClient:
     def resolve(self, authorization_id, decision, **kwargs):
         self.resolved.append({"authorization_id": authorization_id, "decision": decision, **kwargs})
         return {"authorization_id": authorization_id, "decision": decision}
+
+    def list_authorizations(self):
+        return self._authorizations_listing
 
 
 def _envelope(event: dict) -> dict:
@@ -142,3 +146,69 @@ def test_cannot_resolve_an_authorization_that_is_not_pending():
 
     with pytest.raises(ValueError):
         worker.resolve("RUN1", "AU1", "allow")
+
+
+def test_a_mutated_retry_is_never_resubmitted_and_original_decision_stands():
+    """The live-worker-level counterpart to
+    test_decision_engine.py::test_repeated_authorization_id_with_a_different_amount_is_flagged_not_trusted:
+    a same-authorization_id delivery with different facts must not trigger a second
+    submit_decision call (the platform may already have our first one)."""
+    mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=1000, currency="CHF", scope="purchase")])
+    original_event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    mutated_event = make_event(mandate=mandate, authorization_id="AU1", amount=999.0)
+    client = FakeVisecaClient([_envelope(original_event), _envelope(mutated_event), None])
+    worker = _worker_with_run(client, mandate)
+    worker.run_forever(wait_seconds=1, max_events=2)
+    assert len(client.submitted) == 1  # only the original was ever submitted
+    assert client.submitted[0]["decision"] == "approve"
+
+
+def test_checkpoint_persistence_survives_a_simulated_process_restart(tmp_path):
+    """Phase 11: a process crash must not forget a rolling-window-relevant approval.
+    A fresh LiveWorker instance (simulating a restart) pointed at the same
+    checkpoint_dir must recover the prior run's state rather than starting blind."""
+    mandate = make_mandate(
+        hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=300, currency="CHF", scope="period", period_days=7)]
+    )
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=250.0)
+    client1 = FakeVisecaClient([_envelope(event), None])
+    worker1 = LiveWorker(client1, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True), checkpoint_dir=tmp_path)
+    worker1.register_run("RUN1", mandate)
+    worker1.run_forever(wait_seconds=1, max_events=1)
+    assert client1.submitted[0]["decision"] == "approve"
+
+    # Simulate a crash: a brand-new LiveWorker, brand-new FakeVisecaClient, same
+    # checkpoint directory and same run_id.
+    from datetime import datetime
+
+    same_ts = datetime.fromisoformat(event["authorization"]["timestamp"].replace("Z", "+00:00"))
+    event2 = make_event(mandate=mandate, authorization_id="AU2", amount=100.0, timestamp=same_ts)
+    client2 = FakeVisecaClient([_envelope(event2), None])
+    worker2 = LiveWorker(client2, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True), checkpoint_dir=tmp_path)
+    worker2.register_run("RUN1", mandate)  # loads the checkpoint written by worker1
+    worker2.run_forever(wait_seconds=1, max_events=1)
+    # Without recovery, the 7-day window would only see AU2's 100 and approve it.
+    # With recovery, it correctly sees the prior 250 too and the combined 350 fails.
+    assert client2.submitted[0]["decision"] == "decline"
+
+
+def test_reconcile_run_recognizes_already_decided_authorizations_without_crashing_on_unknown_shape():
+    """Best-effort reconciliation must degrade gracefully -- it never raises just
+    because the (undocumented) listing shape doesn't have every field it might hope for."""
+    mandate = make_mandate(hard_rules=[])
+    client = FakeVisecaClient([], authorizations_listing={"data": [{"authorization_id": "AU1", "decision": "approve"}, {"weird": "record"}]})
+    worker = _worker_with_run(client, mandate)
+    recovered = worker.reconcile_run("RUN1")
+    assert recovered == 1  # the malformed second record is skipped, not fatal
+
+
+def test_reconcile_run_never_raises_when_the_listing_call_itself_fails():
+    mandate = make_mandate(hard_rules=[])
+
+    class FailingClient(FakeVisecaClient):
+        def list_authorizations(self):
+            raise VisecaApiError(500, "boom")
+
+    client = FailingClient([])
+    worker = _worker_with_run(client, mandate)
+    assert worker.reconcile_run("RUN1") == 0

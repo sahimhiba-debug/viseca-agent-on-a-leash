@@ -11,8 +11,12 @@ the following hold:
     one execution, ever);
   * the requested charge amount does not exceed the amount that was actually
     approved;
-  * the `charge_id` has not been used before (idempotent retries of the exact same
-    charge request return the original record rather than charging twice).
+  * the merchant being charged is the merchant the authorization was actually
+    approved for;
+  * the `charge_id` has not been used before for a DIFFERENT authorization_id or
+    amount (idempotent retries of the exact same charge request return the
+    original record rather than charging twice; reusing the id for a different
+    request is a conflict, not a retry).
 
 This is deliberately a small in-memory mock -- the challenge is synthetic and asks
 for a predictable prototype, not a real payment rail (challenge.md: "Everything is
@@ -48,9 +52,25 @@ class MockPSP:
         self._charges: dict[str, ChargeRecord] = {}
         self._charged_authorizations: set[str] = set()
 
-    def charge(self, *, charge_id: str, authorization_id: str, amount_chf: Decimal, now: datetime | None = None) -> ChargeRecord:
-        if charge_id in self._charges:
-            return self._charges[charge_id]  # exact retry of the same charge request: return the original, don't re-execute
+    def charge(
+        self, *, charge_id: str, authorization_id: str, amount_chf: Decimal, merchant_id: str, now: datetime | None = None
+    ) -> ChargeRecord:
+        existing = self._charges.get(charge_id)
+        if existing is not None:
+            # A `charge_id` is an idempotency key for ONE specific request, not a
+            # free-standing token: reusing it for a different authorization_id or a
+            # different amount is a conflict, not a retry, and must never be
+            # silently treated as "the same charge, already done" -- that would let
+            # an attacker (or a bug) piggyback a second, different charge onto an
+            # already-approved charge_id, or make a caller believe the wrong
+            # authorization was charged.
+            if existing.authorization_id != authorization_id or existing.amount_chf != amount_chf:
+                raise PaymentError(
+                    f"charge_id {charge_id!r} was already used for authorization_id={existing.authorization_id!r} "
+                    f"amount=CHF {existing.amount_chf}; refusing to reuse it for authorization_id={authorization_id!r} "
+                    f"amount=CHF {amount_chf}"
+                )
+            return existing  # exact retry of the same charge request: return the original, don't re-execute
 
         stored = self._state.get_stored_decision(authorization_id)
         if stored is None:
@@ -59,6 +79,10 @@ class MockPSP:
             raise PaymentError(
                 f"{authorization_id} is not approved (decision={stored.decision!r}); "
                 "a pending step_up or a decline must never be executed as payment"
+            )
+        if merchant_id != stored.merchant_id:
+            raise PaymentError(
+                f"{authorization_id} was approved for merchant {stored.merchant_id!r}, not {merchant_id!r}; refusing to charge"
             )
         if authorization_id in self._charged_authorizations:
             raise PaymentError(f"{authorization_id} has already been charged once; refusing a second execution")

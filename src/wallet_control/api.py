@@ -158,22 +158,21 @@ def get_run(run_id: str) -> dict[str, Any]:
 @app.post("/api/runs/{run_id}/authorizations/{authorization_id}/resolve")
 def resolve_run_authorization(run_id: str, authorization_id: str, req: ResolveRequest) -> dict[str, Any]:
     """The human approval/rejection path. Scoped to exactly this authorization --
-    see `decision_engine.resolve_authorization` -- and never touches the mandate."""
+    see `decision_engine.resolve_authorization` -- and never touches the mandate.
+    Deliberately does not accept an amount from the request body: the amount that
+    matters is whatever the customer was actually shown when the purchase was
+    flagged for review, sourced from `run.state`'s own record."""
     run = _require_run(run_id)
     if req.decision not in ("allow", "block"):
         raise HTTPException(400, "decision must be 'allow' or 'block'")
-    stored = run.state.get_stored_decision(authorization_id)
-    if stored is None:
+    if run.state.get_stored_decision(authorization_id) is None:
         raise HTTPException(404, f"{authorization_id} was never decided in this run")
     try:
-        result = resolve_authorization(
-            authorization_id,
-            req.decision,
-            run.state,
-            billing_amount_chf=stored.billing_amount_chf,
-            timestamp=datetime.now(timezone.utc),
-        )
+        result = resolve_authorization(authorization_id, req.decision, run.state, resolved_at=datetime.now(timezone.utc))
     except ValueError as exc:
+        # Covers both "was never put to review" and "already resolved with a
+        # different answer" -- both are 409 Conflict: the request is well-formed
+        # but cannot be applied to this authorization's current state.
         raise HTTPException(409, str(exc)) from exc
     return _decision_summary(run.events_by_authorization[authorization_id], result)
 

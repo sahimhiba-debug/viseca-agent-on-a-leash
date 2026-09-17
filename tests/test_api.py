@@ -43,11 +43,18 @@ def test_run_scenario_and_full_human_resolution_and_revocation_flow():
     assert r2.status_code == 200
     assert r2.json()["decision"] == "allow"
 
-    # Cannot resolve it a second time as if it were still pending in a new way --
-    # re-resolving must not raise a 500 or silently flip the outcome.
+    # Resolving it a second time with a DIFFERENT answer must not raise a 500 and
+    # must not silently flip or discard the customer's original answer -- it is a
+    # 409 Conflict, and the original decision stands.
     r2b = client.post(f"/api/runs/{run_id}/authorizations/{au_id}/resolve", json={"decision": "block"})
-    assert r2b.status_code == 200
-    assert r2b.json()["decision"] == "allow"  # first resolution still wins
+    assert r2b.status_code == 409
+    au_state = next(d for d in client.get(f"/api/runs/{run_id}").json()["decisions"] if d["authorization_id"] == au_id)
+    assert au_state["decision"] == "allow"  # first resolution still wins
+
+    # Retrying with the SAME answer as before is a harmless idempotent success.
+    r2c = client.post(f"/api/runs/{run_id}/authorizations/{au_id}/resolve", json={"decision": "allow"})
+    assert r2c.status_code == 200
+    assert r2c.json()["decision"] == "allow"
 
     # Revocation path: revoke, then confirm the mandate can no longer authorize anything new.
     r3 = client.post(f"/api/runs/{run_id}/revoke")

@@ -59,8 +59,13 @@ prompt-injection defense.
 This is enforced as code, not policy: `decision_engine.evaluate_authorization`
 never touches `payment.py`, and `payment.MockPSP.charge` independently re-checks
 that the authorization's recorded decision is `"allow"` (not `"review"`, which
-covers a *pending* step_up), that it has not already been charged, and that the
-requested amount does not exceed what was actually approved. See
+covers a *pending* step_up), that it has not already been charged, that the
+requested amount does not exceed what was actually approved, and that the
+merchant being charged matches the merchant that authorization was actually
+approved for. A `charge_id` is a one-time idempotency key for one specific
+request, not a free-standing token -- reusing it for a *different*
+authorization_id or amount is refused as a conflict rather than silently treated
+as "already done" (`docs/SECOND_ADVERSARIAL_AUDIT.md`, Finding 7). See
 `tests/test_payment_boundary.py` for the exhaustive list of ways this is tested to
 refuse.
 
@@ -87,21 +92,33 @@ original snapshot even if the live mandate is later patched or revoked
 ## Human resolution: "a yes is this authorization, not a new wallet"
 
 `decision_engine.resolve_authorization` takes an `authorization_id` and a human
-decision, and calls `RunState.record_resolution`, which:
+decision (never an amount -- see below), and calls `RunState.record_resolution`,
+which:
 
-- only accepts a resolution for an authorization currently `"review"` (a
-  first-come-first-served terminal write: a second resolution attempt is a no-op
-  returning the original outcome, not an error and not a re-application);
+- only accepts a first resolution for an authorization currently `"review"`;
+  accepts an identical *repeated* resolution idempotently (a retried click or API
+  call); and raises `ResolutionError` both for an authorization that was never put
+  to review at all and for a second resolution with a *different* answer than the
+  one already recorded -- a real, conflicting second answer is surfaced, never
+  silently discarded (`docs/SECOND_ADVERSARIAL_AUDIT.md`, Finding 8);
 - never touches `Mandate` -- there is no code path from a resolution back into
-  `tighten_hard_rules` or `set_uncertainty_policy`.
+  `tighten_hard_rules` or `set_uncertainty_policy`;
+- uses the amount and the *simulated purchase timestamp* from the original review
+  record, never a value the caller supplies and never the real-clock time the
+  human happened to answer at (Findings 2 and 3 -- a step_up answered an hour late
+  must not be attributed to the wrong rolling-spend window, and must not be
+  resolved against a different amount than what was actually shown).
 
 ## State and concurrency
 
 `RunState` (`state.py`) holds everything that must be remembered across a
 sequence of decisions for one run: which `authorization_id`s have a final
-decision (idempotency), a rolling list of approved-spend timestamps+amounts (for
-`scope="period"` rules), and a short list of recent attempts (for duplicate
-detection and the session-integrity heuristic).
+decision (idempotency, keyed on a fingerprint of merchant/basket/amount so a
+same-ID delivery with *different* facts is detected as a conflict rather than
+blindly trusted either way -- Finding 4), a rolling list of approved-spend
+timestamps+amounts (for `scope="period"` rules), and a short list of recent
+attempts (for duplicate detection and the session-integrity heuristic, looked up
+live against the current decision rather than a frozen snapshot -- Finding 9).
 
 This is deliberately **one `RunState` per run, held in one process's memory**, not
 a database and not a distributed store. That is a documented choice, not an
@@ -113,6 +130,14 @@ concurrent multi-run traffic, `RunState` would move behind a real datastore with
 per-authorization row locking -- but adding that now, for a synthetic single-run
 hackathon demo, would be exactly the kind of speculative infrastructure the
 challenge explicitly does not reward.
+
+In-memory-only state does have one genuine, previously-undocumented cost: a
+process crash mid-run forgets prior approved spend, which could let a rolling
+window be wrongly bypassed on restart. `LiveWorker` now optionally persists
+`RunState` to a single small JSON checkpoint file per run (not a database) and
+reloads it on restart, plus a best-effort reconciliation against the platform's
+own `GET /v1/authorizations` -- see `docs/SECOND_ADVERSARIAL_AUDIT.md`, Finding 12,
+including what this does and does not actually guarantee.
 
 ## Money handling
 

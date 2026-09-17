@@ -18,14 +18,13 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from decimal import Decimal
 from enum import Enum
 from typing import Any
 
 _ALLOWED_OPERATORS = {"<", "<=", "=", "!=", ">", ">=", "in", "not_in"}
 _ALLOWED_CURRENCIES = {"CHF", "EUR", "GBP", "USD", None}
 _ALLOWED_SCOPES = {"purchase", "period", None}
-_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
+_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]+\Z")  # \Z, not $: $ allows a trailing "\n" that \Z correctly rejects
 
 
 class MandateStatus(str, Enum):
@@ -161,6 +160,9 @@ class Mandate:
             raise MandateError(f"cannot confirm a mandate in status {self.status}")
         if not confirmed:
             raise MandateError("confirm() called without customer confirmation")
+        for name, value in (("customer_id", customer_id), ("card_id", card_id), ("profile_id", profile_id)):
+            if not _ID_RE.match(value):
+                raise MandateError(f"{name}={value!r} is not a well-formed identifier")
         self.mandate_id = f"TM{uuid.uuid4().hex[:10].upper()}"
         self.status = MandateStatus.ACTIVE
         self.customer_id = customer_id
@@ -216,7 +218,7 @@ class Mandate:
             return
         self.status = MandateStatus.REVOKED
 
-    def is_usable(self, *, now: datetime | None = None) -> bool:
+    def is_usable(self) -> bool:
         return self.status == MandateStatus.ACTIVE
 
     def as_dict(self) -> dict[str, Any]:
@@ -231,6 +233,7 @@ class Mandate:
             "profile_id": self.profile_id,
             "guidance": list(self.guidance),
             "open_questions": list(self.open_questions),
+            "created_at": self.created_at.isoformat(),
         }
 
     def snapshot(self) -> "MandateSnapshot":

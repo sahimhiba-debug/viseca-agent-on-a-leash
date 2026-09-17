@@ -34,6 +34,14 @@ def test_cannot_confirm_twice():
         m.confirm(confirmed=True, customer_id="CU1", card_id="CA1", profile_id="P1")
 
 
+@pytest.mark.parametrize("bad_id", ["", "CU 1", "CU/1", "CU1;DROP TABLE", "CU1\n", "CU1\x00"])
+def test_confirm_rejects_malformed_identifiers(bad_id):
+    m = Mandate.draft("Buy stuff", [], UncertaintyPolicy.ASK)
+    with pytest.raises(MandateError):
+        m.confirm(confirmed=True, customer_id=bad_id, card_id="CA1", profile_id="P1")
+    assert m.status == MandateStatus.DRAFT  # a rejected confirm must not partially apply
+
+
 def test_tighten_hard_rules_only_appends_never_removes():
     m = Mandate.draft("Buy stuff", [_amount_rule(200)], UncertaintyPolicy.ASK)
     m.confirm(confirmed=True, customer_id="CU1", card_id="CA1", profile_id="P1")

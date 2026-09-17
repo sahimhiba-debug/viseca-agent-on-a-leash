@@ -87,9 +87,10 @@ _RETAILER_TYPE_LEXICON: dict[str, str] = {
 _AMOUNT_RE = re.compile(
     r"""
     (?:
-        (?:no\ more\ than|not\ more\ than|up\ to|at\ most|pay\ no\ more\ than)\s*
+        (?:no\ more\ than|not\ more\ than|up\ to|at\ most|pay\ no\ more\ than|
+           under|a\ maximum\ of|maximum\ of|max\ of)\s*
         CHF\s*(?P<v1>[\d.,]+)
-        | CHF\s*(?P<v2>[\d.,]+)\s*(?:or\ less|or\ below)
+        | CHF\s*(?P<v2>[\d.,]+)\s*(?:or\ less|or\ below|maximum|max\b)
         | at\ or\ below\s*CHF\s*(?P<v3>[\d.,]+)
     )
     """,
@@ -154,15 +155,23 @@ _ITEM_MENTION_RE = re.compile(
 # the same sports retailer) would fail to satisfy. This is a general phrase pattern,
 # not a per-scenario special case: it fires on hyphenated modifiers anywhere they
 # appear next to a recognized item noun.
+#
+# The gap between modifier and noun is deliberately capped at one filler word
+# ("27-inch [ ] monitor" / "road-running shoes" both fit) rather than left open --
+# an unbounded gap would also match a benign, unrelated hyphenated adjective several
+# words before the noun ("a well-made pair of running shoes"), turning ordinary
+# descriptive language into an unsatisfiable product-variant lock.
 _ITEM_MODIFIER_RE = re.compile(
-    r"\b([a-z0-9]+-[a-z0-9]+)\b(?:\s+\w+){0,3}?\s+\b(?:"
+    r"\b([a-z0-9]+-[a-z0-9]+)\b(?:\s+\w+){0,1}?\s+\b(?:"
     + "|".join(sorted(_ITEM_CATEGORY_LEXICON, key=len, reverse=True))
     + r")\b",
     re.IGNORECASE,
 )
 
-# "size 43", "in size M" -- a specific, generic size requirement.
-_SIZE_RE = re.compile(r"\bsize\s+([A-Za-z0-9]+)\b", re.IGNORECASE)
+# "size 43", "in size M" -- a specific, generic size requirement. Restricted to
+# plausible size tokens (see facts.py's identical rationale) so "an appropriate
+# size for everyone" cannot be misread as a requirement for size "for".
+_SIZE_RE = re.compile(r"\bsize\s+([0-9]{1,3}(?:\.[0-9])?|XXXL|XXL|XL|S|M|L)\b", re.IGNORECASE)
 
 _UNCERTAINTY_ASK_RE = re.compile(r"ask\s+me\s+when\s+uncertain|ask\s+if\s+uncertain", re.IGNORECASE)
 _UNCERTAINTY_DECLINE_RE = re.compile(r"decline\s+(?:it\s+)?when\s+uncertain|reject\s+if\s+uncertain", re.IGNORECASE)
@@ -194,11 +203,21 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     open_questions: list[str] = []
 
     # --- per-order amount ceiling -------------------------------------------------
-    per_order_amount: float | None = None
-    m = _AMOUNT_RE.search(text)
-    if m:
-        raw = m.group("v1") or m.group("v2") or m.group("v3")
-        per_order_amount = _parse_amount(raw)
+    # If the instruction mentions more than one per-order amount (a correction, a
+    # typo followed by a fix, or genuinely contradictory phrasing -- "up to CHF 100,
+    # actually CHF 50 max"), taking only the FIRST match found would silently
+    # ignore a later, possibly-corrective figure. The safe default when an
+    # instruction is ambiguous about its own ceiling is the MORE restrictive
+    # figure, and the ambiguity itself is surfaced so the customer can clarify.
+    amount_matches = [
+        _parse_amount(m.group("v1") or m.group("v2") or m.group("v3")) for m in _AMOUNT_RE.finditer(text)
+    ]
+    per_order_amount: float | None = min(amount_matches) if amount_matches else None
+    if len(amount_matches) > 1 and len(set(amount_matches)) > 1:
+        open_questions.append(
+            f"The instruction mentions more than one per-order amount ({sorted(set(amount_matches))}); "
+            f"the smallest (CHF {per_order_amount:g}) was used defensively. Please confirm the intended limit."
+        )
 
     # --- rolling-window ceiling ("across any N days ... CHF X") --------------------
     rolling_amount: float | None = None
@@ -298,6 +317,15 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
         op = ">=" if rw.group("or_more") else ">="
         rules.append(HardRule(field="order.return_window_days", operator=op, value=days))
         guidance.append(f"The order must be returnable within at least {days} days.")
+    elif re.search(r"\breturn", text, re.IGNORECASE):
+        # The instruction clearly discusses returns but not in a form this compiler
+        # recognizes (e.g. a word-form number like "returnable within a month") --
+        # surfaced rather than silently dropped, matching the amount ceiling's own
+        # "flag what couldn't be understood" behavior above.
+        open_questions.append(
+            "The instruction mentions returns, but no specific day count was recognized; "
+            "no return-window rule was created."
+        )
 
     # --- no unrequested add-ons -----------------------------------------------------
     if _NO_ADDONS_RE.search(text):
@@ -321,6 +349,19 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
         open_questions.append(
             "No explicit uncertainty preference was found; defaulting to 'ask the customer' "
             "when the engine cannot be confident."
+        )
+
+    if not rules:
+        # A mandate with zero executable rules has nothing to check any purchase
+        # against; decision_engine.py treats this as maximal uncertainty (routed
+        # through uncertainty_policy) rather than "everything passes" specifically
+        # so this case can never become unlimited spending authority by accident --
+        # but the customer should still see, in plain language, that this
+        # instruction produced no spending controls at all before they confirm it.
+        open_questions.append(
+            "This instruction did not produce any spending rules at all. Every purchase will need your "
+            "confirmation (or will be declined, or approved automatically) purely based on the uncertainty "
+            "setting below, since there is nothing else to check it against."
         )
 
     return CompiledPolicy(

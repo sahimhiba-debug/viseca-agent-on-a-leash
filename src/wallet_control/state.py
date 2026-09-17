@@ -78,24 +78,56 @@ class HistoryIndex:
 
 @dataclass(frozen=True)
 class StoredDecision:
-    """The accepted, final-so-far result for one live authorization_id."""
+    """The accepted, final-so-far result for one live authorization_id.
+
+    `timestamp` is always the purchase's *simulated* time (`authorization.timestamp`),
+    never a real-clock time -- it is what rolling-window spend is keyed on
+    (technical_details.md: "Use simulated purchase time for spending windows, and
+    the real clock for response deadlines"). A human resolving a step_up an hour
+    (real time) after it was raised must not shift that purchase's window
+    attribution; `resolved_at` carries the real-clock answer time separately, for
+    audit display only.
+
+    `merchant_id` and `basket_key` are a fingerprint of what was actually decided,
+    used to detect a repeated `authorization_id` whose underlying facts changed
+    between deliveries (see `find_similar_recent`'s module docstring and
+    `evaluate_authorization`'s idempotency check) -- a case that must never be
+    silently trusted either way.
+    """
 
     authorization_id: str
     decision: Decision
     billing_amount_chf: Decimal
     timestamp: datetime
     counted_in_spend: bool  # True once an approve has been counted into rolling spend
+    merchant_id: str
+    basket_key: tuple[tuple[str, int], ...]
+    was_reviewed: bool = False  # True iff this authorization was ever put to REVIEW
+    resolved_at: datetime | None = None  # real-clock time of a human's answer, audit-only
     reason_codes: tuple[str, ...] = ()
+
+
+class ResolutionError(ValueError):
+    """Raised when a human resolution cannot be applied as requested -- distinct
+    from a plain `ValueError` so callers (api.py, live_worker.py) can map it to a
+    specific HTTP status / log message rather than a generic 400/500."""
 
 
 @dataclass(frozen=True)
 class _RecentAttempt:
+    """A basket/merchant/amount fingerprint for duplicate detection.
+
+    Deliberately does NOT store a copy of the decision: `find_similar_recent` looks
+    the current decision up live via `RunState._decisions`, so a `review` that is
+    later resolved to `block` is correctly excluded from then on -- a frozen
+    snapshot here would silently go stale the moment a step_up is resolved.
+    """
+
     authorization_id: str
     merchant_id: str
     basket_key: tuple[tuple[str, int], ...]
     billing_amount_chf: Decimal
     timestamp: datetime
-    decision: Decision
 
 
 @dataclass
@@ -114,26 +146,98 @@ class RunState:
     def get_stored_decision(self, authorization_id: str) -> StoredDecision | None:
         return self._decisions.get(authorization_id)
 
-    def record_decision(self, authorization_id: str, decision: Decision, billing_amount_chf: Decimal, timestamp: datetime) -> StoredDecision:
+    def check_repeat_fingerprint(
+        self, authorization_id: str, *, merchant_id: str, basket_key: tuple[tuple[str, int], ...], billing_amount_chf: Decimal
+    ) -> bool:
+        """True if a stored decision exists for `authorization_id` AND its
+        merchant/basket/amount match what is being re-delivered now -- i.e. this is
+        a genuine repeated delivery of the *same* purchase, safe to reconcile
+        without re-evaluation. False if the facts differ: a same-ID-different-facts
+        "authorization" must never be silently reconciled either as the old
+        decision (which was made on different facts) or as a fresh one (which
+        would mean submitting a second decision for an ID the platform already
+        has one for) -- see `decision_engine.evaluate_authorization`."""
+        existing = self._decisions.get(authorization_id)
+        if existing is None:
+            return True  # nothing to conflict with; not a repeat at all
+        return (
+            existing.merchant_id == merchant_id
+            and existing.basket_key == basket_key
+            and existing.billing_amount_chf == billing_amount_chf
+        )
+
+    def record_decision(
+        self,
+        authorization_id: str,
+        decision: Decision,
+        billing_amount_chf: Decimal,
+        timestamp: datetime,
+        *,
+        merchant_id: str,
+        basket_key: tuple[tuple[str, int], ...],
+    ) -> StoredDecision:
         if authorization_id in self._decisions:
             return self._decisions[authorization_id]  # never overwrite; first outcome for an ID is final here
         counted = decision == "allow"
         if counted:
             self._approved_spend.append((timestamp, billing_amount_chf))
-        stored = StoredDecision(authorization_id, decision, billing_amount_chf, timestamp, counted)
+        stored = StoredDecision(
+            authorization_id,
+            decision,
+            billing_amount_chf,
+            timestamp,
+            counted,
+            merchant_id=merchant_id,
+            basket_key=basket_key,
+            was_reviewed=(decision == "review"),
+        )
         self._decisions[authorization_id] = stored
         return stored
 
-    def record_resolution(self, authorization_id: str, final_decision: Decision, billing_amount_chf: Decimal, timestamp: datetime) -> StoredDecision:
+    def record_resolution(self, authorization_id: str, final_decision: Decision, resolved_at: datetime) -> StoredDecision:
         """Apply a human's answer to a previously-`review`d authorization. Bound to
         the specific authorization_id it resolves -- it can only change *that*
-        authorization's outcome, never the standing mandate (see `mandate.py`)."""
+        authorization's outcome, never the standing mandate (see `mandate.py`).
+
+        Takes no `billing_amount_chf`: the amount that matters is the one the
+        customer was actually shown when asked to review, never a value a caller
+        could pass in fresh -- see docs/SECOND_ADVERSARIAL_AUDIT.md, "human
+        resolution scoped to the wrong facts". The spend-window contribution uses
+        the ORIGINAL purchase's *simulated* timestamp (`existing.timestamp`), not
+        `resolved_at` (a real-clock time), per technical_details.md: "Use simulated
+        purchase time for spending windows, and the real clock for response
+        deadlines" -- a step_up answered an hour late must not be attributed to a
+        different window than the one it actually occurred in.
+        """
         existing = self._decisions.get(authorization_id)
-        if existing is not None and existing.decision != "review":
-            return existing  # already resolved or was never pending; resolution is not re-appliable
+        if existing is None:
+            raise ResolutionError(f"cannot resolve {authorization_id}: it was never sent to the customer for review")
+        if not existing.was_reviewed:
+            raise ResolutionError(f"cannot resolve {authorization_id}: it was decided automatically and was never put to the customer")
+        if existing.decision != "review":
+            # Already resolved once. Treat an identical re-submission (a retried
+            # click, a retried API call) as an idempotent success; a DIFFERENT
+            # answer than what was already recorded is a genuine conflict, not
+            # something to silently ignore or silently overwrite.
+            if existing.decision == final_decision:
+                return existing
+            raise ResolutionError(
+                f"{authorization_id} was already resolved as {existing.decision!r}; "
+                f"cannot now resolve it as {final_decision!r}"
+            )
         if final_decision == "allow":
-            self._approved_spend.append((timestamp, billing_amount_chf))
-        stored = StoredDecision(authorization_id, final_decision, billing_amount_chf, timestamp, final_decision == "allow")
+            self._approved_spend.append((existing.timestamp, existing.billing_amount_chf))
+        stored = StoredDecision(
+            authorization_id,
+            final_decision,
+            existing.billing_amount_chf,
+            existing.timestamp,
+            final_decision == "allow",
+            merchant_id=existing.merchant_id,
+            basket_key=existing.basket_key,
+            was_reviewed=True,
+            resolved_at=resolved_at,
+        )
         self._decisions[authorization_id] = stored
         return stored
 
@@ -152,17 +256,21 @@ class RunState:
 
     def recent_authorizations_context(self, limit: int = 5) -> list[dict]:
         """The last `limit` authorizations seen in this run, in the event schema's
-        `context.recent_authorizations` shape, for display/evidence purposes."""
+        `context.recent_authorizations` shape, for display/evidence purposes. Status
+        reflects the CURRENT stored decision (so a resolved step_up shows as
+        approved/declined, not stuck at "pending")."""
         status_map = {"allow": "approved", "block": "declined", "review": "pending"}
         out = []
         for prior in self._recent_attempts[-limit:]:
+            current = self._decisions.get(prior.authorization_id)
+            status = status_map[current.decision] if current is not None else "pending"
             out.append(
                 {
                     "authorization_id": prior.authorization_id,
                     "timestamp": prior.timestamp.isoformat().replace("+00:00", "Z"),
                     "merchant_id": prior.merchant_id,
                     "billing_amount_chf": float(prior.billing_amount_chf),
-                    "status": status_map[prior.decision],
+                    "status": status,
                 }
             )
         return out
@@ -180,8 +288,14 @@ class RunState:
         for prior in reversed(self._recent_attempts):
             if prior.authorization_id == authorization_id:
                 continue
-            if prior.decision == "block":
-                continue  # a declined attempt is not "an unwanted duplicate order" to worry about
+            prior_decision = self._decisions.get(prior.authorization_id)
+            if prior_decision is not None and prior_decision.decision == "block":
+                # A declined attempt -- including one declined only *later*, via a
+                # resolved step_up -- is not "an unwanted duplicate order" to worry
+                # about. Looked up live rather than from a frozen snapshot, so a
+                # review that is subsequently declined stops counting from that
+                # point on (see `_RecentAttempt`'s docstring).
+                continue
             if prior.merchant_id != merchant_id:
                 continue
             if prior.basket_key != basket_key:
@@ -204,11 +318,8 @@ class RunState:
         basket_key: tuple[tuple[str, int], ...],
         billing_amount_chf: Decimal,
         timestamp: datetime,
-        decision: Decision,
     ) -> None:
-        self._recent_attempts.append(
-            _RecentAttempt(authorization_id, merchant_id, basket_key, billing_amount_chf, timestamp, decision)
-        )
+        self._recent_attempts.append(_RecentAttempt(authorization_id, merchant_id, basket_key, billing_amount_chf, timestamp))
 
     # --- session integrity heuristic -------------------------------------------------
     def session_signals(self, device_id: str, recent_attempt_count_10m: int, merchant_familiar: bool | None) -> tuple[bool, tuple[str, ...]]:
@@ -230,3 +341,78 @@ class RunState:
         self._last_device_id = device_id
         risky = (device_changed and recent_attempt_count_10m >= 1) or recent_attempt_count_10m >= 2
         return risky, tuple(reasons)
+
+    # --- crash-recovery snapshot -----------------------------------------------------
+    # `RunState` otherwise lives only in process memory (see docs/ARCHITECTURE.md,
+    # "State and concurrency"). That is fine while the worker runs continuously, but
+    # a process crash mid-run would otherwise forget every prior decision, approved
+    # spend, and duplicate-detection fingerprint -- risking both a duplicate
+    # decision submission AND, more seriously, a rolling-window spending limit
+    # being silently bypassed because the run "forgot" what it had already
+    # approved. This is a deliberately small, single-file JSON snapshot -- not a
+    # database -- written by `live_worker.py` after every decision, so the SAME
+    # process restarting can resume correctly. It does NOT reconcile against the
+    # platform's own authoritative state (see `live_worker.LiveWorker.reconcile_run`
+    # for that best-effort, separate mechanism) -- see
+    # docs/SECOND_ADVERSARIAL_AUDIT.md for the residual limitation this leaves.
+    def to_snapshot(self) -> dict:
+        return {
+            "card_id": self.card_id,
+            "last_device_id": self._last_device_id,
+            "decisions": [
+                {
+                    "authorization_id": d.authorization_id,
+                    "decision": d.decision,
+                    "billing_amount_chf": str(d.billing_amount_chf),
+                    "timestamp": d.timestamp.isoformat(),
+                    "counted_in_spend": d.counted_in_spend,
+                    "merchant_id": d.merchant_id,
+                    "basket_key": list(d.basket_key),
+                    "was_reviewed": d.was_reviewed,
+                    "resolved_at": d.resolved_at.isoformat() if d.resolved_at else None,
+                    "reason_codes": list(d.reason_codes),
+                }
+                for d in self._decisions.values()
+            ],
+            "approved_spend": [[ts.isoformat(), str(amt)] for ts, amt in self._approved_spend],
+            "recent_attempts": [
+                {
+                    "authorization_id": a.authorization_id,
+                    "merchant_id": a.merchant_id,
+                    "basket_key": list(a.basket_key),
+                    "billing_amount_chf": str(a.billing_amount_chf),
+                    "timestamp": a.timestamp.isoformat(),
+                }
+                for a in self._recent_attempts
+            ],
+        }
+
+    @classmethod
+    def from_snapshot(cls, snapshot: dict, history: HistoryIndex) -> "RunState":
+        state = cls(history=history, card_id=snapshot["card_id"])
+        state._last_device_id = snapshot.get("last_device_id")
+        for d in snapshot["decisions"]:
+            state._decisions[d["authorization_id"]] = StoredDecision(
+                authorization_id=d["authorization_id"],
+                decision=d["decision"],
+                billing_amount_chf=Decimal(d["billing_amount_chf"]),
+                timestamp=datetime.fromisoformat(d["timestamp"]),
+                counted_in_spend=d["counted_in_spend"],
+                merchant_id=d["merchant_id"],
+                basket_key=tuple(tuple(pair) for pair in d["basket_key"]),
+                was_reviewed=d.get("was_reviewed", False),
+                resolved_at=datetime.fromisoformat(d["resolved_at"]) if d.get("resolved_at") else None,
+                reason_codes=tuple(d.get("reason_codes", ())),
+            )
+        state._approved_spend = [(datetime.fromisoformat(ts), Decimal(amt)) for ts, amt in snapshot["approved_spend"]]
+        state._recent_attempts = [
+            _RecentAttempt(
+                authorization_id=a["authorization_id"],
+                merchant_id=a["merchant_id"],
+                basket_key=tuple(tuple(pair) for pair in a["basket_key"]),
+                billing_amount_chf=Decimal(a["billing_amount_chf"]),
+                timestamp=datetime.fromisoformat(a["timestamp"]),
+            )
+            for a in snapshot["recent_attempts"]
+        ]
+        return state

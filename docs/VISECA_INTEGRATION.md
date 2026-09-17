@@ -42,10 +42,17 @@ must never be confused with it:
   `intervention.py`) -- a local, purely explanatory gloss derived from an
   already-made decision, shown in the demo UI/API. It is never sent to the hosted
   API and never influences the decision itself.
-- **`order.duplicate_suspected`** -- a synthetic, always-on `HardRule` the engine
-  appends to its own evaluation list when `RunState.find_similar_recent` flags a
-  suspiciously similar recent purchase. It is a local safety signal, not something
-  the customer wrote or the API stores.
+- **`order.duplicate_suspected`, `mandate.has_no_rules`, `authorization.amount_integrity`**
+  -- synthetic, always-on `HardRule`s the engine appends to its own evaluation list
+  (never to the mandate): a suspiciously similar recent purchase, a mandate with no
+  executable rules at all (routing the decision through `uncertainty_policy`
+  instead of defaulting to allow -- added in the second audit pass, see
+  SECOND_ADVERSARIAL_AUDIT.md Finding 1), and a `billing_amount_chf` that doesn't
+  match `amount * fx_rate` (Finding 5's sibling integrity check). All three are
+  local safety signals, never something the customer wrote or the API stores.
+- **`authorization_id_conflict`** -- a local-only `EngineDecision` flag (never sent
+  to the hosted API) set when a repeated `authorization_id` arrives with different
+  purchase facts than the first delivery; see Finding 4.
 - **`MockPSP` / `payment.py`** -- an entirely local, synthetic payment executor.
   There is no official Viseca payment-execution endpoint in this challenge; this
   exists purely to make the authorization/payment boundary demonstrable and
@@ -87,3 +94,15 @@ documents: `authorization_id`, `decision`, and the optional `reason_codes`,
   `mandate` block embedded in that run's first event
   (`mandate.MandateSnapshot.from_event_mandate`).
 - **The bearer key is never logged.** See SECURITY.md.
+- **A same-`authorization_id` delivery with different facts is never resubmitted
+  either.** If the fingerprint check (Finding 4) detects a mismatch, the worker
+  logs it loudly and does not call `submit_decision` again -- the platform already
+  has a decision for that ID, and it may be the mutated event, not the original,
+  that is wrong.
+- **A crash can be recovered from, on a best-effort basis.** `LiveWorker(..., checkpoint_dir=...)`
+  persists `RunState` to a small local JSON file after every decision/resolution
+  and reloads it on restart; `LiveWorker.reconcile_run()` additionally queries
+  `GET /v1/authorizations` to recognize already-decided IDs after a restart with no
+  local checkpoint. Neither is a full distributed-transaction guarantee -- see
+  SECOND_ADVERSARIAL_AUDIT.md, Finding 12, for exactly what this does and does not
+  cover.

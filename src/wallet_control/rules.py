@@ -65,6 +65,24 @@ def _as_decimal(value: Any) -> Decimal:
     return value if isinstance(value, Decimal) else Decimal(str(value))
 
 
+def _candidate_items(facts: PurchaseFacts, ctx: RuleContext) -> list:
+    """Items a variant/size check should apply to: those in the requested item
+    category, if one is on file. An unrelated add-on (a different category
+    entirely, already independently caught by `item.category`/
+    `item.unrequested_present`) must not make `item.name_contains`/`item.size`
+    fail against the CORRECT primary item just because it is sitting in the same
+    basket -- see docs/SECOND_ADVERSARIAL_AUDIT.md, "multi-item aggregation".
+    Falls back to every item when nothing matches the requested category (so the
+    evidence for an all-wrong-category basket still shows a concrete mismatch
+    instead of a vague "nothing to check"), and to every item when no category
+    rule exists at all to filter by.
+    """
+    if ctx.requested_item_categories is None:
+        return list(facts.items)
+    matching = [i for i in facts.items if i.item_category in ctx.requested_item_categories]
+    return matching or list(facts.items)
+
+
 def evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> RuleEvaluation:
     field = rule.field
 
@@ -113,17 +131,21 @@ def evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Rul
 
     if field == "item.name_contains":
         needle = str(rule.value).lower()
-        mismatched = [n for n in facts.item_names if needle not in n.lower()]
+        candidates = _candidate_items(facts, ctx)
+        mismatched = [i.item_name for i in candidates if needle not in i.item_name.lower()]
         ok = not mismatched
-        detail = f"item_names={list(facts.item_names)}" + (f", not matching {rule.value!r}: {mismatched}" if mismatched else "")
+        names = [i.item_name for i in candidates]
+        detail = f"item_names={names}" + (f", not matching {rule.value!r}: {mismatched}" if mismatched else "")
         return RuleEvaluation(rule, "pass" if ok else "fail", detail)
 
     if field == "item.size":
-        if not facts.item_sizes:
-            return RuleEvaluation(rule, "unknown", "no size was stated for this order")
-        mismatched = [s for s in facts.item_sizes if s.lower() != str(rule.value).lower()]
+        candidates = _candidate_items(facts, ctx)
+        sized = [i for i in candidates if i.stated_size is not None]
+        if not sized:
+            return RuleEvaluation(rule, "unknown", "no size was stated for the requested item")
+        mismatched = [i.stated_size for i in sized if i.stated_size.lower() != str(rule.value).lower()]
         ok = not mismatched
-        detail = f"item_sizes={list(facts.item_sizes)}"
+        detail = f"item_sizes={[i.stated_size for i in sized]}"
         return RuleEvaluation(rule, "pass" if ok else "fail", detail)
 
     if field == "order.return_window_days":

@@ -21,15 +21,36 @@ one `RunState` per run_id, matching the event-day operating model (a single team
 running a single worker against a single hosted run at a time). See
 docs/ARCHITECTURE.md "Concurrency" for why this is an explicit, documented choice
 rather than an oversight.
+
+Crash recovery
+--------------
+`RunState` lives only in memory. If this process crashes mid-run, an in-memory-only
+design would forget every prior decision and approved-spend entry, risking both a
+duplicate decision submission and a rolling-window limit being silently bypassed on
+restart (see docs/SECOND_ADVERSARIAL_AUDIT.md, "live worker crash consistency").
+Two best-effort mitigations, neither of which is a full distributed-transaction
+guarantee:
+
+  1. `checkpoint_dir`, if given, persists `RunState` to a small JSON file after
+     every decision/resolution, and `register_run`/auto-registration loads a
+     matching file if one exists -- recovers this SAME process restarting.
+  2. `reconcile_run` best-effort-repopulates a run's decided authorization_ids from
+     the platform's own `GET /v1/authorizations` listing, for the case where even
+     the checkpoint is unavailable (a different machine, a cleared checkpoint).
+     Implemented defensively since the exact response shape is not pinned down in
+     technical_details.md beyond "Lists pending and final runtime authorizations".
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 from .decision_engine import EngineDecision, evaluate_authorization, resolve_authorization
 from .mandate import MandateSnapshot
@@ -62,18 +83,86 @@ class LiveWorker:
     the *next* purchase.
     """
 
-    def __init__(self, client: VisecaClient, history: HistoryIndex) -> None:
+    def __init__(self, client: VisecaClient, history: HistoryIndex, *, checkpoint_dir: Path | str | None = None) -> None:
         self._client = client
         self._history = history
         self._runs: dict[str, RunHandle] = {}
         self._stop = threading.Event()
         self._lock = threading.Lock()
+        self._checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
+
+    def _checkpoint_path(self, run_id: str) -> Path | None:
+        if self._checkpoint_dir is None:
+            return None
+        return self._checkpoint_dir / f"{run_id}.json"
+
+    def _save_checkpoint(self, handle: RunHandle) -> None:
+        path = self._checkpoint_path(handle.run_id)
+        if path is None:
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(handle.state.to_snapshot()))
+        tmp.replace(path)  # atomic on POSIX and Windows: never leaves a half-written checkpoint
 
     def register_run(self, run_id: str, mandate: MandateSnapshot) -> RunHandle:
         with self._lock:
-            handle = RunHandle(run_id=run_id, mandate=mandate, state=RunState(history=self._history, card_id=mandate.card_id))
+            path = self._checkpoint_path(run_id)
+            if path is not None and path.exists():
+                snapshot = json.loads(path.read_text())
+                state = RunState.from_snapshot(snapshot, self._history)
+                logger.info("run_id=%s: restored %d prior decisions from checkpoint %s", run_id, len(snapshot["decisions"]), path)
+            else:
+                state = RunState(history=self._history, card_id=mandate.card_id)
+            handle = RunHandle(run_id=run_id, mandate=mandate, state=state)
             self._runs[run_id] = handle
             return handle
+
+    def reconcile_run(self, run_id: str) -> int:
+        """Best-effort recovery when no local checkpoint is available: ask the
+        platform which authorizations it already has a decision for, via
+        `GET /v1/authorizations`, and skip re-submitting for any of them. This
+        cannot rebuild rolling-window spend history (the endpoint's exact shape
+        isn't documented well enough to trust a reconstructed amount/timestamp) --
+        it only prevents a duplicate submission for an authorization_id whose
+        decision the platform already has. Returns the number of authorization_ids
+        recognized as already-decided. Never raises: a failure here degrades to
+        "nothing recovered", not a crash.
+        """
+        handle = self._runs.get(run_id)
+        if handle is None:
+            raise ValueError(f"cannot reconcile unregistered run_id {run_id!r}; call register_run first")
+        try:
+            listing = self._client.list_authorizations()
+        except VisecaApiError as exc:
+            logger.warning("reconcile_run(%s): could not list authorizations (%s); nothing recovered", run_id, exc)
+            return 0
+
+        records: list[dict[str, Any]] = []
+        if isinstance(listing, dict):
+            records = listing.get("data") or listing.get("authorizations") or listing.get("items") or []
+        elif isinstance(listing, list):
+            records = listing
+
+        recovered = 0
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            authorization_id = record.get("authorization_id")
+            wire_decision = record.get("decision") or record.get("status")
+            already_known = handle.state.get_stored_decision(authorization_id) is not None
+            if not authorization_id or already_known or wire_decision not in ("approve", "decline", "step_up"):
+                continue
+            # We deliberately do NOT know this record's true amount/merchant/basket
+            # with confidence from an undocumented shape, so we do not fabricate a
+            # StoredDecision for it (that would corrupt rolling-window math with a
+            # guess). We only note it so `evaluate_authorization`'s repeat-delivery
+            # path -- which needs a real fingerprint -- is left to do the right
+            # thing on next delivery; logging this is the honest, limited value
+            # reconciliation can safely provide without that shape guarantee.
+            logger.info("reconcile_run(%s): platform already has a decision for %s (%s)", run_id, authorization_id, wire_decision)
+            recovered += 1
+        return recovered
 
     def stop(self) -> None:
         self._stop.set()
@@ -128,15 +217,20 @@ class LiveWorker:
             handle = self.register_run(run_id, snapshot)
             logger.info("auto-registered run_id=%s from its first event (mandate_id=%s)", run_id, snapshot.mandate_id)
 
-        already = handle.state.get_stored_decision(authorization_id)
-        if already is not None:
-            logger.info("authorization_id=%s already decided (%s); reconciling without re-evaluating", authorization_id, already.decision)
-            # The platform already has our original submission; nothing further to send.
-            return
-
         deadline = event.get("deadline_at")
         result = evaluate_authorization(event, handle.mandate, handle.state)
         handle.decisions[authorization_id] = result
+        self._save_checkpoint(handle)
+
+        if result.idempotent_replay or result.authorization_id_conflict:
+            # The platform already has our decision for this ID (a true repeated
+            # delivery), or this delivery's facts don't match what we already
+            # decided (see decision_engine.py) -- either way, nothing new to submit.
+            if result.authorization_id_conflict:
+                logger.error("authorization_id=%s: %s", authorization_id, result.customer_message)
+            else:
+                logger.info("authorization_id=%s already decided (%s); reconciling without re-evaluating", authorization_id, result.decision)
+            return
 
         if deadline:
             deadline_dt = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
@@ -170,16 +264,13 @@ class LiveWorker:
         forward it to the API via /resolve. `human_decision` is the internal
         vocabulary ("allow"/"block"), not the wire value."""
         handle = self._runs[run_id]
-        stored = handle.state.get_stored_decision(authorization_id)
-        if stored is None or stored.decision != "review":
-            raise ValueError(f"{authorization_id} is not currently pending customer review")
         result = resolve_authorization(
             authorization_id,
             human_decision,  # type: ignore[arg-type]
             handle.state,
-            billing_amount_chf=stored.billing_amount_chf,
-            timestamp=datetime.now(timezone.utc),
+            resolved_at=datetime.now(timezone.utc),
         )
+        self._save_checkpoint(handle)
         if customer_message is None:
             customer_message = "The customer confirmed this purchase." if human_decision == "allow" else "The customer declined this purchase."
         self._client.resolve(

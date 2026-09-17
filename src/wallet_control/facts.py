@@ -23,6 +23,7 @@ prompt-injection defense: there is no code path from "text a merchant wrote" to
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -37,25 +38,58 @@ from .money import to_chf, to_decimal
 # turned into a fact.
 _RETURN_WINDOW_RE = re.compile(r"returns?\s+accepted\s+within\s+(\d+)\s+days?", re.IGNORECASE)
 _FINAL_SALE_RE = re.compile(r"final\s+sale|no\s+returns", re.IGNORECASE)
-_SIZE_RE = re.compile(r"\bsize\s+([A-Za-z0-9]+)\b", re.IGNORECASE)
+# Restricted to plausible size tokens (a number, optionally with one decimal place,
+# or a standard letter size) rather than "any word" -- a looser pattern like
+# `\bsize\s+(\w+)\b` would happily extract "size for" out of "the appropriate size
+# for me" as if "for" were a stated size.
+_SIZE_RE = re.compile(r"\bsize\s+([0-9]{1,3}(?:\.[0-9])?|XXXL|XXL|XL|S|M|L)\b", re.IGNORECASE)
+
+# A stated return window beyond this is not a plausible retail return policy --
+# treated as not stated rather than trusted at face value. Closes off a merchant
+# claiming e.g. "returns accepted within 999999 days" to trivially satisfy any
+# customer return-window requirement; the number itself is still just untrusted
+# merchant text, so an implausible value is evidence of noise or manipulation, not
+# a fact worth acting on.
+_MAX_PLAUSIBLE_RETURN_WINDOW_DAYS = 3650  # 10 years
+
+# Zero-width and other invisible formatting characters that could be used to break
+# up a whitelist pattern (e.g. "retu​ns accepted...") without being visible to
+# a human reviewing the text. Stripped before matching; NFKC normalization (applied
+# alongside) additionally folds fullwidth/compatibility characters (e.g. fullwidth
+# digits) to their ordinary ASCII form.
+_INVISIBLE_CHARS_RE = re.compile("[​‌‍⁠﻿\xad]")
+
+
+def _normalize_untrusted_text(text: str) -> str:
+    """Normalize merchant-supplied text before running any whitelist pattern over
+    it, so Unicode obfuscation (zero-width characters, fullwidth digit lookalikes,
+    other compatibility-equivalent characters) cannot be used to dodge or confuse
+    fact extraction. This does not make the text trusted -- it is still only ever
+    read through the narrow patterns below -- it just makes "the pattern didn't
+    match because of an invisible character" a non-issue in either direction."""
+    return _INVISIBLE_CHARS_RE.sub("", unicodedata.normalize("NFKC", text or ""))
 
 
 def extract_return_window_days(item_details: str) -> int | None:
-    """Return the stated return window in days, or None if not stated. Ignores
-    everything in `item_details` except this one whitelisted pattern."""
-    m = _RETURN_WINDOW_RE.search(item_details or "")
-    return int(m.group(1)) if m else None
+    """Return the stated return window in days, or None if not stated or not
+    plausible. Ignores everything in `item_details` except this one whitelisted
+    pattern."""
+    m = _RETURN_WINDOW_RE.search(_normalize_untrusted_text(item_details))
+    if not m:
+        return None
+    days = int(m.group(1))
+    return days if days <= _MAX_PLAUSIBLE_RETURN_WINDOW_DAYS else None
 
 
 def mentions_final_sale(item_details: str) -> bool:
-    return bool(_FINAL_SALE_RE.search(item_details or ""))
+    return bool(_FINAL_SALE_RE.search(_normalize_untrusted_text(item_details)))
 
 
 def extract_stated_size(item_details: str) -> str | None:
     """The one other whitelisted factual pattern this module reads from merchant
     text: a stated size ("size 43"). Same rationale as `extract_return_window_days`
     -- a narrow pattern, nothing else in the string is interpreted."""
-    m = _SIZE_RE.search(item_details or "")
+    m = _SIZE_RE.search(_normalize_untrusted_text(item_details))
     return m.group(1) if m else None
 
 
@@ -97,8 +131,6 @@ class PurchaseFacts:
     recent_attempt_count_10m: int
     items: tuple[ItemLineFacts, ...]
     item_categories: tuple[str, ...]
-    item_names: tuple[str, ...]
-    item_sizes: tuple[str, ...]  # stated sizes actually found in item_details, may be shorter than `items`
     # Derived signals -- never sourced from merchant text.
     merchant_familiar: bool | None  # None = unknown (no history available)
     session_integrity_risk: bool
@@ -132,7 +164,11 @@ def build_purchase_facts(
             ItemLineFacts(
                 line_no=line["line_no"],
                 item_id=line["item_id"],
-                item_name=line["item_name"],
+                # Normalized defensively too: item_name is catalogue-sourced in the
+                # supplied fixtures, but nothing in the schema guarantees a future
+                # agent/merchant can't put confusable Unicode characters into it,
+                # and item.name_contains matching should not be foolable by that.
+                item_name=_normalize_untrusted_text(line["item_name"]),
                 item_category=line["item_category"],
                 quantity=line["quantity"],
                 unit_price_chf=unit_price_chf,
@@ -143,10 +179,20 @@ def build_purchase_facts(
         )
 
     order_returnable = auth["order_returnable"]
-    stated_windows = [i.return_window_days for i in item_lines if i.return_window_days is not None]
-    return_window_days = min(stated_windows) if stated_windows and order_returnable == "true" else None
     if order_returnable == "false" or any(i.final_sale for i in item_lines):
         return_window_days = 0
+    elif order_returnable == "true":
+        # The order's true return window is only known if EVERY line states one.
+        # Taking min() over just the lines that happen to mention a window (and
+        # silently ignoring lines that say nothing) would let one item's stated
+        # 30-day window stand in for a second item whose return terms are actually
+        # unstated -- an aggregation that hides missing information rather than
+        # surfacing it. A silent item's terms are unknown, not "whatever the other
+        # line said".
+        windows = [i.return_window_days for i in item_lines]
+        return_window_days = min(windows) if all(w is not None for w in windows) else None
+    else:
+        return_window_days = None
 
     return PurchaseFacts(
         authorization_id=auth["authorization_id"],
@@ -168,8 +214,6 @@ def build_purchase_facts(
         recent_attempt_count_10m=auth["recent_attempt_count_10m"],
         items=tuple(item_lines),
         item_categories=tuple(sorted({i.item_category for i in item_lines})),
-        item_names=tuple(i.item_name for i in item_lines),
-        item_sizes=tuple(i.stated_size for i in item_lines if i.stated_size is not None),
         merchant_familiar=merchant_familiar,
         session_integrity_risk=session_integrity_risk,
         session_integrity_reasons=session_integrity_reasons,

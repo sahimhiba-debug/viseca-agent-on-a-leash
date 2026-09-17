@@ -94,14 +94,25 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-109 tests covering mandate lifecycle and tighten-only PATCH semantics, the policy
-compiler (including paraphrased instructions, not just the five official
-sentences), the rules engine, the decision engine's ALLOW/REVIEW/BLOCK priority,
-prompt-injection resistance (using the actual injected strings found in the
-official data pack), duplicate/retry/idempotency, the payment boundary, human
-resolution scoping, the offline replay, the Viseca decision mapping, event-schema
-validity against the official JSON Schema, the live worker (against a fake
-client -- no API key needed), and the demo API end-to-end.
+161 tests covering mandate lifecycle and tighten-only PATCH semantics (including
+malformed-identifier rejection), the policy compiler (paraphrased instructions,
+contradictory/ambiguous amounts, and false-positive-prone phrasing, not just the
+five official sentences), the rules engine (including per-item scoping so an
+unrelated add-on cannot false-fail the correct primary item), the decision
+engine's ALLOW/REVIEW/BLOCK priority (including the "zero hard rules must never
+mean unlimited authority" safety net), prompt-injection and Unicode-obfuscation
+resistance (using the actual injected strings found in the official data pack),
+duplicate/retry/idempotency (including a same-ID delivery with mutated facts),
+the payment boundary (including charge_id-reuse and merchant-binding misuse), human
+resolution scoping (including that a resolution's amount and spend-window
+timestamp are sourced from the original review, never the caller or the real
+clock), the offline replay, the Viseca decision mapping, event-schema validity
+against the official JSON Schema, the live worker (against a fake client -- no API
+key needed -- including network-failure handling and crash-recovery via
+checkpoint), and the demo API end-to-end. See
+[docs/SECOND_ADVERSARIAL_AUDIT.md](docs/SECOND_ADVERSARIAL_AUDIT.md) for the full
+list of what a second, hostile audit pass found and fixed after the first
+implementation was "done."
 
 ## Offline replay results (this engine's actual output, not an answer key)
 
@@ -128,7 +139,8 @@ behind every one of the 45 decisions.
 - [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/VISECA_INTEGRATION.md](docs/VISECA_INTEGRATION.md) -- official contract vs. local extensions
 - [docs/OFFLINE_REPLAY.md](docs/OFFLINE_REPLAY.md) -- how the 45-event replay works and why each decision came out the way it did
-- [docs/FINAL_SENIOR_ENGINEERING_REVIEW.md](docs/FINAL_SENIOR_ENGINEERING_REVIEW.md) -- the full engineering review
+- [docs/FINAL_SENIOR_ENGINEERING_REVIEW.md](docs/FINAL_SENIOR_ENGINEERING_REVIEW.md) -- the first engineering review, written right after the initial build
+- [docs/SECOND_ADVERSARIAL_AUDIT.md](docs/SECOND_ADVERSARIAL_AUDIT.md) -- a second, hostile audit pass that re-opened the first review's own decisions and fixed 18 further issues, including the most serious one found across both passes
 
 ## What this is not
 

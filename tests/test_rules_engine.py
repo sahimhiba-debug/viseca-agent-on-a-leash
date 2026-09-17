@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from decimal import Decimal
 
 from tests.helpers import make_event, make_mandate
@@ -118,6 +117,54 @@ def test_item_size_unknown_when_not_stated():
     event = make_event(mandate=mandate)  # default item has empty item_details
     facts = build_purchase_facts(event, merchant_familiar=None, session_integrity_risk=False, session_integrity_reasons=(), duplicate_of=None, duplicate_reason=None)
     assert evaluate_rule(rule, facts, EMPTY_CTX).outcome == "unknown"
+
+
+def test_item_name_contains_is_scoped_to_the_requested_category_not_the_whole_basket():
+    """Regression: an unrelated add-on (a different, already-independently-flagged
+    category) must not make item.name_contains FAIL against the correct primary
+    item just because it shares a basket with something else."""
+    mandate = make_mandate()
+    rule = HardRule(field="item.name_contains", operator="=", value="27-inch")
+    ctx = RuleContext(requested_item_categories=frozenset({"electronics"}), projected_period_spend_chf={})
+    event = make_event(
+        mandate=mandate,
+        amount=379.0,
+        items=[
+            {"line_no": 1, "item_id": "IT1", "item_name": "27-inch computer monitor", "item_category": "electronics", "quantity": 1, "unit_price": 300.0, "currency": "CHF", "item_details": ""},
+            {"line_no": 2, "item_id": "IT2", "item_name": "Extended protection plan", "item_category": "subscriptions", "quantity": 1, "unit_price": 79.0, "currency": "CHF", "item_details": ""},
+        ],
+    )
+    facts = build_purchase_facts(event, merchant_familiar=None, session_integrity_risk=False, session_integrity_reasons=(), duplicate_of=None, duplicate_reason=None)
+    assert evaluate_rule(rule, facts, ctx).outcome == "pass"  # the addon's name is irrelevant; the monitor matches
+
+
+def test_item_name_contains_still_fails_when_the_requested_category_item_itself_is_wrong():
+    mandate = make_mandate()
+    rule = HardRule(field="item.name_contains", operator="=", value="road-running")
+    ctx = RuleContext(requested_item_categories=frozenset({"sporting_goods"}), projected_period_spend_chf={})
+    event = make_event(
+        mandate=mandate,
+        items=[{"line_no": 1, "item_id": "IT1", "item_name": "Trail-running shoes", "item_category": "sporting_goods", "quantity": 1, "unit_price": 150.0, "currency": "CHF", "item_details": ""}],
+    )
+    facts = build_purchase_facts(event, merchant_familiar=None, session_integrity_risk=False, session_integrity_reasons=(), duplicate_of=None, duplicate_reason=None)
+    assert evaluate_rule(rule, facts, ctx).outcome == "fail"
+
+
+def test_item_size_is_scoped_to_the_requested_category_not_an_unrelated_addons_size():
+    """An unrelated add-on that happens to state a size of its own (e.g. a hat)
+    must not cause item.size to fail against the correctly-sized primary item."""
+    mandate = make_mandate()
+    rule = HardRule(field="item.size", operator="=", value="43")
+    ctx = RuleContext(requested_item_categories=frozenset({"sporting_goods"}), projected_period_spend_chf={})
+    event = make_event(
+        mandate=mandate,
+        items=[
+            {"line_no": 1, "item_id": "IT1", "item_name": "Road-running shoes", "item_category": "sporting_goods", "quantity": 1, "unit_price": 150.0, "currency": "CHF", "item_details": "size 43"},
+            {"line_no": 2, "item_id": "IT2", "item_name": "Running cap", "item_category": "clothing", "quantity": 1, "unit_price": 20.0, "currency": "CHF", "item_details": "size L"},
+        ],
+    )
+    facts = build_purchase_facts(event, merchant_familiar=None, session_integrity_risk=False, session_integrity_reasons=(), duplicate_of=None, duplicate_reason=None)
+    assert evaluate_rule(rule, facts, ctx).outcome == "pass"
 
 
 def test_period_scope_uses_projected_spend_from_context():

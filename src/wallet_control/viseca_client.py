@@ -12,6 +12,14 @@ brief specifically warns about them:
     polling and separately check run progress.
   * The bearer key is read from `api_key` and is never written to a log line,
     exception message, or `__repr__` anywhere in this module.
+
+A third thing that matters just as much in practice: a genuine network failure (a
+timeout, a dropped connection, a DNS blip -- "what happens if the API disappears
+for 30 seconds?") raises an `httpx` transport exception, not an HTTP status code.
+`_request` normalizes both kinds of failure into the same `VisecaApiError`, so
+`live_worker.py`'s single `except VisecaApiError` handler actually covers every
+way a call here can fail, rather than crashing the poll loop on anything that
+isn't a 4xx/5xx.
 """
 
 from __future__ import annotations
@@ -22,14 +30,30 @@ import httpx
 
 
 class VisecaApiError(Exception):
-    """A non-2xx response from the API. Carries the status code and parsed error
-    body (never the request headers, so the bearer key cannot leak into a log
-    via `str(exc)`)."""
+    """Any failure calling the API -- a non-2xx HTTP response OR a network-level
+    failure (timeout, connection error, DNS failure, ...). Carries the status code
+    (0 for a network-level failure, where there was no response to have a status)
+    and the parsed error body or exception message (never the request headers, so
+    the bearer key cannot leak into a log via `str(exc)`)."""
 
     def __init__(self, status_code: int, body: Any) -> None:
         super().__init__(f"Viseca API error {status_code}: {body}")
         self.status_code = status_code
         self.body = body
+
+
+def _json_or_empty(response: httpx.Response) -> dict[str, Any]:
+    """Parse a response body as JSON, or return `{}` for an empty/204 body.
+
+    technical_details.md does not pin down the exact status code every endpoint
+    uses for a body-less success (a `DELETE` returning 204 No Content is
+    idiomatic REST and plausible here); blindly calling `.json()` on an empty
+    body raises a decode error at exactly the wrong moment -- e.g. a customer's
+    mandate revocation would crash instead of succeeding.
+    """
+    if response.status_code == 204 or not response.content:
+        return {}
+    return response.json()
 
 
 class VisecaClient:
@@ -54,24 +78,27 @@ class VisecaClient:
         self.close()
 
     def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
-        response = self._client.request(method, path, **kwargs)
+        try:
+            response = self._client.request(method, path, **kwargs)
+        except httpx.HTTPError as exc:
+            # No response was ever received (timeout, connection refused, DNS
+            # failure, ...) -- normalize to the same exception type an HTTP error
+            # status raises below, so callers have exactly one thing to catch.
+            raise VisecaApiError(0, f"network error calling {method} {path}: {exc}") from exc
         if response.status_code >= 400:
-            try:
-                body = response.json()
-            except Exception:
-                body = response.text
+            body = _json_or_empty(response) or response.text
             raise VisecaApiError(response.status_code, body)
         return response
 
     # --- read-only / setup ------------------------------------------------------------
     def healthz(self) -> dict[str, Any]:
-        return httpx.get(f"{self._client.base_url}/healthz", timeout=self._client.timeout).json()
+        return _json_or_empty(self._request("GET", "/healthz"))
 
     def bootstrap(self) -> dict[str, Any]:
-        return self._request("GET", "/v1/bootstrap").json()
+        return _json_or_empty(self._request("GET", "/v1/bootstrap"))
 
     def reference_data(self) -> dict[str, Any]:
-        return self._request("GET", "/v1/reference-data").json()
+        return _json_or_empty(self._request("GET", "/v1/reference-data"))
 
     def authorization_history_csv(self) -> bytes:
         return self._request("GET", "/v1/reference-data/authorization-history.csv").content
@@ -92,13 +119,13 @@ class VisecaClient:
             "guidance": guidance or [],
             "open_questions": open_questions or [],
         }
-        return self._request("POST", "/v1/mandates", json=payload).json()
+        return _json_or_empty(self._request("POST", "/v1/mandates", json=payload))
 
     def confirm_mandate(self, draft_id: str) -> dict[str, Any]:
-        return self._request("POST", f"/v1/mandates/{draft_id}/confirm", json={"confirmed": True}).json()
+        return _json_or_empty(self._request("POST", f"/v1/mandates/{draft_id}/confirm", json={"confirmed": True}))
 
     def get_mandate(self, mandate_id: str) -> dict[str, Any]:
-        return self._request("GET", f"/v1/mandates/{mandate_id}").json()
+        return _json_or_empty(self._request("GET", f"/v1/mandates/{mandate_id}"))
 
     def patch_mandate(
         self,
@@ -118,27 +145,34 @@ class VisecaClient:
             payload["guidance"] = guidance
         if open_questions is not None:
             payload["open_questions"] = open_questions
-        return self._request("PATCH", f"/v1/mandates/{mandate_id}", json=payload).json()
+        return _json_or_empty(self._request("PATCH", f"/v1/mandates/{mandate_id}", json=payload))
 
     def revoke_mandate(self, mandate_id: str) -> dict[str, Any]:
-        return self._request("DELETE", f"/v1/mandates/{mandate_id}").json()
+        return _json_or_empty(self._request("DELETE", f"/v1/mandates/{mandate_id}"))
 
     # --- scenario runs -----------------------------------------------------------------
     def start_scenario_run(self, scenario_id: str, mandate_id: str) -> dict[str, Any]:
-        return self._request("POST", "/v1/scenario-runs", json={"scenario_id": scenario_id, "mandate_id": mandate_id}).json()
+        return _json_or_empty(self._request("POST", "/v1/scenario-runs", json={"scenario_id": scenario_id, "mandate_id": mandate_id}))
 
     def get_run(self, run_id: str) -> dict[str, Any]:
-        return self._request("GET", f"/v1/scenario-runs/{run_id}").json()
+        return _json_or_empty(self._request("GET", f"/v1/scenario-runs/{run_id}"))
 
     # --- decision loop -------------------------------------------------------------------
     def next_decision_request(self, wait: int = 25) -> dict[str, Any] | None:
         """Long-poll for the next decision request. Returns the envelope dict on
         HTTP 200, or None on HTTP 204 (no work available right now -- NOT "run
-        finished"; the caller must check run progress separately)."""
-        response = self._request("GET", "/v1/decision-requests/next", params={"wait": wait})
+        finished"; the caller must check run progress separately).
+
+        Uses a per-request timeout of `wait + 10` seconds rather than the client's
+        general-purpose default: the server is documented to hold this specific
+        request open for up to `wait` seconds, so a caller-supplied `wait` at or
+        above the client's default timeout would otherwise time out this call
+        before the server ever had a chance to respond.
+        """
+        response = self._request("GET", "/v1/decision-requests/next", params={"wait": wait}, timeout=wait + 10)
         if response.status_code == 204:
             return None
-        return response.json()
+        return _json_or_empty(response)
 
     def submit_decision(
         self,
@@ -159,7 +193,7 @@ class VisecaClient:
             payload["evidence"] = evidence
         if engine_version is not None:
             payload["engine_version"] = engine_version
-        return self._request("POST", f"/v1/authorizations/{authorization_id}/decision", json=payload).json()
+        return _json_or_empty(self._request("POST", f"/v1/authorizations/{authorization_id}/decision", json=payload))
 
     def resolve(
         self,
@@ -174,13 +208,13 @@ class VisecaClient:
             payload["customer_message"] = customer_message
         if evidence is not None:
             payload["evidence"] = evidence
-        return self._request("POST", f"/v1/authorizations/{authorization_id}/resolve", json=payload).json()
+        return _json_or_empty(self._request("POST", f"/v1/authorizations/{authorization_id}/resolve", json=payload))
 
     def list_authorizations(self) -> dict[str, Any]:
-        return self._request("GET", "/v1/authorizations").json()
+        return _json_or_empty(self._request("GET", "/v1/authorizations"))
 
     def events(self, since: int = 0) -> dict[str, Any]:
-        return self._request("GET", "/v1/events", params={"since": since}).json()
+        return _json_or_empty(self._request("GET", "/v1/events", params={"since": since}))
 
     def team_reset(self) -> dict[str, Any]:
-        return self._request("POST", "/v1/team/reset").json()
+        return _json_or_empty(self._request("POST", "/v1/team/reset"))

@@ -7,7 +7,7 @@ evidence that feeds the normal uncertainty pathway, not an automatic block).
 from datetime import datetime, timedelta
 
 from tests.helpers import make_event, make_mandate
-from wallet_control.decision_engine import evaluate_authorization
+from wallet_control.decision_engine import evaluate_authorization, resolve_authorization
 from wallet_control.mandate import HardRule, UncertaintyPolicy
 from wallet_control.state import HistoryIndex, RunState
 
@@ -98,3 +98,32 @@ def test_a_declined_prior_attempt_is_not_treated_as_a_duplicate_conflict():
     )
     r2 = evaluate_authorization(requote_event, mandate, state)
     assert r2.decision == "allow"
+
+
+def test_a_step_up_later_declined_by_the_customer_stops_counting_as_a_live_duplicate():
+    """Regression: `_RecentAttempt` must not freeze the decision it saw at the time
+    of the FIRST evaluation. If a purchase is put to review and the customer later
+    declines it, a subsequent similar purchase must see it as declined (i.e. not
+    "an unwanted duplicate order" to worry about) -- not as still-pending or
+    still-approved, which a stale snapshot would incorrectly report forever."""
+    mandate = make_mandate(
+        uncertainty_policy=UncertaintyPolicy.ASK,
+        hard_rules=[
+            HardRule(field="authorization.billing_amount_chf", operator="<=", value=1000, currency="CHF", scope="purchase"),
+            HardRule(field="merchant.familiar", operator="=", value="true"),
+        ],
+    )
+    state = RunState(history=HistoryIndex.empty(), card_id="CA_TEST")  # familiarity unknown -> review
+    first_event = make_event(mandate=mandate, authorization_id="AU_FIRST", amount=289.0, items=MONITOR_ITEM)
+    r1 = evaluate_authorization(first_event, mandate, state)
+    assert r1.decision == "review"
+
+    resolve_authorization("AU_FIRST", "block", state, resolved_at=_ts_of(first_event) + timedelta(minutes=1))
+
+    second_event = make_event(
+        mandate=mandate, authorization_id="AU_SECOND", amount=289.0, items=MONITOR_ITEM, timestamp=_ts_of(first_event) + timedelta(minutes=5)
+    )
+    r2 = evaluate_authorization(second_event, mandate, state)
+    # Still review (familiarity is still unknown), but crucially NOT because of a
+    # stale "similar to a still-open/approved purchase" duplicate signal.
+    assert not any("duplicate" in code for code in r2.reason_codes)

@@ -26,6 +26,56 @@ def test_paraphrased_amount_or_less_phrasing():
     assert amount_rules[0].value == 150.0
 
 
+def test_paraphrased_amount_under_and_maximum_phrasings():
+    assert compile_instruction("Spend under CHF 80 per order.").hard_rules[0].value == 80.0
+    compiled = compile_instruction("CHF 60 maximum per order, please.")
+    amount_rules = [r for r in compiled.hard_rules if r.field == "authorization.billing_amount_chf" and r.scope == "purchase"]
+    assert amount_rules and amount_rules[0].value == 60.0
+
+
+def test_contradictory_amounts_take_the_more_restrictive_and_flag_the_ambiguity():
+    """'up to CHF 100, actually CHF 50 max' must not silently keep only the FIRST
+    figure found -- the customer's own instruction is internally contradictory, and
+    the safe default is the smaller (more restrictive) ceiling, surfaced as an
+    open_question rather than silently resolved one way."""
+    compiled = compile_instruction("Buy up to CHF 100 of groceries. Actually, no more than CHF 50.")
+    amount_rules = [r for r in compiled.hard_rules if r.field == "authorization.billing_amount_chf" and r.scope == "purchase"]
+    assert len(amount_rules) == 1
+    assert amount_rules[0].value == 50.0
+    assert any("more than one per-order amount" in q for q in compiled.open_questions)
+
+
+def test_a_single_repeated_identical_amount_is_not_flagged_as_contradictory():
+    compiled = compile_instruction("Spend up to CHF 100. CHF 100 is the absolute limit.")
+    assert not any("more than one per-order amount" in q for q in compiled.open_questions)
+
+
+def test_zero_rules_compiles_but_is_flagged_prominently():
+    compiled = compile_instruction("Do whatever seems reasonable.")
+    assert compiled.hard_rules == []
+    assert any("did not produce any spending rules" in q for q in compiled.open_questions)
+
+
+def test_benign_hyphenated_adjective_far_from_the_noun_does_not_lock_an_unsatisfiable_variant():
+    """Regression: an unrelated descriptive hyphenated word several words before the
+    noun ('a well-made pair of running shoes') must not be mistaken for a specific
+    product-variant requirement -- that would make the mandate unsatisfiable by any
+    real product."""
+    compiled = compile_instruction("Buy me a well-made pair of running shoes for CHF 150 or less.")
+    assert "item.name_contains" not in _rule_fields(compiled)
+
+
+def test_size_extraction_does_not_misread_ordinary_language_as_a_size():
+    compiled = compile_instruction("Pick whatever size works best for the recipient, up to CHF 100.")
+    assert "item.size" not in _rule_fields(compiled)
+
+
+def test_return_mention_without_a_day_count_is_flagged_not_silently_dropped():
+    compiled = compile_instruction("The item must be returnable, and cost CHF 50 or less.")
+    assert "order.return_window_days" not in _rule_fields(compiled)
+    assert any("mentions returns" in q for q in compiled.open_questions)
+
+
 def test_paraphrased_rolling_window():
     compiled = compile_instruction("Do not let purchases across any 30 days exceed CHF 500 in total.")
     period_rules = [r for r in compiled.hard_rules if r.scope == "period"]
