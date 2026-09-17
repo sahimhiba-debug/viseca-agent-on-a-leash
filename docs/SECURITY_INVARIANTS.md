@@ -192,3 +192,43 @@ is honestly still open. Tested by:
 (constructs a fresh worker + fresh fake client against the same checkpoint
 directory and confirms a rolling-window limit that a naive restart would bypass is
 correctly enforced).
+
+**I26 (added in the fourth pass, R&D Track A). A payment authority is single-use,
+time-boxed, and independently re-checked at execution -- it does not extend the
+window in which an ALLOW can be spent.**
+`state.RunState.issue_authority()` mints a `PaymentAuthority` only when the
+underlying decision is `"allow"` (raises `AuthorityError` otherwise), bound to a
+merchant, an amount ceiling, a basket fingerprint, and a real-clock expiry
+(`DEFAULT_AUTHORITY_TTL`, 15 minutes). `payment.MockPSP.charge_via_authority()`
+independently re-checks expiry and explicit revocation before delegating to the
+existing `charge()` (which itself re-checks merchant binding, amount ceiling, and
+one-execution-per-authorization -- see I6/I9). An authority never has its expiry
+extended by re-issuance: re-issuing for the same `authorization_id` returns the
+original object unchanged (idempotent), never a fresh, later-expiring one. Tested
+by: `test_capability_and_drift.py::test_re_evaluating_an_allowed_authorization_does_not_mint_a_second_authority`,
+`::test_charge_via_authority_rejects_an_expired_authority`,
+`::test_charge_via_authority_rejects_a_revoked_authority`,
+`::test_charge_via_authority_rejects_amount_over_the_authoritys_own_ceiling`.
+
+**I27 (added in the fourth pass, R&D Track A). Revocation of a payment authority
+is monotonic and idempotent -- it can never be undone by a subsequent call.**
+`RunState.revoke_authority()` uses `dataclasses.replace(existing, revoked=True)`
+on a frozen `PaymentAuthority`; there is no code path that clears `revoked` back
+to `False` once set, and calling revoke again on an already-revoked authority is
+a safe no-op, not an error or a silent reset. Tested by:
+`test_capability_and_drift.py::test_revoking_a_never_issued_authority_is_a_safe_no_op`,
+`::test_revoking_an_already_revoked_authority_stays_revoked`.
+
+**I28 (added in the fourth pass, R&D Tracks D/E). Explanatory evidence (drift
+classification, policy/security verdict split) can never itself widen or narrow
+the final decision.** `compute_drift()` and `_scoped_verdict()` are pure functions
+computed AFTER `_decide()` has already produced the final `decision` from the
+mandate's own rule evaluations; neither is consulted by `_decide()`, and neither
+can cause a decision to change on a later, identical purchase. The
+policy/security split additionally satisfies a proven monotonicity property: the
+final decision is never more permissive than either scoped sub-verdict. Tested
+by: `test_capability_and_drift.py::test_property_final_decision_is_never_more_permissive_than_either_scoped_verdict`
+(a 200-example Hypothesis property test over all policy/security/uncertainty-policy
+combinations), and by every existing decision-outcome test continuing to pass
+unchanged after `drift`/`policy_verdict`/`security_verdict` were added as
+purely additive fields on `EngineDecision`.

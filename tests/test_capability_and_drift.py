@@ -131,6 +131,18 @@ def test_revoking_a_never_issued_authority_is_a_safe_no_op():
     assert state.revoke_authority("AU_NEVER_SEEN") is None
 
 
+def test_revoking_an_already_revoked_authority_stays_revoked():
+    """I27: revocation is monotonic -- a second revoke can never un-revoke."""
+    mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=100, currency="CHF", scope="purchase")])
+    state = _state()
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0, merchant_id=MERCHANT_ID)
+    evaluate_authorization(event, mandate, state)
+    first = state.revoke_authority("AU1")
+    second = state.revoke_authority("AU1")
+    assert first.revoked and second.revoked
+    assert state.get_authority("AU1").revoked
+
+
 def test_a_step_up_resolved_to_allow_also_issues_an_authority_when_mandate_is_supplied():
     mandate = make_mandate(hard_rules=[HardRule(field="merchant.familiar", operator="=", value="true")])
     state = RunState(history=HistoryIndex.empty(), card_id="CA_TEST")

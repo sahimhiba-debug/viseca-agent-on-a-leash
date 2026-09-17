@@ -72,15 +72,39 @@ numbers and the answer to Section 20's central question.
 
 ## Post-implementation results
 
-*(Filled in after building; see the final commit on this branch for the exact
-numbers, cross-referenced in `VERIFIABLE_AGENTIC_WALLET.md`.)*
-
-- Tests: 187 -> **[see final count]**, all passing.
-- Official 45-event replay: **19 allow / 2 review / 24 block, unchanged**.
-- Red-team matrix: **17/17 attacks PASS** (see `scripts/run_red_team.py` output).
+- Tests: 187 (third-pass baseline) -> **236**, all passing (22 for
+  `PaymentAuthority`/`AuthorizationDrift`/policy-security split in
+  `test_capability_and_drift.py` -- including a 200-example Hypothesis property
+  test and a dedicated double-revoke-idempotency test backing I27; 18 for the
+  Track H red-team matrix in `test_red_team_matrix.py`; 8 for the new demo
+  scenario in `test_demo_scenario.py`; 1 new API test).
+- Official 45-event replay: **19 allow / 2 review / 24 block, unchanged** --
+  identical to every prior pass (`python scripts/run_replay.py`).
+- Red-team matrix: **17/17 attacks PASS** (`python scripts/run_red_team.py`) --
+  prompt injection (plain and Unicode-obfuscated), basket tampering, merchant
+  impersonation/redirection, authorization replay and mutation, resolution
+  abuse, rolling-limit double-counting, post-authority price changes, and
+  PATCH-based mandate-widening attempts are all defeated with zero wallet code
+  changes required to pass.
+- New synthetic demo scenario (`scripts/run_demo_scenario.py`,
+  `GET /api/rnd-demo`, and a live UI card): the redirected re-quote is
+  genuinely routed to REVIEW by an honestly-unknown fact (not a forced or
+  hardcoded outcome), and the merchant redirect itself -- invisible to every
+  hard rule in the compiled mandate -- is caught only by the Track D drift
+  check. Verified live in the browser preview alongside the pre-existing
+  official-scenario flow, with no regressions to it.
 - No existing invariant in `SECURITY_INVARIANTS.md` was weakened; three new
-  ones were added for the capability authority (expiry, explicit revocation) and
-  documented as I26-I28.
+  ones were added and are each backed by a passing test: **I26** (a payment
+  authority is single-use, time-boxed, and independently re-checked at
+  execution -- re-issuance is idempotent and never extends the expiry), **I27**
+  (revocation is monotonic -- a second revoke can never un-revoke), **I28**
+  (drift classification and the policy/security verdict split are computed
+  strictly after `_decide()` and can never themselves widen or narrow a
+  decision, with a proven monotonicity property machine-checked over 200
+  Hypothesis examples).
+- All of Section 19's ABSOLUTE SUCCESS CRITERIA were re-verified against this
+  final state; see `VERIFIABLE_AGENTIC_WALLET.md`'s closing checklist for the
+  itemized pass/fail against each one.
 
 ## Answering Section 20 directly
 
