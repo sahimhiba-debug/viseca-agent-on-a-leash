@@ -123,6 +123,14 @@ def start_scenario_run(scenario_id: str) -> dict[str, Any]:
 
 def _decision_summary(event: dict[str, Any], result) -> dict[str, Any]:
     auth = event["authorization"]
+    # Split the evidence tree into "your policy" (what the customer's own mandate
+    # checked) and "wallet safety checks" (control-layer integrity concerns the
+    # customer never had to opt into) -- purely a display grouping, computed from
+    # the `source` tag on each RuleEvaluation; it can never change the decision
+    # itself, only how it is explained. See docs/MASTER_R_AND_D_AUDIT.md,
+    # "alternative policy representations."
+    policy_evidence = [f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in result.rule_evaluations if e.source == "customer"]
+    safety_evidence = [f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in result.rule_evaluations if e.source == "safety"]
     return {
         "authorization_id": result.authorization_id,
         "merchant_name": auth["merchant"]["merchant_name"],
@@ -133,6 +141,8 @@ def _decision_summary(event: dict[str, Any], result) -> dict[str, Any]:
         "reason_codes": list(result.reason_codes),
         "customer_message": result.customer_message,
         "evidence": list(result.evidence),
+        "policy_evidence": policy_evidence,
+        "safety_evidence": safety_evidence,
         "idempotent_replay": result.idempotent_replay,
     }
 

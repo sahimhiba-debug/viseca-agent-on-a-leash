@@ -205,7 +205,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
     # upstream.
     if billing_amount_chf <= 0:
         evaluations.append(
-            RuleEvaluation(rule=_AMOUNT_INTEGRITY_RULE, outcome="fail", detail=f"billing_amount_chf={billing_amount_chf} is not positive")
+            RuleEvaluation(rule=_AMOUNT_INTEGRITY_RULE, outcome="fail", detail=f"billing_amount_chf={billing_amount_chf} is not positive", source="safety")
         )
     expected_chf = to_chf(to_decimal(auth["amount"]), auth["currency"])
     if abs(expected_chf - billing_amount_chf) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
@@ -214,10 +214,11 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
                 rule=_AMOUNT_INTEGRITY_RULE,
                 outcome="fail",
                 detail=f"billing_amount_chf={billing_amount_chf} does not match amount*fx_rate={expected_chf}",
+                source="safety",
             )
         )
     if duplicate_of is not None:
-        evaluations.append(RuleEvaluation(rule=_DUPLICATE_RULE, outcome="unknown", detail=duplicate_reason or ""))
+        evaluations.append(RuleEvaluation(rule=_DUPLICATE_RULE, outcome="unknown", detail=duplicate_reason or "", source="safety"))
     if not mandate.hard_rules:
         # A confirmed mandate with zero executable rules has nothing to check a
         # purchase against. Treating that as "everything passes" would make an
@@ -228,7 +229,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # nothing is spent; APPROVE: only if the customer explicitly, visibly chose
         # that -- see the compiler's own open_question for this exact condition).
         evaluations.append(
-            RuleEvaluation(rule=_NO_RULES_RULE, outcome="unknown", detail="this mandate has no spending controls to check against")
+            RuleEvaluation(rule=_NO_RULES_RULE, outcome="unknown", detail="this mandate has no spending controls to check against", source="safety")
         )
 
     decision, reason_codes = _decide(evaluations, mandate.uncertainty_policy)

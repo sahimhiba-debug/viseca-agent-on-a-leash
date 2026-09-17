@@ -43,6 +43,14 @@ class RuleEvaluation:
     rule: HardRule
     outcome: Outcome
     detail: str
+    # "customer" for a rule that traces back to the customer's own mandate;
+    # "safety" for a control-layer integrity check the customer never opted into
+    # and cannot opt out of (duplicate suspicion, the no-rules safety net, the
+    # amount-integrity check -- see decision_engine.py). Purely a display/
+    # explainability tag: `_decide()` treats every outcome identically regardless
+    # of source, so this can never change what decision is reached, only how it is
+    # explained (docs/MASTER_R_AND_D_AUDIT.md, "alternative policy representations").
+    source: Literal["customer", "safety"] = "customer"
 
 
 def _compare(operator: str, actual: Any, expected: Any) -> bool:

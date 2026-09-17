@@ -130,7 +130,9 @@ function renderDecisions(decisions) {
       <b>${d.merchant_name}</b> -- CHF ${d.amount_chf}
       <div class="meta">${d.purchase_description}</div>
       <div class="meta">${d.customer_message}</div>
-      <div class="evidence">${d.evidence.join("\n")}</div>
+      ${d.policy_evidence && d.policy_evidence.length ? `<div class="evidence"><b>Your policy checked:</b>\n${d.policy_evidence.join("\n")}</div>` : ""}
+      ${d.safety_evidence && d.safety_evidence.length ? `<div class="evidence"><b>Wallet safety checks:</b>\n${d.safety_evidence.join("\n")}</div>` : ""}
+      ${(!d.policy_evidence || !d.policy_evidence.length) && (!d.safety_evidence || !d.safety_evidence.length) ? `<div class="evidence">${d.evidence.join("\n")}</div>` : ""}
       ${d.decision === "review" ? `
         <div class="row-actions">
           <button class="btn-allow" onclick="resolveAuth('${d.authorization_id}','allow')">Customer approves</button>
