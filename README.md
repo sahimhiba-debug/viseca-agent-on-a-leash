@@ -94,25 +94,31 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-161 tests covering mandate lifecycle and tighten-only PATCH semantics (including
-malformed-identifier rejection), the policy compiler (paraphrased instructions,
-contradictory/ambiguous amounts, and false-positive-prone phrasing, not just the
-five official sentences), the rules engine (including per-item scoping so an
-unrelated add-on cannot false-fail the correct primary item), the decision
-engine's ALLOW/REVIEW/BLOCK priority (including the "zero hard rules must never
-mean unlimited authority" safety net), prompt-injection and Unicode-obfuscation
-resistance (using the actual injected strings found in the official data pack),
-duplicate/retry/idempotency (including a same-ID delivery with mutated facts),
-the payment boundary (including charge_id-reuse and merchant-binding misuse), human
-resolution scoping (including that a resolution's amount and spend-window
-timestamp are sourced from the original review, never the caller or the real
-clock), the offline replay, the Viseca decision mapping, event-schema validity
-against the official JSON Schema, the live worker (against a fake client -- no API
-key needed -- including network-failure handling and crash-recovery via
-checkpoint), and the demo API end-to-end. See
-[docs/SECOND_ADVERSARIAL_AUDIT.md](docs/SECOND_ADVERSARIAL_AUDIT.md) for the full
-list of what a second, hostile audit pass found and fixed after the first
-implementation was "done."
+187 tests, including 8 Hypothesis property-based tests (each checked against
+100-200 generated inputs, so the effective coverage is closer to a few thousand
+generated cases for those properties alone) and a 10-instruction adversarial fuzz
+corpus for the policy compiler. Covers mandate lifecycle and tighten-only PATCH
+semantics (including malformed-identifier rejection), the policy compiler
+(paraphrased instructions, contradictory/ambiguous amounts, false-positive-prone
+phrasing, and a curated fuzz corpus -- not just the five official sentences), the
+rules engine (including per-item scoping so an unrelated add-on cannot false-fail
+the correct primary item), the decision engine's ALLOW/REVIEW/BLOCK priority
+(including the "zero hard rules must never mean unlimited authority" safety net,
+and confirmed by mutation testing to actually be enforced, not merely asserted),
+prompt-injection and Unicode-obfuscation resistance, duplicate/retry/idempotency
+(including a same-ID delivery with mutated facts), the payment boundary (including
+charge_id-reuse, merchant-binding misuse, and zero/negative-amount rejection),
+human resolution scoping, the offline replay, the Viseca decision mapping,
+event-schema validity against the official JSON Schema, the live worker (against
+a fake client -- no API key needed -- including network-failure handling,
+crash-recovery via checkpoint, and stopping rather than retrying forever on a
+fatal 401/403), and the demo API end-to-end. See
+[docs/MASTER_R_AND_D_AUDIT.md](docs/MASTER_R_AND_D_AUDIT.md) for the full third
+audit pass (property-based testing, mutation testing, fuzzing, and a genuine
+comparison of alternative architectures) and
+[docs/SECOND_ADVERSARIAL_AUDIT.md](docs/SECOND_ADVERSARIAL_AUDIT.md) for the
+second pass's 18 findings, including the most serious one found across all three
+passes.
 
 ## Offline replay results (this engine's actual output, not an answer key)
 
@@ -136,11 +142,16 @@ behind every one of the 45 decisions.
 ## Further reading
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) -- the authorization boundary, state/concurrency model, money handling
+- [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
 - [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
+- [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
+- [docs/SECURITY_INVARIANTS.md](docs/SECURITY_INVARIANTS.md) -- the formal I1-I25 invariant list, each with what enforces it and what test would catch a violation
 - [docs/VISECA_INTEGRATION.md](docs/VISECA_INTEGRATION.md) -- official contract vs. local extensions
 - [docs/OFFLINE_REPLAY.md](docs/OFFLINE_REPLAY.md) -- how the 45-event replay works and why each decision came out the way it did
+- [docs/DECISION_ANALYSIS.md](docs/DECISION_ANALYSIS.md) -- the same replay examined adversarially: why so few REVIEWs, and every genuinely debatable call argued both ways
 - [docs/FINAL_SENIOR_ENGINEERING_REVIEW.md](docs/FINAL_SENIOR_ENGINEERING_REVIEW.md) -- the first engineering review, written right after the initial build
-- [docs/SECOND_ADVERSARIAL_AUDIT.md](docs/SECOND_ADVERSARIAL_AUDIT.md) -- a second, hostile audit pass that re-opened the first review's own decisions and fixed 18 further issues, including the most serious one found across both passes
+- [docs/SECOND_ADVERSARIAL_AUDIT.md](docs/SECOND_ADVERSARIAL_AUDIT.md) -- a second, hostile audit pass that re-opened the first review's own decisions and fixed 18 further issues, including the most serious one found across all three passes
+- [docs/MASTER_R_AND_D_AUDIT.md](docs/MASTER_R_AND_D_AUDIT.md) -- a third pass: property-based testing, mutation testing, adversarial fuzzing, and a genuine (not assumed) comparison of alternative architectures
 
 ## What this is not
 
