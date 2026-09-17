@@ -31,6 +31,13 @@
   .principle { font-style:italic; color:#a8b0c0; }
   .row-actions { margin-top:8px; display:flex; gap:8px; }
   .muted { color:#888; font-size:12px; }
+  .verdicts { font-size:12px; color:#333; margin-top:6px; }
+  .verdicts span { display:inline-block; padding:1px 8px; border-radius:999px; background:#eee; margin-right:6px; }
+  .drift { font-size:12px; background:#fff6e5; border:1px solid #f0dca0; border-radius:6px; padding:8px; margin-top:6px; }
+  .drift.unrelated_change { background:#fdecec; border-color:#f0b4b4; }
+  .authority { font-size:12px; background:#eef7ee; border:1px solid #bfe3bf; border-radius:6px; padding:8px; margin-top:6px; }
+  .step-label { font-size:13px; font-weight:600; margin-bottom:6px; }
+  hr.step-sep { border:none; border-top:1px dashed var(--border); margin:14px 0; }
 </style>
 </head>
 <body>
@@ -70,6 +77,17 @@
     <div class="card">
       <h2>3. Decisions (agent-proposed purchases)</h2>
       <div id="decisions" class="muted">Run a scenario to see decisions here.</div>
+    </div>
+
+    <div class="card">
+      <h2>R&amp;D: the redirected re-quote</h2>
+      <p class="muted">
+        A separate, clearly-synthetic walkthrough (not part of the official 45-event
+        data) demonstrating a narrow, single-use payment authority and authorization
+        drift detection -- see docs/VERIFIABLE_AGENTIC_WALLET.md.
+      </p>
+      <button class="btn-primary" style="width:100%" onclick="runRndDemo()">Run the R&amp;D walkthrough</button>
+      <div id="rndDemo" class="muted" style="margin-top:10px"></div>
     </div>
   </div>
 </main>
@@ -122,6 +140,27 @@ function renderMandate(mandate) {
   document.getElementById("revokeStatus").textContent = "";
 }
 
+// R&D Tracks A/D/E: renders the additive verdict/drift/authority fields that ride
+// alongside every decision summary now (docs/RND_FINAL_DECISION.md). None of these
+// ever change `d.decision` itself -- they only explain it further.
+function renderExtras(d) {
+  let html = "";
+  if (d.policy_verdict || d.security_verdict) {
+    html += `<div class="verdicts">policy_verdict: <span>${d.policy_verdict ?? "n/a"}</span> security_verdict: <span>${d.security_verdict ?? "n/a"}</span></div>`;
+  }
+  if (d.drift) {
+    html += `<div class="drift ${d.drift.classification}">
+      <b>Drift vs ${d.drift.reference_authorization_id}:</b> ${d.drift.classification}
+      ${d.drift.changed_fields.map(f => `<div>${f.field}: ${f.before} &rarr; ${f.after}</div>`).join("")}
+    </div>`;
+  }
+  if (d.payment_authority) {
+    const pa = d.payment_authority;
+    html += `<div class="authority"><b>Payment authority issued:</b> ceiling CHF ${pa.amount_ceiling_chf} at ${pa.merchant_id}, expires ${pa.expires_at}</div>`;
+  }
+  return html;
+}
+
 function renderDecisions(decisions) {
   const el = document.getElementById("decisions");
   el.innerHTML = decisions.map(d => `
@@ -133,6 +172,7 @@ function renderDecisions(decisions) {
       ${d.policy_evidence && d.policy_evidence.length ? `<div class="evidence"><b>Your policy checked:</b>\n${d.policy_evidence.join("\n")}</div>` : ""}
       ${d.safety_evidence && d.safety_evidence.length ? `<div class="evidence"><b>Wallet safety checks:</b>\n${d.safety_evidence.join("\n")}</div>` : ""}
       ${(!d.policy_evidence || !d.policy_evidence.length) && (!d.safety_evidence || !d.safety_evidence.length) ? `<div class="evidence">${d.evidence.join("\n")}</div>` : ""}
+      ${renderExtras(d)}
       ${d.decision === "review" ? `
         <div class="row-actions">
           <button class="btn-allow" onclick="resolveAuth('${d.authorization_id}','allow')">Customer approves</button>
@@ -140,6 +180,43 @@ function renderDecisions(decisions) {
         </div>` : ""}
     </div>
   `).join("");
+}
+
+async function runRndDemo() {
+  const res = await fetch(`${API}/api/rnd-demo`);
+  const body = await res.json();
+  renderRndDemo(body);
+}
+
+function renderRndDemo(body) {
+  const el = document.getElementById("rndDemo");
+  const mandateHtml = `
+    <div class="meta">"${body.mandate.instruction}"</div>
+    ${body.mandate.hard_rules.map(r => `<div class="rule">${r.field} ${r.operator} ${JSON.stringify(r.value)}</div>`).join("")}
+  `;
+  const stepsHtml = body.steps.map(d => `
+    <hr class="step-sep">
+    <div class="step-label">${d.label}</div>
+    <div class="decision-row">
+      <span class="badge ${d.decision}">${d.decision.toUpperCase()}</span>
+      <b>${d.merchant_name}</b> -- CHF ${d.amount_chf}
+      <div class="meta">${d.customer_message}</div>
+      ${d.policy_evidence && d.policy_evidence.length ? `<div class="evidence"><b>Your policy checked:</b>\n${d.policy_evidence.join("\n")}</div>` : ""}
+      ${renderExtras(d)}
+    </div>
+  `).join("");
+  const resolutionHtml = body.resolution ? `
+    <hr class="step-sep">
+    <div class="step-label">Human resolution</div>
+    <div class="meta">Customer decision on the redirected purchase: <span class="badge ${body.resolution.decision}">${body.resolution.decision.toUpperCase()}</span></div>
+  ` : "";
+  const executionHtml = body.legitimate_charge ? `
+    <hr class="step-sep">
+    <div class="step-label">Final execution boundary check</div>
+    <div class="authority">Legitimate charge CHF ${body.legitimate_charge.amount_chf} executed (${body.legitimate_charge.charge_id}).</div>
+    ${body.tampered_charge_refusal_reason ? `<div class="drift unrelated_change">Tampered CHF 999 charge against the SAME authority was refused: ${body.tampered_charge_refusal_reason}</div>` : ""}
+  ` : "";
+  el.innerHTML = mandateHtml + stepsHtml + resolutionHtml + executionHtml;
 }
 
 async function resolveAuth(authorizationId, decision) {

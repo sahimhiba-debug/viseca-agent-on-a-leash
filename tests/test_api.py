@@ -75,3 +75,30 @@ def test_resolving_an_authorization_that_was_never_decided_is_a_client_error():
 def test_unknown_run_id_is_404_not_500():
     r = client.get("/api/runs/does-not-exist")
     assert r.status_code == 404
+
+
+def test_rnd_demo_endpoint_exposes_tracks_a_d_e():
+    """The new, clearly-synthetic R&D demo (docs/RND_FINAL_DECISION.md) is served
+    entirely separately from `/api/scenarios`, which only ever serves the official
+    45-event data, and exposes the additive Track A/D/E fields no official-scenario
+    response needs to carry."""
+    r = client.get("/api/rnd-demo")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["scenario_id"] == "DEMO_RND_0001"
+    assert len(body["steps"]) == 3
+
+    step1, step2, step3 = body["steps"]
+    assert step1["decision"] == "allow"
+    assert step1["payment_authority"]["merchant_id"] == "ME_DEMO_TRUSTED"
+
+    assert step2["decision"] == "review"
+    assert step2["drift"]["classification"] == "unrelated_change"
+    assert not any("merchant" in rule["field"] for rule in body["mandate"]["hard_rules"])
+
+    assert step3["decision"] == "allow"
+    assert step3["payment_authority"] is not None
+
+    assert body["resolution"]["decision"] == "block"
+    assert body["legitimate_charge"] is not None
+    assert body["tampered_charge_refusal_reason"] is not None
