@@ -90,6 +90,40 @@ def _platform_status_evaluations(auth: dict[str, Any]) -> list[RuleEvaluation]:
     return out
 
 
+def _run_binding_failures(auth: dict[str, Any], mandate: MandateSnapshot, state: RunState) -> list[RuleEvaluation]:
+    """Whether this event belongs to the run evaluating it.
+
+    `card_id` is what the merchant-familiarity lookup is keyed on, so an event
+    carrying a different card's identity would borrow that card's purchase history
+    and could make an unfamiliar merchant look familiar. `mandate_id` decides whose
+    rules are being applied. Both were previously taken from the event and never
+    checked, which let the event answer "whose authority is this?" itself.
+
+    Compared exactly: a case variant, a padded value, or one carrying an invisible
+    character is a different identity, not a near-enough one.
+    """
+    failures: list[RuleEvaluation] = []
+    if auth.get("card_id") != state.card_id:
+        failures.append(
+            RuleEvaluation(
+                rule=_CARD_BINDING_RULE,
+                outcome="fail",
+                detail=f"event card_id={auth.get('card_id')!r} is not this run's card {state.card_id!r}",
+                source="safety",
+            )
+        )
+    if auth.get("mandate_id") != mandate.mandate_id:
+        failures.append(
+            RuleEvaluation(
+                rule=_MANDATE_BINDING_RULE,
+                outcome="fail",
+                detail=f"event mandate_id={auth.get('mandate_id')!r} is not this run's mandate {mandate.mandate_id!r}",
+                source="safety",
+            )
+        )
+    return failures
+
+
 @dataclass(frozen=True)
 class EngineDecision:
     authorization_id: str
@@ -248,6 +282,46 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
     basket_key = _basket_key(auth["items"])
     billing_amount_chf = to_decimal(auth["billing_amount_chf"])
 
+    # "Is this event even ours?" is answered BEFORE "have we seen this purchase?".
+    # Ordering matters: the repeat-delivery fingerprint covers merchant, basket and
+    # amount but not identity, so a re-delivery carrying a different card_id or
+    # mandate_id would otherwise match the fingerprint and be answered with the
+    # stored decision -- returning a real answer to an event that was never ours to
+    # answer. See docs/DEEP_SECURITY_RESEARCH.md (V5).
+    binding_failures = _run_binding_failures(auth, mandate, state)
+    if binding_failures:
+        return EngineDecision(
+            authorization_id=authorization_id,
+            decision="block",
+            reason_codes=tuple(f"hard_rule_failed:{e.rule.field}" for e in binding_failures),
+            customer_message=(
+                "This purchase could not be verified: it does not belong to this wallet session. "
+                "Nothing was approved and nothing was recorded."
+            ),
+            evidence=tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in binding_failures),
+            rule_evaluations=tuple(binding_failures),
+            intervention=_TERMINAL_INTERVENTION["block"],
+            facts=None,
+            security_verdict="block",
+        )
+
+    # The platform's status fields are read BEFORE the repeat-delivery branch, and
+    # a dead status revokes this run's outstanding authority even when the delivery
+    # is a routine replay.
+    #
+    # The two halves of that are deliberately different, because the correct answer
+    # differs. The DECISION must still be the stored one: the platform already has
+    # our answer for this authorization_id and re-sending a different one is not
+    # something the official contract permits (technical_details.md step 6). But
+    # money that has not moved yet is ours to stop, and a platform telling us the
+    # authority is revoked or the card is blocked is the most authoritative reason
+    # there is to stop it. Found by the mutation fuzzer in
+    # tests/security/test_authority_mutation_fuzzer.py, which is exactly the kind
+    # of composition (status change + replay) a per-field test does not reach.
+    platform_status = _platform_status_evaluations(auth)
+    if any(e.outcome == "fail" for e in platform_status):
+        state.revoke_authority(authorization_id)
+
     stored = state.get_stored_decision(authorization_id)
     if stored is not None:
         if not state.check_repeat_fingerprint(
@@ -363,34 +437,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
     # an `approve`-on-uncertainty policy must not be able to soften it. Anything
     # unrecognised (a new enum value, an empty string, a case variant, a missing
     # field) is genuinely missing information and goes through uncertainty_policy.
-    evaluations.extend(_platform_status_evaluations(auth))
-
-    # Does this event even belong to this run? `card_id` is what the
-    # merchant-familiarity lookup is keyed on, so an event carrying a different
-    # card's identity borrowed that card's purchase history and could make an
-    # unfamiliar merchant look familiar; `mandate_id` decides whose rules these
-    # are. Both were previously taken from the event and never checked against the
-    # run, which let the event answer "whose authority is this?" itself. Compared
-    # exactly: a case variant or a value padded with an invisible character is a
-    # different identity, not a near-enough one.
-    if auth.get("card_id") != state.card_id:
-        evaluations.append(
-            RuleEvaluation(
-                rule=_CARD_BINDING_RULE,
-                outcome="fail",
-                detail=f"event card_id={auth.get('card_id')!r} is not this run's card {state.card_id!r}",
-                source="safety",
-            )
-        )
-    if auth.get("mandate_id") != mandate.mandate_id:
-        evaluations.append(
-            RuleEvaluation(
-                rule=_MANDATE_BINDING_RULE,
-                outcome="fail",
-                detail=f"event mandate_id={auth.get('mandate_id')!r} is not this run's mandate {mandate.mandate_id!r}",
-                source="safety",
-            )
-        )
+    evaluations.extend(platform_status)
 
     if duplicate_of is not None:
         evaluations.append(RuleEvaluation(rule=_DUPLICATE_RULE, outcome="unknown", detail=duplicate_reason or "", source="safety"))

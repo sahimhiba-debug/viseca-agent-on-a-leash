@@ -170,10 +170,16 @@ class PaymentAuthority:
     policy_version: str  # a short hash of the mandate's hard_rules at issue time
     evidence_ref: str  # opaque pointer back to the EngineDecision that issued this
     revoked: bool = False
+    # Set when this authority has actually been executed. "Single use" lives HERE,
+    # on the persisted authority, rather than in an in-memory ledger inside the
+    # payment executor -- that ledger did not survive a restart, so a crash between
+    # two charge attempts allowed the same authorization to be executed twice
+    # (deep-security finding V8). One source of truth, and it is checkpointed.
+    consumed_at: datetime | None = None
 
     def is_valid(self, *, now: datetime | None = None) -> bool:
         now = now or datetime.now(timezone.utc)
-        return not self.revoked and now <= self.expires_at
+        return not self.revoked and self.consumed_at is None and now <= self.expires_at
 
     def as_dict(self) -> dict:
         return {
@@ -491,6 +497,15 @@ class RunState:
         self._authorities[authorization_id] = revoked
         return revoked
 
+    def consume_authority(self, authorization_id: str, at: datetime) -> PaymentAuthority:
+        """Mark an authority as spent. Called by the payment boundary at the moment
+        of execution, so that "one authorization, at most one execution" is a fact
+        about persisted state rather than about one process's memory."""
+        existing = self._authorities[authorization_id]
+        consumed = replace(existing, consumed_at=at)
+        self._authorities[authorization_id] = consumed
+        return consumed
+
     def revoke_outstanding_authorities(self) -> tuple[str, ...]:
         """Revoke every still-valid authority in this run, returning the
         authorization_ids actually revoked. Called when the customer revokes the
@@ -574,6 +589,7 @@ class RunState:
                     "policy_version": a.policy_version,
                     "evidence_ref": a.evidence_ref,
                     "revoked": a.revoked,
+                    "consumed_at": a.consumed_at.isoformat() if a.consumed_at else None,
                 }
                 for a in self._authorities.values()
             ],
@@ -630,5 +646,6 @@ class RunState:
                 policy_version=a["policy_version"],
                 evidence_ref=a["evidence_ref"],
                 revoked=a["revoked"],
+                consumed_at=datetime.fromisoformat(a["consumed_at"]) if a.get("consumed_at") else None,
             )
         return state

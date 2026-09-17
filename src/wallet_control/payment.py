@@ -51,7 +51,6 @@ class MockPSP:
     def __init__(self, state: RunState, *, clock: Callable[[], datetime] | None = None) -> None:
         self._state = state
         self._charges: dict[str, ChargeRecord] = {}
-        self._charged_authorizations: set[str] = set()
         # The clock used for SECURITY decisions (authority expiry) belongs to the
         # payment boundary, not to whoever calls it. It was previously taken from
         # the caller's `now=` argument, which meant anyone asking for a charge also
@@ -96,8 +95,6 @@ class MockPSP:
             raise PaymentError(
                 f"{authorization_id} was approved for merchant {stored.merchant_id!r}, not {merchant_id!r}; refusing to charge"
             )
-        if authorization_id in self._charged_authorizations:
-            raise PaymentError(f"{authorization_id} has already been charged once; refusing a second execution")
         if amount_chf > stored.billing_amount_chf:
             raise PaymentError(
                 f"requested charge CHF {amount_chf} exceeds the approved amount CHF {stored.billing_amount_chf}"
@@ -123,6 +120,11 @@ class MockPSP:
                 f"{authorization_id} has no payment authority on record; refusing to charge. "
                 "An approved purchase always mints one, so this means authority state was lost."
             )
+        if authority.consumed_at is not None:
+            raise PaymentError(
+                f"{authorization_id} was already executed at {authority.consumed_at.isoformat()}; "
+                "refusing a second execution"
+            )
         if authority.revoked:
             raise PaymentError(f"the payment authority for {authorization_id} has been revoked; refusing to charge")
         if self._clock() > authority.expires_at:
@@ -131,16 +133,18 @@ class MockPSP:
                 f"{authority.expires_at.isoformat()}; refusing to charge an expired authority"
             )
 
-        record = ChargeRecord(charge_id, authorization_id, amount_chf, now or self._clock())
+        executed_at = now or self._clock()
+        record = ChargeRecord(charge_id, authorization_id, amount_chf, executed_at)
         self._charges[charge_id] = record
-        self._charged_authorizations.add(authorization_id)
+        self._state.consume_authority(authorization_id, executed_at)
         return record
 
     def charge_for(self, charge_id: str, authorization_id: str) -> ChargeRecord | None:
         return self._charges.get(charge_id)
 
     def is_charged(self, authorization_id: str) -> bool:
-        return authorization_id in self._charged_authorizations
+        authority = self._state.get_authority(authorization_id)
+        return authority is not None and authority.consumed_at is not None
 
     def charge_via_authority(
         self, *, charge_id: str, authority: PaymentAuthority, amount_chf: Decimal, now: datetime | None = None
