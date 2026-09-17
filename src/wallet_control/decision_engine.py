@@ -28,12 +28,13 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from .drift import AuthorizationDrift, compute_drift
 from .facts import PurchaseFacts, build_purchase_facts
 from .intervention import InterventionKind, classify_intervention
-from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy
+from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy, mandate_policy_version
 from .money import to_chf, to_decimal
 from .rules import RuleContext, RuleEvaluation, evaluate_rule
-from .state import RunState
+from .state import PaymentAuthority, RunState
 from .viseca_mapping import Decision
 
 _DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", value="false")
@@ -59,6 +60,21 @@ class EngineDecision:
     # re-submitted -- see `evaluate_authorization`); this flag tells the caller the
     # event is suspect and should be investigated, not treated as routine.
     authorization_id_conflict: bool = False
+    # R&D Track E (docs/RND_POLICY_SECURITY_SPLIT.md): the SAME evaluations, scoped
+    # to source=="customer" and source=="safety" respectively, decided by the SAME
+    # `_decide()` function. Purely explanatory -- `decision` above is computed
+    # exactly as before (over the full, unscoped list) and is provably at least as
+    # strict as either sub-verdict (see the module docstring's monotonicity note).
+    policy_verdict: Decision | None = None
+    security_verdict: Decision | None = None
+    # R&D Track D (docs/RND_AUTHORIZATION_DRIFT.md): a structured diff against a
+    # related/conflicting prior authorization, if one exists. Never gates the
+    # decision itself -- `rules.py` already does that; this only explains what
+    # changed relative to a reference point.
+    drift: AuthorizationDrift | None = None
+    # R&D Track A (docs/RND_CAPABILITY_AUTHORITY.md): issued only when decision is
+    # "allow" (here or via a later `resolve_authorization` to "allow").
+    payment_authority: PaymentAuthority | None = None
 
 
 _TERMINAL_INTERVENTION: dict[Decision, InterventionKind] = {"allow": "allow", "block": "never", "review": "ask_this_time"}
@@ -101,6 +117,17 @@ def _decide(evaluations: list[RuleEvaluation], uncertainty_policy: UncertaintyPo
     return "allow", ("all_hard_rules_satisfied",)
 
 
+def _scoped_verdict(evaluations: list[RuleEvaluation], source: str, uncertainty_policy: UncertaintyPolicy) -> Decision:
+    """R&D Track E: the same `_decide()` restricted to one evidence source. This is
+    provably at least as permissive as the full-list verdict never -- i.e. never
+    MORE permissive -- because the full list is a superset of each scoped list: any
+    failure or unknown present in a subset is also present in the full set, so
+    `_decide(full)` can only be equally or more restrictive than `_decide(subset)`.
+    Verified directly by test_capability_and_drift.py's monotonicity property test."""
+    decision, _ = _decide([e for e in evaluations if e.source == source], uncertainty_policy)
+    return decision
+
+
 def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], facts: PurchaseFacts) -> str:
     if decision == "allow":
         return f"Approved: CHF {facts.billing_amount_chf} at {facts.merchant_name} matches your wallet policy."
@@ -137,6 +164,15 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
             # ID). Fail closed and flag it loudly; the ORIGINAL stored decision is
             # left untouched, so the payment boundary still enforces the amount
             # that was actually approved, not whatever this mutated event claims.
+            conflict_drift = compute_drift(
+                reference_authorization_id=authorization_id,
+                prior_merchant_id=stored.merchant_id,
+                prior_basket_key=stored.basket_key,
+                prior_amount_chf=stored.billing_amount_chf,
+                current_merchant_id=merchant_id,
+                current_basket_key=basket_key,
+                current_amount_chf=billing_amount_chf,
+            )
             return EngineDecision(
                 authorization_id=authorization_id,
                 decision="block",
@@ -154,6 +190,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
                 facts=None,
                 idempotent_replay=False,
                 authorization_id_conflict=True,
+                drift=conflict_drift,
             )
         return EngineDecision(
             authorization_id=authorization_id,
@@ -245,6 +282,38 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         authorization_id, decision, facts.billing_amount_chf, facts.timestamp, merchant_id=merchant_id, basket_key=basket_key
     )
 
+    # R&D Track D: if this purchase names a related prior authorization this run
+    # already decided (e.g. a re-quote after a decline), compute what actually
+    # changed between them -- purely explanatory evidence, never a gate; `rules.py`
+    # already decided this purchase on its own facts above.
+    related_drift: AuthorizationDrift | None = None
+    related_id = facts.related_authorization_id
+    if related_id is not None:
+        related_stored = state.get_stored_decision(related_id)
+        if related_stored is not None:
+            related_drift = compute_drift(
+                reference_authorization_id=related_id,
+                prior_merchant_id=related_stored.merchant_id,
+                prior_basket_key=related_stored.basket_key,
+                prior_amount_chf=related_stored.billing_amount_chf,
+                current_merchant_id=merchant_id,
+                current_basket_key=basket_key,
+                current_amount_chf=billing_amount_chf,
+            )
+
+    # R&D Track E: the same evaluations, scoped to what the customer's own policy
+    # says vs. what the wallet's own safety checks say -- see `_scoped_verdict`.
+    policy_verdict = _scoped_verdict(evaluations, "customer", mandate.uncertainty_policy)
+    security_verdict = _scoped_verdict(evaluations, "safety", mandate.uncertainty_policy)
+
+    # R&D Track A: ALLOW issues a narrow, expiring, inspectable payment authority --
+    # never constructed anywhere else in this codebase.
+    payment_authority: PaymentAuthority | None = None
+    if decision == "allow":
+        payment_authority = state.issue_authority(
+            authorization_id, mandate_id=mandate.mandate_id, policy_version=mandate_policy_version(mandate)
+        )
+
     evidence = tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in evaluations)
     return EngineDecision(
         authorization_id=authorization_id,
@@ -256,10 +325,16 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         intervention=classify_intervention(decision, tuple(evaluations)),
         facts=facts,
         idempotent_replay=False,
+        policy_verdict=policy_verdict,
+        security_verdict=security_verdict,
+        drift=related_drift,
+        payment_authority=payment_authority,
     )
 
 
-def resolve_authorization(authorization_id: str, human_decision: Decision, state: RunState, *, resolved_at: datetime) -> EngineDecision:
+def resolve_authorization(
+    authorization_id: str, human_decision: Decision, state: RunState, *, resolved_at: datetime, mandate: MandateSnapshot | None = None
+) -> EngineDecision:
     """Apply a real customer's answer to a `review`ed authorization.
 
     Scoped to exactly this authorization_id -- see `state.RunState.record_resolution`
@@ -267,10 +342,21 @@ def resolve_authorization(authorization_id: str, human_decision: Decision, state
     wallet." Deliberately takes no amount: the amount that matters is whatever the
     customer was actually shown when the purchase was flagged for review, sourced
     from `state`'s own record, never from a value the caller could supply.
+
+    `mandate` is optional (backward-compatible: existing callers that don't pass it
+    keep working exactly as before) -- when given, an approve resolution issues a
+    `PaymentAuthority` the same way an automatic ALLOW does (R&D Track A), so a
+    step-up-then-approved purchase is just as payable, under the same bounded
+    authority model, as an automatically-approved one.
     """
     if human_decision == "review":
         raise ValueError("a human resolution must be 'allow' or 'block', not 'review'")
     stored = state.record_resolution(authorization_id, human_decision, resolved_at)
+    payment_authority: PaymentAuthority | None = None
+    if stored.decision == "allow" and mandate is not None:
+        payment_authority = state.issue_authority(
+            authorization_id, mandate_id=mandate.mandate_id, policy_version=mandate_policy_version(mandate), now=resolved_at
+        )
     return EngineDecision(
         authorization_id=authorization_id,
         decision=stored.decision,
@@ -281,4 +367,5 @@ def resolve_authorization(authorization_id: str, human_decision: Decision, state
         intervention=_TERMINAL_INTERVENTION[stored.decision],
         facts=None,
         idempotent_replay=False,
+        payment_authority=payment_authority,
     )

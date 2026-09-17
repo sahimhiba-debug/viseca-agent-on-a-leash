@@ -25,13 +25,23 @@ conflated:
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
 Decision = Literal["allow", "review", "block"]
+
+# How long a PaymentAuthority remains valid for execution after being issued.
+# Not specified anywhere in technical_details.md (the official contract has no
+# payment-execution endpoint at all -- see docs/VISECA_INTEGRATION.md); chosen as
+# a deliberately short, demonstrable window for this synthetic prototype, real-clock
+# based like a response deadline (I21 in SECURITY_INVARIANTS.md), not simulated-time
+# based like a spending window -- a payment authority's validity is about how long
+# the EXECUTION side has to act on an already-made decision, not about when the
+# underlying purchase occurred.
+DEFAULT_AUTHORITY_TTL = timedelta(minutes=15)
 
 _DUPLICATE_WINDOW = timedelta(minutes=60)
 
@@ -107,10 +117,66 @@ class StoredDecision:
     reason_codes: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class PaymentAuthority:
+    """A narrow, single-purpose, inspectable payment authority -- this project's
+    local, unsigned analog of the "derive a narrower credential from a broader
+    approval" pattern used by every real agentic-payments system researched (see
+    docs/AGENTIC_COMMERCE_RESEARCH.md and docs/RND_CAPABILITY_AUTHORITY.md):
+    Mastercard's Agentic Tokens, Google AP2's Payment Mandate, OpenAI's
+    Delegated Payment token. Issued ONLY as a byproduct of an ALLOW decision
+    (`RunState.issue_authority`); nothing else in this codebase constructs one.
+
+    Deliberately NOT cryptographically signed -- there is no PKI, relying party,
+    or verifier in this challenge's sandbox, so a "signature" no one can check
+    would be theatre, not security (see AGENTIC_COMMERCE_RESEARCH.md's honest
+    classification table). What this object provides instead is a single,
+    self-contained, inspectable record of exactly what was authorized, which
+    `payment.MockPSP.charge_via_authority` re-verifies as a whole rather than as
+    scattered fields.
+    """
+
+    authorization_id: str
+    mandate_id: str
+    merchant_id: str
+    amount_ceiling_chf: Decimal
+    currency: str
+    issued_at: datetime  # real clock -- see DEFAULT_AUTHORITY_TTL's docstring
+    expires_at: datetime
+    basket_fingerprint: tuple[tuple[str, int], ...]
+    policy_version: str  # a short hash of the mandate's hard_rules at issue time
+    evidence_ref: str  # opaque pointer back to the EngineDecision that issued this
+    revoked: bool = False
+
+    def is_valid(self, *, now: datetime | None = None) -> bool:
+        now = now or datetime.now(timezone.utc)
+        return not self.revoked and now <= self.expires_at
+
+    def as_dict(self) -> dict:
+        return {
+            "authorization_id": self.authorization_id,
+            "mandate_id": self.mandate_id,
+            "merchant_id": self.merchant_id,
+            "amount_ceiling_chf": str(self.amount_ceiling_chf),
+            "currency": self.currency,
+            "issued_at": self.issued_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+            "basket_fingerprint": list(self.basket_fingerprint),
+            "policy_version": self.policy_version,
+            "evidence_ref": self.evidence_ref,
+            "revoked": self.revoked,
+        }
+
+
 class ResolutionError(ValueError):
     """Raised when a human resolution cannot be applied as requested -- distinct
     from a plain `ValueError` so callers (api.py, live_worker.py) can map it to a
     specific HTTP status / log message rather than a generic 400/500."""
+
+
+class AuthorityError(ValueError):
+    """Raised when a PaymentAuthority cannot be issued, or is invalid at the point
+    it is needed (expired, revoked, or the underlying decision was never allow)."""
 
 
 @dataclass(frozen=True)
@@ -141,6 +207,7 @@ class RunState:
     _approved_spend: list[tuple[datetime, Decimal]] = field(default_factory=list)
     _recent_attempts: list[_RecentAttempt] = field(default_factory=list)
     _last_device_id: str | None = None
+    _authorities: dict[str, PaymentAuthority] = field(default_factory=dict)
 
     # --- idempotency: repeated delivery of the same authorization_id ---------------
     def get_stored_decision(self, authorization_id: str) -> StoredDecision | None:
@@ -341,6 +408,56 @@ class RunState:
         self._last_device_id = device_id
         risky = (device_changed and recent_attempt_count_10m >= 1) or recent_attempt_count_10m >= 2
         return risky, tuple(reasons)
+
+    # --- verifiable payment authority (R&D Track A) ----------------------------------
+    def issue_authority(
+        self, authorization_id: str, *, mandate_id: str, policy_version: str, ttl: timedelta = DEFAULT_AUTHORITY_TTL, now: datetime | None = None
+    ) -> PaymentAuthority:
+        """Issue a `PaymentAuthority` as a byproduct of an ALLOW decision.
+
+        Idempotent: re-issuing for the same authorization_id returns the SAME
+        authority object already on file rather than minting a second one with a
+        fresh (later) expiry -- an authority's validity window is fixed at the
+        moment it is first granted, not extended by asking for it again.
+        """
+        existing = self._authorities.get(authorization_id)
+        if existing is not None:
+            return existing
+        stored = self._decisions.get(authorization_id)
+        if stored is None or stored.decision != "allow":
+            raise AuthorityError(f"cannot issue a payment authority for {authorization_id}: it is not an approved (allow) decision")
+        issued_at = now or datetime.now(timezone.utc)
+        authority = PaymentAuthority(
+            authorization_id=authorization_id,
+            mandate_id=mandate_id,
+            merchant_id=stored.merchant_id,
+            amount_ceiling_chf=stored.billing_amount_chf,
+            currency="CHF",
+            issued_at=issued_at,
+            expires_at=issued_at + ttl,
+            basket_fingerprint=stored.basket_key,
+            policy_version=policy_version,
+            evidence_ref=f"decision:{authorization_id}",
+        )
+        self._authorities[authorization_id] = authority
+        return authority
+
+    def get_authority(self, authorization_id: str) -> PaymentAuthority | None:
+        return self._authorities.get(authorization_id)
+
+    def revoke_authority(self, authorization_id: str) -> PaymentAuthority | None:
+        """Invalidate an already-issued authority before it is spent -- e.g. the
+        customer revokes the mandate, or asks for one specific purchase to be
+        cancelled, after it was approved but before it was charged. Does not
+        touch the underlying `StoredDecision` (the decision itself is history);
+        it only makes the authority to CHARGE that decision no longer valid.
+        Idempotent and safe to call on an authorization with no issued authority."""
+        existing = self._authorities.get(authorization_id)
+        if existing is None:
+            return None
+        revoked = replace(existing, revoked=True)
+        self._authorities[authorization_id] = revoked
+        return revoked
 
     # --- crash-recovery snapshot -----------------------------------------------------
     # `RunState` otherwise lives only in process memory (see docs/ARCHITECTURE.md,

@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from .state import RunState
+from .state import PaymentAuthority, RunState
 
 
 class PaymentError(Exception):
@@ -104,3 +104,30 @@ class MockPSP:
 
     def is_charged(self, authorization_id: str) -> bool:
         return authorization_id in self._charged_authorizations
+
+    def charge_via_authority(
+        self, *, charge_id: str, authority: PaymentAuthority, amount_chf: Decimal, now: datetime | None = None
+    ) -> ChargeRecord:
+        """R&D Track A: execute a charge against a `PaymentAuthority` as a single,
+        self-contained object, rather than four independently-supplied parameters.
+
+        Additive alongside `charge()` (not a replacement) so the existing,
+        extensively tested `charge()` path is completely unchanged -- this method
+        adds exactly two checks a bare `charge()` call cannot express (expiry and
+        explicit revocation), then delegates everything else (merchant binding,
+        amount ceiling, idempotency, one-execution-per-authorization) to `charge()`
+        itself, so there is exactly one place those checks are implemented.
+        """
+        now = now or datetime.now(timezone.utc)
+        if authority.revoked:
+            raise PaymentError(f"the payment authority for {authority.authorization_id} has been revoked; refusing to charge")
+        if now > authority.expires_at:
+            raise PaymentError(
+                f"the payment authority for {authority.authorization_id} expired at {authority.expires_at.isoformat()} "
+                f"(now={now.isoformat()}); refusing to charge an expired authority"
+            )
+        if amount_chf > authority.amount_ceiling_chf:
+            raise PaymentError(
+                f"requested charge CHF {amount_chf} exceeds the authority's own ceiling CHF {authority.amount_ceiling_chf}"
+            )
+        return self.charge(charge_id=charge_id, authorization_id=authority.authorization_id, amount_chf=amount_chf, merchant_id=authority.merchant_id, now=now)
