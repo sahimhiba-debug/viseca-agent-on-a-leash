@@ -92,6 +92,8 @@ _AMOUNT_RE = re.compile(
         CHF\s*(?P<v1>[\d.,]+)
         | CHF\s*(?P<v2>[\d.,]+)\s*(?:or\ less|or\ below|maximum|max\b)
         | at\ or\ below\s*CHF\s*(?P<v3>[\d.,]+)
+        | CHF\s*(?P<v4>[\d.,]+)\s+is\ the\ (?:real\ |actual\ |true\ )?limit
+        | the\ limit\ is\ CHF\s*(?P<v5>[\d.,]+)
     )
     """,
     re.IGNORECASE | re.VERBOSE,
@@ -173,9 +175,15 @@ _ITEM_MODIFIER_RE = re.compile(
 # size for everyone" cannot be misread as a requirement for size "for".
 _SIZE_RE = re.compile(r"\bsize\s+([0-9]{1,3}(?:\.[0-9])?|XXXL|XXL|XL|S|M|L)\b", re.IGNORECASE)
 
-_UNCERTAINTY_ASK_RE = re.compile(r"ask\s+me\s+when\s+uncertain|ask\s+if\s+uncertain", re.IGNORECASE)
-_UNCERTAINTY_DECLINE_RE = re.compile(r"decline\s+(?:it\s+)?when\s+uncertain|reject\s+if\s+uncertain", re.IGNORECASE)
-_UNCERTAINTY_APPROVE_RE = re.compile(r"approve\s+(?:it\s+)?when\s+uncertain|allow\s+if\s+uncertain", re.IGNORECASE)
+# "when"/"if" and "uncertain"/"not sure"/"unsure" are used interchangeably in
+# ordinary English and must not be treated as different concepts -- a compiler
+# that only recognizes "when uncertain" but not "if you're not sure" would fail to
+# understand an explicit, unambiguous customer preference and silently fall back
+# to the ASK default instead (found by the fuzz corpus, tests/test_compiler_fuzz_corpus.py).
+_UNCERTAIN_TRIGGER = r"(?:when|if)\s+(?:you'?re\s+|it'?s\s+)?(?:not\s+sure|uncertain|unsure)"
+_UNCERTAINTY_ASK_RE = re.compile(rf"ask\s+me\s+{_UNCERTAIN_TRIGGER}", re.IGNORECASE)
+_UNCERTAINTY_DECLINE_RE = re.compile(rf"(?:decline|reject)(?:\s+it)?\s+{_UNCERTAIN_TRIGGER}", re.IGNORECASE)
+_UNCERTAINTY_APPROVE_RE = re.compile(rf"(?:approve|allow)(?:\s+(?:it|anything))?\s+{_UNCERTAIN_TRIGGER}", re.IGNORECASE)
 
 
 def _parse_amount(raw: str) -> float:
@@ -210,7 +218,8 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     # instruction is ambiguous about its own ceiling is the MORE restrictive
     # figure, and the ambiguity itself is surfaced so the customer can clarify.
     amount_matches = [
-        _parse_amount(m.group("v1") or m.group("v2") or m.group("v3")) for m in _AMOUNT_RE.finditer(text)
+        _parse_amount(m.group("v1") or m.group("v2") or m.group("v3") or m.group("v4") or m.group("v5"))
+        for m in _AMOUNT_RE.finditer(text)
     ]
     per_order_amount: float | None = min(amount_matches) if amount_matches else None
     if len(amount_matches) > 1 and len(set(amount_matches)) > 1:
