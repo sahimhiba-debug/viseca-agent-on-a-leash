@@ -373,6 +373,29 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
             "setting below, since there is nothing else to check it against."
         )
 
+    # A per-purchase cap bounds each purchase and bounds nothing in total. A
+    # compromised agent confined to such a policy spends the cap, repeatedly,
+    # forever -- measured at CHF 1,000 over 50 purchases against SCEN0000's CHF 20
+    # cap, versus exactly CHF 300 against SCEN0001's rolling cap, where it is
+    # blocked and stays blocked. Four of the five official mandates have the
+    # unbounded shape.
+    #
+    # That is the wallet working correctly: every one of those purchases satisfies
+    # the policy the customer confirmed. Which is the point -- total exposure is set
+    # by the policy, and the customer cannot bound it if nobody tells them it is
+    # unbounded. This is a disclosure, shown before confirmation; it creates no rule
+    # and is read by no evaluation, so it cannot change a decision.
+    has_purchase_cap = any(
+        r.field == "authorization.billing_amount_chf" and r.scope == "purchase" for r in rules
+    )
+    has_period_cap = any(r.scope == "period" for r in rules)
+    if has_purchase_cap and not has_period_cap:
+        open_questions.append(
+            "This policy limits each individual purchase but not the total. The agent could make "
+            "any number of purchases up to that limit. Consider adding a total, such as "
+            "\"no more than CHF X across any 7 days\"."
+        )
+
     return CompiledPolicy(
         hard_rules=rules,
         uncertainty_policy=uncertainty_policy,

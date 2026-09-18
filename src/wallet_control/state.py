@@ -25,6 +25,7 @@ conflated:
 from __future__ import annotations
 
 import csv
+import threading
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -238,6 +239,9 @@ class RunState:
     _recent_attempts: list[_RecentAttempt] = field(default_factory=list)
     _last_device_id: str | None = None
     _authorities: dict[str, PaymentAuthority] = field(default_factory=dict)
+    # Guards the authority compare-and-set. Not serialized (to_snapshot lists its
+    # keys explicitly) and excluded from equality -- it is machinery, not state.
+    _consume_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     # --- idempotency: repeated delivery of the same authorization_id ---------------
     def get_stored_decision(self, authorization_id: str) -> StoredDecision | None:
@@ -491,21 +495,64 @@ class RunState:
         touch the underlying `StoredDecision` (the decision itself is history);
         it only makes the authority to CHARGE that decision no longer valid.
         Idempotent and safe to call on an authorization with no issued authority."""
-        existing = self._authorities.get(authorization_id)
-        if existing is None:
-            return None
-        revoked = replace(existing, revoked=True)
+        with self._consume_lock:
+            existing = self._authorities.get(authorization_id)
+            if existing is None:
+                return None
+            revoked = replace(existing, revoked=True)
         self._authorities[authorization_id] = revoked
         return revoked
 
-    def consume_authority(self, authorization_id: str, at: datetime) -> PaymentAuthority:
-        """Mark an authority as spent. Called by the payment boundary at the moment
-        of execution, so that "one authorization, at most one execution" is a fact
-        about persisted state rather than about one process's memory."""
-        existing = self._authorities[authorization_id]
-        consumed = replace(existing, consumed_at=at)
-        self._authorities[authorization_id] = consumed
-        return consumed
+    def consume_authority(self, authorization_id: str, *, executed_at: datetime, now: datetime) -> PaymentAuthority:
+        """Atomically validate and spend an authority: a compare-and-set, not a write.
+
+        The validation lives HERE, at the state transition, rather than only in the
+        caller. Splitting them is a check-then-act, and the window between the two
+        is exactly as wide as whatever work the payment boundary does in between --
+        for a real processor, an external call. Two vulnerabilities lived in that
+        window (V13, V14):
+
+          * a revocation that landed mid-charge was silently overwritten by the
+            consume, so money moved on an authority the customer had already
+            revoked; the result was an authority both revoked AND consumed;
+          * two threads both passed the caller's `consumed_at is None` check and
+            both consumed, executing one authorization twice.
+
+        Neither was reachable when the window was a few bytecodes wide and the GIL
+        closed it by luck. Both are trivially reachable once the boundary does real
+        work, which is the whole point of a payment boundary.
+
+        `now` is the TRUSTED clock reading supplied by the boundary and is what
+        expiry is judged on. `executed_at` only timestamps the record, and may be a
+        caller-supplied value -- it must never decide whether the authority is still
+        valid (that was V4).
+
+        The lock makes this atomic within one process. It does NOT make it atomic
+        across processes: two workers restoring the same checkpoint hold separate
+        `RunState` objects and separate locks, and each will consume once. Closing
+        that needs a single shared store with an atomic compare-and-set; see
+        docs/DISTRIBUTED_PAYMENT_BOUNDARY.md for the exact boundary and the minimum
+        primitive it would take.
+        """
+        with self._consume_lock:
+            existing = self._authorities.get(authorization_id)
+            if existing is None:
+                raise AuthorityError(f"{authorization_id} has no payment authority to consume")
+            if existing.consumed_at is not None:
+                raise AuthorityError(
+                    f"{authorization_id} was already executed at {existing.consumed_at.isoformat()}; "
+                    "refusing a second execution"
+                )
+            if existing.revoked:
+                raise AuthorityError(f"the payment authority for {authorization_id} has been revoked; refusing to consume")
+            if now > existing.expires_at:
+                raise AuthorityError(
+                    f"the payment authority for {authorization_id} expired at {existing.expires_at.isoformat()}; "
+                    "refusing to consume an expired authority"
+                )
+            consumed = replace(existing, consumed_at=executed_at)
+            self._authorities[authorization_id] = consumed
+            return consumed
 
     def revoke_outstanding_authorities(self) -> tuple[str, ...]:
         """Revoke every still-valid authority in this run, returning the
@@ -530,13 +577,14 @@ class RunState:
         therefore provenance -- what it was minted under -- not an enforced
         binding. See docs/FINAL_ARCHITECTURE_ATTACK.md for the full analysis.
         """
-        revoked: list[str] = []
-        for authorization_id, authority in list(self._authorities.items()):
-            if authority.revoked:
-                continue
-            self._authorities[authorization_id] = replace(authority, revoked=True)
-            revoked.append(authorization_id)
-        return tuple(revoked)
+        with self._consume_lock:
+            revoked: list[str] = []
+            for authorization_id, authority in list(self._authorities.items()):
+                if authority.revoked:
+                    continue
+                self._authorities[authorization_id] = replace(authority, revoked=True)
+                revoked.append(authorization_id)
+            return tuple(revoked)
 
     # --- crash-recovery snapshot -----------------------------------------------------
     # `RunState` otherwise lives only in process memory (see docs/ARCHITECTURE.md,

@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from .state import PaymentAuthority, RunState
+from .state import AuthorityError, PaymentAuthority, RunState
 
 
 class PaymentError(Exception):
@@ -160,8 +160,17 @@ class MockPSP:
         # wallet. The opposite order -- money first, consumption second -- is what
         # let the same authorization execute twice across a crash (V10), because
         # nothing writes a checkpoint after a charge.
+        # The checks above are an early-out for clear error messages. The
+        # AUTHORITATIVE check is inside consume_authority, which validates and
+        # spends atomically -- anything that changes the authority between the two
+        # (a revocation landing mid-charge, a second thread) is caught there rather
+        # than overwritten. `self._clock()` is read here so expiry is judged on the
+        # boundary's own clock, never on the caller's `now=`.
         executed_at = now or self._clock()
-        self._state.consume_authority(authorization_id, executed_at)
+        try:
+            self._state.consume_authority(authorization_id, executed_at=executed_at, now=self._clock())
+        except AuthorityError as exc:
+            raise PaymentError(str(exc)) from exc
         if self._persist is not None:
             self._persist()
         record = ChargeRecord(charge_id, authorization_id, amount_chf, executed_at, merchant_id)
