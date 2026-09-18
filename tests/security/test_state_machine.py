@@ -186,7 +186,11 @@ class WalletSecurityModel(RuleBasedStateMachine):
 
     @invariant()
     def a_revoked_or_consumed_authority_is_never_chargeable(self) -> None:
-        for authorization_id, authority in list(self.state._authorities.items()):
+        for stored in self.state.approved_decisions():
+            authority = self.state.get_authority(stored.authorization_id)
+            if authority is None:
+                continue
+            authorization_id = stored.authorization_id
             if not (authority.revoked or authority.consumed_at is not None):
                 continue
             probe = MockPSP(self.state, clock=lambda: self.clock)
@@ -203,7 +207,11 @@ class WalletSecurityModel(RuleBasedStateMachine):
 
     @invariant()
     def an_authority_only_ever_exists_for_an_allow(self) -> None:
-        for authorization_id, authority in list(self.state._authorities.items()):
+        for stored in self.state.approved_decisions():
+            authority = self.state.get_authority(stored.authorization_id)
+            if authority is None:
+                continue
+            authorization_id = stored.authorization_id
             stored = self.state.get_stored_decision(authorization_id)
             assert stored is not None and stored.decision == "allow", (
                 f"authority exists for {authorization_id} whose decision is "

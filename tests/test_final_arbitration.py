@@ -62,15 +62,22 @@ def test_revoke_outstanding_authorities_is_idempotent_and_reports_only_new_revoc
 
 def test_revocation_does_not_rewrite_the_recorded_decision():
     """Only the authority to SPEND dies. What the engine already told the platform
-    is history and must stay byte-for-byte what it was -- the official contract
-    leaves revocation-while-queued unspecified and we do not invent a guarantee."""
+    is history: the decision and the facts it rests on are untouched. The official
+    contract leaves revocation-while-queued unspecified and we do not invent a
+    guarantee there."""
     state = _state()
     _allow(state)
     before = state.get_stored_decision("AU1")
     state.revoke_outstanding_authorities()
     after = state.get_stored_decision("AU1")
-    assert after == before
-    assert after.decision == "allow"
+    # The DECISION content is untouched -- only the execution lifecycle moved.
+    # (Before the minimal-core merge these lived in separate records and the whole
+    # object compared equal; now the lifecycle rides with the decision.)
+    assert after.decision == before.decision == "allow"
+    assert (after.merchant_id, after.billing_amount_chf, after.basket_key) == (
+        before.merchant_id, before.billing_amount_chf, before.basket_key
+    )
+    assert after.revoked and not before.revoked
 
 
 # --- G2: the plain charge() door must honour the same locks ---------------------
