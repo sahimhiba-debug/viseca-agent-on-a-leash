@@ -207,7 +207,11 @@ def _decision_summary(event: dict[str, Any], result) -> dict[str, Any]:
         "merchant_name": auth["merchant"]["merchant_name"],
         "amount_chf": auth["billing_amount_chf"],
         "purchase_description": auth["purchase_description"],
+        # What the agent ACTUALLY proposed, not what the customer asked for.
+        "basket": _basket_lines(auth),
         "decision": result.decision,
+        "wallet_decision": result.decision,
+        "resolved_by_customer": False,
         "intervention": result.intervention,
         "reason_codes": list(result.reason_codes),
         "customer_message": result.customer_message,
