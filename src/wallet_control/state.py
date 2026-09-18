@@ -126,38 +126,41 @@ class StoredDecision:
     was_reviewed: bool = False  # True iff this authorization was ever put to REVIEW
     resolved_at: datetime | None = None  # real-clock time of a human's answer, audit-only
     reason_codes: tuple[str, ...] = ()
+    # --- execution lifecycle -------------------------------------------------------
+    # These three used to live on a separate PaymentAuthority object in a second
+    # dict. Two records describing one authorization is precisely the shape that
+    # produced V2 (a decision with no authority), V3/V8/V10 (an authority lost on
+    # restart) and V13/V14 (a lifecycle overwritten by a concurrent transition).
+    # Holding them here makes "every approved decision has an execution lifecycle"
+    # true by construction rather than by a fail-closed check.
+    mandate_id: str | None = None          # provenance for the audit record
+    policy_version: str | None = None      # provenance
+    execution_issued_at: datetime | None = None
+    execution_expires_at: datetime | None = None
+    revoked: bool = False
+    consumed_at: datetime | None = None
 
 
 @dataclass(frozen=True)
 class PaymentAuthority:
-    """A narrow, single-purpose, inspectable payment authority -- this project's
-    local, unsigned analog of the "derive a narrower credential from a broader
-    approval" pattern used by every real agentic-payments system researched (see
-    docs/AGENTIC_COMMERCE_RESEARCH.md and docs/RND_CAPABILITY_AUTHORITY.md):
-    Mastercard's Agentic Tokens, Google AP2's Payment Mandate, OpenAI's
-    Delegated Payment token. Issued ONLY as a byproduct of an ALLOW decision
-    (`RunState.issue_authority`); nothing else in this codebase constructs one.
+    """A read-only PROJECTION of one approved decision's execution lifecycle.
 
-    Deliberately NOT cryptographically signed -- there is no PKI, relying party,
-    or verifier in this challenge's sandbox, so a "signature" no one can check
-    would be theatre, not security (see AGENTIC_COMMERCE_RESEARCH.md's honest
-    classification table). What this object provides instead is a single,
-    self-contained, inspectable RECORD of exactly what was granted.
+    This used to be an independently stored object in `RunState._authorities`, and
+    it was the source of four vulnerabilities, all of the same shape: a second
+    record describing the same authorization, free to drift from the first. It is
+    now built on demand from the `StoredDecision` that already holds every fact it
+    reports, so there is nothing to drift from.
 
-    Be precise about where the security actually lives, because the fourth pass
-    found this easy to overstate (docs/FINAL_ARCHITECTURE_ATTACK.md §5):
+    `issued_at` is RECORDED, not reconstructed. An earlier version of this merge
+    derived it as `expires_at - DEFAULT_AUTHORITY_TTL`, which Audit 1 rejected: a
+    derivation must rest on authoritative state, never on a program constant that a
+    later edit could change under historical records.
 
-      * ENFORCED, in `payment.MockPSP.charge()` and re-read from live run state on
-        every execution attempt: the bound authorization, merchant, approved
-        amount, single-use, expiry, and revocation. `charge()` -- not just
-        `charge_via_authority()` -- applies these, so there is no bypass door.
-      * PROVENANCE ONLY, recorded but not enforced: `policy_version` and
-        `basket_fingerprint`. A run is bound to one mandate snapshot taken at run
-        start, so the policy cannot change beneath an outstanding authority and an
-        enforcement branch would be unreachable; the basket is frozen at the
-        DECISION layer by `authorization_id_conflict` instead, which is where the
-        comparison is actually possible (the charge path receives an amount, not a
-        basket).
+    Every other field below except the lifecycle three is a copy that nothing read:
+    a survey of the production source found `amount_ceiling_chf`,
+    `basket_fingerprint`, `policy_version`, `currency`, `issued_at`, `evidence_ref`
+    and `mandate_id` read ZERO times. They are kept only because the demo displays
+    them, and they are now derived rather than stored.
     """
 
     authorization_id: str
@@ -165,23 +168,34 @@ class PaymentAuthority:
     merchant_id: str
     amount_ceiling_chf: Decimal
     currency: str
-    issued_at: datetime  # real clock -- see DEFAULT_AUTHORITY_TTL's docstring
+    issued_at: datetime
     expires_at: datetime
     basket_fingerprint: BasketKey
-    policy_version: str  # a short hash of the mandate's hard_rules at issue time
-    evidence_ref: str  # opaque pointer back to the EngineDecision that issued this
+    policy_version: str
+    evidence_ref: str
     revoked: bool = False
-    # Set when this authority has actually been executed. "Single use" lives HERE,
-    # on the persisted authority, rather than in an in-memory ledger inside the
-    # payment executor -- that ledger did not survive a restart, so a crash between
-    # two charge attempts allowed the same authorization to be executed twice
-    # (deep-security finding V8). One source of truth, and it is checkpointed.
     consumed_at: datetime | None = None
 
-    # NOTE: there is deliberately no `is_valid()` helper here. One existed and was
-    # never called: validity is decided at the payment boundary, against live run
-    # state, and a second security-looking predicate that nothing consults is an
-    # invitation to believe the wrong thing is enforcing the rule.
+    @classmethod
+    def project(cls, stored: "StoredDecision") -> "PaymentAuthority | None":
+        """Build the view, or None when this decision carries no execution
+        lifecycle (i.e. it was never an approval)."""
+        if stored.decision != "allow" or stored.execution_expires_at is None:
+            return None
+        return cls(
+            authorization_id=stored.authorization_id,
+            mandate_id=stored.mandate_id or "",
+            merchant_id=stored.merchant_id,
+            amount_ceiling_chf=stored.billing_amount_chf,
+            currency="CHF",
+            issued_at=stored.execution_issued_at,
+            expires_at=stored.execution_expires_at,
+            basket_fingerprint=stored.basket_key,
+            policy_version=stored.policy_version or "",
+            evidence_ref=f"decision:{stored.authorization_id}",
+            revoked=stored.revoked,
+            consumed_at=stored.consumed_at,
+        )
 
     def as_dict(self) -> dict:
         return {
@@ -238,7 +252,6 @@ class RunState:
     _approved_spend: list[tuple[datetime, Decimal]] = field(default_factory=list)
     _recent_attempts: list[_RecentAttempt] = field(default_factory=list)
     _last_device_id: str | None = None
-    _authorities: dict[str, PaymentAuthority] = field(default_factory=dict)
     # Guards the authority compare-and-set. Not serialized (to_snapshot lists its
     # keys explicitly) and excluded from equality -- it is machinery, not state.
     _consume_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
@@ -467,52 +480,46 @@ class RunState:
     def issue_authority(
         self, authorization_id: str, *, mandate_id: str, policy_version: str, ttl: timedelta = DEFAULT_AUTHORITY_TTL, now: datetime | None = None
     ) -> PaymentAuthority:
-        """Issue a `PaymentAuthority` as a byproduct of an ALLOW decision.
+        """Stamp an execution lifecycle onto an approved decision and return the
+        projection of it.
 
-        Idempotent: re-issuing for the same authorization_id returns the SAME
-        authority object already on file rather than minting a second one with a
-        fresh (later) expiry -- an authority's validity window is fixed at the
-        moment it is first granted, not extended by asking for it again.
+        Idempotent: if the decision already carries a lifecycle, that one is
+        returned unchanged. An authority's window is fixed when first granted and
+        is never extended by asking again.
         """
-        existing = self._authorities.get(authorization_id)
-        if existing is not None:
-            return existing
-        stored = self._decisions.get(authorization_id)
-        if stored is None or stored.decision != "allow":
-            raise AuthorityError(f"cannot issue a payment authority for {authorization_id}: it is not an approved (allow) decision")
-        issued_at = now or datetime.now(timezone.utc)
-        authority = PaymentAuthority(
-            authorization_id=authorization_id,
-            mandate_id=mandate_id,
-            merchant_id=stored.merchant_id,
-            amount_ceiling_chf=stored.billing_amount_chf,
-            currency="CHF",
-            issued_at=issued_at,
-            expires_at=issued_at + ttl,
-            basket_fingerprint=stored.basket_key,
-            policy_version=policy_version,
-            evidence_ref=f"decision:{authorization_id}",
-        )
-        self._authorities[authorization_id] = authority
-        return authority
+        with self._consume_lock:
+            stored = self._decisions.get(authorization_id)
+            if stored is None or stored.decision != "allow":
+                raise AuthorityError(
+                    f"cannot issue a payment authority for {authorization_id}: it is not an approved (allow) decision"
+                )
+            if stored.execution_expires_at is not None:
+                return PaymentAuthority.project(stored)
+            issued_at = now or datetime.now(timezone.utc)
+            self._decisions[authorization_id] = replace(
+                stored,
+                mandate_id=mandate_id,
+                policy_version=policy_version,
+                execution_issued_at=issued_at,
+                execution_expires_at=issued_at + ttl,
+            )
+            return PaymentAuthority.project(self._decisions[authorization_id])
 
     def get_authority(self, authorization_id: str) -> PaymentAuthority | None:
-        return self._authorities.get(authorization_id)
+        """The projection, derived fresh each time. Never a stored second copy."""
+        stored = self._decisions.get(authorization_id)
+        return PaymentAuthority.project(stored) if stored is not None else None
 
     def revoke_authority(self, authorization_id: str) -> PaymentAuthority | None:
-        """Invalidate an already-issued authority before it is spent -- e.g. the
-        customer revokes the mandate, or asks for one specific purchase to be
-        cancelled, after it was approved but before it was charged. Does not
-        touch the underlying `StoredDecision` (the decision itself is history);
-        it only makes the authority to CHARGE that decision no longer valid.
-        Idempotent and safe to call on an authorization with no issued authority."""
+        """Invalidate an approved decision's execution lifecycle before it is spent.
+        Does not touch the decision itself -- what the engine told the platform is
+        history. Idempotent and safe on an authorization with no lifecycle."""
         with self._consume_lock:
-            existing = self._authorities.get(authorization_id)
-            if existing is None:
+            stored = self._decisions.get(authorization_id)
+            if stored is None or stored.execution_expires_at is None:
                 return None
-            revoked = replace(existing, revoked=True)
-        self._authorities[authorization_id] = revoked
-        return revoked
+            self._decisions[authorization_id] = replace(stored, revoked=True)
+            return PaymentAuthority.project(self._decisions[authorization_id])
 
     def consume_authority(self, authorization_id: str, *, executed_at: datetime, now: datetime) -> PaymentAuthority:
         """Atomically validate and spend an authority: a compare-and-set, not a write.
@@ -546,8 +553,8 @@ class RunState:
         primitive it would take.
         """
         with self._consume_lock:
-            existing = self._authorities.get(authorization_id)
-            if existing is None:
+            existing = self._decisions.get(authorization_id)
+            if existing is None or existing.execution_expires_at is None:
                 raise AuthorityError(f"{authorization_id} has no payment authority to consume")
             if existing.consumed_at is not None:
                 raise AuthorityError(
@@ -556,14 +563,13 @@ class RunState:
                 )
             if existing.revoked:
                 raise AuthorityError(f"the payment authority for {authorization_id} has been revoked; refusing to consume")
-            if now > existing.expires_at:
+            if now > existing.execution_expires_at:
                 raise AuthorityError(
-                    f"the payment authority for {authorization_id} expired at {existing.expires_at.isoformat()}; "
-                    "refusing to consume an expired authority"
+                    f"the payment authority for {authorization_id} expired at "
+                    f"{existing.execution_expires_at.isoformat()}; refusing to consume an expired authority"
                 )
-            consumed = replace(existing, consumed_at=executed_at)
-            self._authorities[authorization_id] = consumed
-            return consumed
+            self._decisions[authorization_id] = replace(existing, consumed_at=executed_at)
+            return PaymentAuthority.project(self._decisions[authorization_id])
 
     def revoke_outstanding_authorities(self) -> tuple[str, ...]:
         """Revoke every still-valid authority in this run, returning the
@@ -590,10 +596,10 @@ class RunState:
         """
         with self._consume_lock:
             revoked: list[str] = []
-            for authorization_id, authority in list(self._authorities.items()):
-                if authority.revoked:
+            for authorization_id, stored in list(self._decisions.items()):
+                if stored.execution_expires_at is None or stored.revoked:
                     continue
-                self._authorities[authorization_id] = replace(authority, revoked=True)
+                self._decisions[authorization_id] = replace(stored, revoked=True)
                 revoked.append(authorization_id)
             return tuple(revoked)
 
@@ -626,33 +632,19 @@ class RunState:
                     "was_reviewed": d.was_reviewed,
                     "resolved_at": d.resolved_at.isoformat() if d.resolved_at else None,
                     "reason_codes": list(d.reason_codes),
+                    # The execution lifecycle rides WITH the decision. It used to be
+                    # a separate "authorities" array; one record cannot fall out of
+                    # step with itself.
+                    "mandate_id": d.mandate_id,
+                    "policy_version": d.policy_version,
+                    "execution_issued_at": d.execution_issued_at.isoformat() if d.execution_issued_at else None,
+                    "execution_expires_at": d.execution_expires_at.isoformat() if d.execution_expires_at else None,
+                    "revoked": d.revoked,
+                    "consumed_at": d.consumed_at.isoformat() if d.consumed_at else None,
                 }
                 for d in self._decisions.values()
             ],
             "approved_spend": [[ts.isoformat(), str(amt)] for ts, amt in self._approved_spend],
-            # Authorities MUST be persisted. Omitting them (the pre-deep-security
-            # behaviour) meant a crash and restart resurrected revoked and expired
-            # authorities as unconstrained ones: the payment boundary looked for an
-            # authority, found none, and -- under the old fail-open default --
-            # charged anyway. Revocation that does not survive a restart is not
-            # revocation.
-            "authorities": [
-                {
-                    "authorization_id": a.authorization_id,
-                    "mandate_id": a.mandate_id,
-                    "merchant_id": a.merchant_id,
-                    "amount_ceiling_chf": str(a.amount_ceiling_chf),
-                    "currency": a.currency,
-                    "issued_at": a.issued_at.isoformat(),
-                    "expires_at": a.expires_at.isoformat(),
-                    "basket_fingerprint": list(a.basket_fingerprint),
-                    "policy_version": a.policy_version,
-                    "evidence_ref": a.evidence_ref,
-                    "revoked": a.revoked,
-                    "consumed_at": a.consumed_at.isoformat() if a.consumed_at else None,
-                }
-                for a in self._authorities.values()
-            ],
             "recent_attempts": [
                 {
                     "authorization_id": a.authorization_id,
@@ -681,6 +673,12 @@ class RunState:
                 was_reviewed=d.get("was_reviewed", False),
                 resolved_at=datetime.fromisoformat(d["resolved_at"]) if d.get("resolved_at") else None,
                 reason_codes=tuple(d.get("reason_codes", ())),
+                mandate_id=d.get("mandate_id"),
+                policy_version=d.get("policy_version"),
+                execution_issued_at=datetime.fromisoformat(d["execution_issued_at"]) if d.get("execution_issued_at") else None,
+                execution_expires_at=datetime.fromisoformat(d["execution_expires_at"]) if d.get("execution_expires_at") else None,
+                revoked=d.get("revoked", False),
+                consumed_at=datetime.fromisoformat(d["consumed_at"]) if d.get("consumed_at") else None,
             )
         state._approved_spend = [(datetime.fromisoformat(ts), Decimal(amt)) for ts, amt in snapshot["approved_spend"]]
         state._recent_attempts = [
@@ -693,19 +691,4 @@ class RunState:
             )
             for a in snapshot["recent_attempts"]
         ]
-        for a in snapshot.get("authorities", ()):
-            state._authorities[a["authorization_id"]] = PaymentAuthority(
-                authorization_id=a["authorization_id"],
-                mandate_id=a["mandate_id"],
-                merchant_id=a["merchant_id"],
-                amount_ceiling_chf=Decimal(a["amount_ceiling_chf"]),
-                currency=a["currency"],
-                issued_at=datetime.fromisoformat(a["issued_at"]),
-                expires_at=datetime.fromisoformat(a["expires_at"]),
-                basket_fingerprint=tuple(tuple(line) for line in a["basket_fingerprint"]),
-                policy_version=a["policy_version"],
-                evidence_ref=a["evidence_ref"],
-                revoked=a["revoked"],
-                consumed_at=datetime.fromisoformat(a["consumed_at"]) if a.get("consumed_at") else None,
-            )
         return state

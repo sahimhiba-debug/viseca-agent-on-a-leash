@@ -86,7 +86,9 @@ def test_an_allow_with_no_authority_on_record_cannot_be_charged():
     mandate = _allow_mandate()
     state = _state()
     evaluate_authorization(make_event(mandate=mandate, authorization_id="AU1", amount=400.0, merchant_id=MERCHANT_ID), mandate, state)
-    state._authorities.clear()  # simulate lost/never-established authority state
+    # Simulate authority state that was never established (the V2 shape).
+    from dataclasses import replace as _replace
+    state._decisions["AU1"] = _replace(state._decisions["AU1"], execution_expires_at=None)
 
     psp = MockPSP(state)
     with pytest.raises(PaymentError, match="no payment authority"):
