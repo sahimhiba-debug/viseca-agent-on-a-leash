@@ -119,7 +119,7 @@ Every property we cannot prove, stated plainly.
 | adversarial matrix | **17/17** |
 | fulfilment differential | **6 disagreements / CHF 1,787.40** |
 | `main` | untouched at `1aa3bac` |
-| commit | `c99fa30` |
+| falsification commit | `820f73a` (this line is recorded by the commit that follows it — a commit cannot contain its own hash) |
 
 ## 8. Freeze
 
