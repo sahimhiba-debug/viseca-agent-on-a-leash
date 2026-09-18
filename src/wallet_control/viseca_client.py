@@ -53,7 +53,20 @@ def _json_or_empty(response: httpx.Response) -> dict[str, Any]:
     """
     if response.status_code == 204 or not response.content:
         return {}
-    return response.json()
+    try:
+        return response.json()
+    except ValueError as exc:
+        # A body that is not JSON at all -- an HTML error page from a proxy, a
+        # truncated response, a captive portal. Before this was handled, such a body
+        # raised `JSONDecodeError`, which is NOT a `VisecaApiError`, so it escaped
+        # `live_worker`'s single handler and killed the poll loop. Availability is an
+        # acceptable loss here; a handler that silently misses a class of failure is
+        # not. Found by tests/test_failure_modes.py.
+        raise VisecaApiError(
+            response.status_code,
+            f"unparseable response body from {response.request.method} {response.request.url.path}: "
+            f"{response.text[:200]!r}",
+        ) from exc
 
 
 class VisecaClient:
@@ -86,7 +99,12 @@ class VisecaClient:
             # status raises below, so callers have exactly one thing to catch.
             raise VisecaApiError(0, f"network error calling {method} {path}: {exc}") from exc
         if response.status_code >= 400:
-            body = _json_or_empty(response) or response.text
+            # Never let the ERROR path raise something other than VisecaApiError:
+            # reporting one failure must not manufacture a different, uncatchable one.
+            try:
+                body: Any = _json_or_empty(response) or response.text
+            except VisecaApiError:
+                body = response.text
             raise VisecaApiError(response.status_code, body)
         return response
 
