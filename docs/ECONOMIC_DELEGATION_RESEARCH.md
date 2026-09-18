@@ -49,11 +49,24 @@ Four of the five mandates approved **every single attempt** — 8,616 of 8,616.
 
 **Two qualifications, both load-bearing, neither a footnote.**
 
-1. These are **authorizations, not losses**. Neither this wallet nor the official
-   schema has any concept of a credit limit (verified: no `credit_limit`,
-   `available_balance` or equivalent exists in either). What finally stops the agent
-   lives outside this system. That is not a caveat that weakens the finding — it *is*
-   the finding: **the customer's stated policy contributes nothing to the bound.**
+1. These are **authorizations, not losses**. The wallet has no concept of a credit
+   limit, so what finally stops the agent is not in the wallet.
+
+   > **CORRECTED by the falsification pass.** This section originally said that
+   > neither the wallet *nor the official schema* models a credit limit. That was
+   > wrong. `accounts.csv` carries `per_transaction_limit_chf` and
+   > `monthly_limit_chf` for all 31 accounts, and every scenario card resolves to
+   > one: **CHF 3,200–5,000 a month**. The search that "verified" the absence looked
+   > for `credit_limit` and `available_balance` and never opened `accounts.csv`.
+   >
+   > The finding survives; its magnitude does not. SCEN0004's CHF 3,445,538 is what
+   > the WALLET would approve; the account's CHF 3,200 monthly limit caps it near
+   > **CHF 38,400 a year** — still ~96× the CHF 400 the customer thinks they
+   > delegated, but not 8,600×. See `SECURITY_OBJECT_FALSIFICATION.md`.
+
+   The part that stands: **the customer's stated policy contributes nothing to the
+   bound.** What bounds it is an account limit they did not set as part of this
+   delegation and were never shown.
 2. A year is an **illustration of a rate**, not a prediction. There is no horizon to
    predict with, which is the other half of the same finding.
 
@@ -209,7 +222,8 @@ rate, and tells the customer that revocation is the only instrument they have.
 | We corrected our own error | git history + tests | "Our earlier disclosure told customers a rolling window was a total. It isn't, and we fixed it." |
 
 **Must not say:** "we cap total spending" (we cannot — no total exists); "the agent
-could steal CHF 3.4M" (those are authorizations, and no credit limit is modelled);
+could steal CHF 3.4M" (those are authorizations the wallet would approve; the
+account's own monthly limit caps the year near CHF 38,400);
 "this blocks the attack" (fulfilment only ever asks); "we bound the delegation"
 (only the customer's revocation does).
 

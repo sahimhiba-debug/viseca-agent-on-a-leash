@@ -60,3 +60,29 @@ def scenario_rows(scenario_id: str) -> list[dict[str, str]]:
 
 def history_csv_path() -> Path:
     return DATA_DIR / "authorization_history.csv"
+
+
+@lru_cache(maxsize=1)
+def load_cards() -> dict[str, dict[str, str]]:
+    return {row["card_id"]: row for row in _read_csv("cards.csv")}
+
+
+@lru_cache(maxsize=1)
+def load_accounts() -> dict[str, dict[str, str]]:
+    """Accounts carry `per_transaction_limit_chf` and `monthly_limit_chf`.
+
+    These are the only TOTAL spending bounds anywhere in the official data. They are
+    platform-supplied and the agent cannot forge them -- and the wallet has never
+    read them. See docs/SECURITY_OBJECT_FALSIFICATION.md; an earlier pass of this
+    project stated that no credit limit existed in the official schema, which was
+    wrong: it exists here, at the account level, not on the mandate.
+    """
+    return {row["account_id"]: row for row in _read_csv("accounts.csv")}
+
+
+def account_limits_for_card(card_id: str) -> dict[str, str] | None:
+    """Resolve a card to the limits of the account it belongs to."""
+    card = load_cards().get(card_id)
+    if card is None:
+        return None
+    return load_accounts().get(card["account_id"])
