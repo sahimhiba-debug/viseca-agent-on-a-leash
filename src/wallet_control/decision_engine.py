@@ -37,7 +37,7 @@ from .facts import (
     mentions_final_sale,
 )
 from .intervention import InterventionKind, classify_intervention
-from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy, mandate_policy_version
+from .mandate import HardRule, MandateSnapshot, MandateStatus, UncertaintyPolicy, mandate_policy_version
 from .money import to_chf, to_decimal
 from .rules import RuleContext, RuleEvaluation, evaluate_rule
 from .state import BasketKey, PaymentAuthority, RunState
@@ -52,6 +52,7 @@ _AUTHORITY_STATUS_RULE = HardRule(field="authorization.authority_status", operat
 _CARD_STATUS_RULE = HardRule(field="authorization.card_status_at_attempt", operator="=", value="active")
 _CARD_BINDING_RULE = HardRule(field="authorization.card_id_binding", operator="=", value="true")
 _MANDATE_BINDING_RULE = HardRule(field="authorization.mandate_id_binding", operator="=", value="true")
+_MANDATE_STATUS_RULE = HardRule(field="mandate.mandate_status", operator="=", value="active")
 
 # The exact enums from data/official/schemas/authorization_event.schema.json. A
 # value outside these sets is not assumed benign -- it is treated as unknown.
@@ -103,6 +104,29 @@ def _run_binding_failures(auth: dict[str, Any], mandate: MandateSnapshot, state:
     character is a different identity, not a near-enough one.
     """
     failures: list[RuleEvaluation] = []
+
+    # Is the mandate behind this purchase still in force at all? `mandate.status`
+    # is a required field of the official schema with enum
+    # ["active","superseded","revoked","expired"] -- it is the platform reporting
+    # the result of the customer's DELETE /v1/mandates, and the engine did not read
+    # it. A revoked mandate produced ALLOW, minted an authority and charged.
+    #
+    # This is the twin of the authority_status hole: that field answers "is this
+    # authorization still authorized?", this one answers "is the authority behind
+    # it still in force?". Enforcing only the first meant revocation worked when it
+    # came through our own demo endpoint and silently did not when the platform
+    # told us about it. Anything other than ACTIVE is a hard failure -- draft,
+    # superseded, revoked and expired are all "not a mandate you may spend under".
+    if mandate.status is not MandateStatus.ACTIVE:
+        failures.append(
+            RuleEvaluation(
+                rule=_MANDATE_STATUS_RULE,
+                outcome="fail",
+                detail=f"the mandate is {mandate.status.value!r}, not active; it cannot authorize a purchase",
+                source="safety",
+            )
+        )
+
     if auth.get("card_id") != state.card_id:
         failures.append(
             RuleEvaluation(
@@ -295,8 +319,8 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
             decision="block",
             reason_codes=tuple(f"hard_rule_failed:{e.rule.field}" for e in binding_failures),
             customer_message=(
-                "This purchase could not be verified: it does not belong to this wallet session. "
-                "Nothing was approved and nothing was recorded."
+                "This purchase could not be authorized: it does not belong to this wallet session, "
+                "or the mandate behind it is no longer in force. Nothing was approved."
             ),
             evidence=tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in binding_failures),
             rule_evaluations=tuple(binding_failures),

@@ -43,13 +43,27 @@ class ChargeRecord:
     authorization_id: str
     amount_chf: Decimal
     executed_at: datetime
+    merchant_id: str = ""  # recorded so a reused charge_id can be compared on it
 
 
 class MockPSP:
     """A minimal payment executor bound to one `RunState` (one run's decisions)."""
 
-    def __init__(self, state: RunState, *, clock: Callable[[], datetime] | None = None) -> None:
+    def __init__(
+        self,
+        state: RunState,
+        *,
+        clock: Callable[[], datetime] | None = None,
+        persist: Callable[[], None] | None = None,
+    ) -> None:
         self._state = state
+        # Called immediately after an authority is consumed and BEFORE the charge
+        # record exists, so that "this authority has been spent" reaches durable
+        # storage before money is treated as moved. Without it, single-use holds
+        # only within this process: a crash restores the last checkpoint, which was
+        # written after the DECISION and knows nothing about the charge. See
+        # docs/FINAL_SECURITY_POSITION.md (V10).
+        self._persist = persist
         self._charges: dict[str, ChargeRecord] = {}
         # The clock used for SECURITY decisions (authority expiry) belongs to the
         # payment boundary, not to whoever calls it. It was previously taken from
@@ -72,11 +86,15 @@ class MockPSP:
             # an attacker (or a bug) piggyback a second, different charge onto an
             # already-approved charge_id, or make a caller believe the wrong
             # authorization was charged.
-            if existing.authorization_id != authorization_id or existing.amount_chf != amount_chf:
+            if (
+                existing.authorization_id != authorization_id
+                or existing.amount_chf != amount_chf
+                or existing.merchant_id != merchant_id
+            ):
                 raise PaymentError(
                     f"charge_id {charge_id!r} was already used for authorization_id={existing.authorization_id!r} "
-                    f"amount=CHF {existing.amount_chf}; refusing to reuse it for authorization_id={authorization_id!r} "
-                    f"amount=CHF {amount_chf}"
+                    f"amount=CHF {existing.amount_chf} merchant={existing.merchant_id!r}; refusing to reuse it for "
+                    f"authorization_id={authorization_id!r} amount=CHF {amount_chf} merchant={merchant_id!r}"
                 )
             return existing  # exact retry of the same charge request: return the original, don't re-execute
 
@@ -133,11 +151,26 @@ class MockPSP:
                 f"{authority.expires_at.isoformat()}; refusing to charge an expired authority"
             )
 
+        # Order is the whole point. Consume the authority, make that durable, and
+        # only then create the charge record.
+        #
+        # If the process dies between consuming and persisting, or between
+        # persisting and returning, the authority is dead and no money moved: a
+        # legitimate purchase fails to complete, which is the safe direction for a
+        # wallet. The opposite order -- money first, consumption second -- is what
+        # let the same authorization execute twice across a crash (V10), because
+        # nothing writes a checkpoint after a charge.
         executed_at = now or self._clock()
-        record = ChargeRecord(charge_id, authorization_id, amount_chf, executed_at)
-        self._charges[charge_id] = record
         self._state.consume_authority(authorization_id, executed_at)
+        if self._persist is not None:
+            self._persist()
+        record = ChargeRecord(charge_id, authorization_id, amount_chf, executed_at, merchant_id)
+        self._charges[charge_id] = record
         return record
+
+    def charge_record(self, charge_id: str) -> ChargeRecord | None:
+        """The record for an idempotency key, if this executor created one."""
+        return self._charges.get(charge_id)
 
     def is_charged(self, authorization_id: str) -> bool:
         authority = self._state.get_authority(authorization_id)
