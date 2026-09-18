@@ -32,26 +32,42 @@ this codebase are the official integration versus local, demo-only extensions.
 ## Repository layout
 
 ```
-src/wallet_control/
-  money.py            Exact-decimal CHF math and FX conversion
-  mandate.py           The wallet policy: draft/confirm/tighten/revoke lifecycle
-  policy_compiler.py   Natural-language instruction -> hard_rules (no LLM)
-  facts.py             Trustworthy purchase facts; the ONE place item_details is read
-  rules.py             Evaluates hard_rules against facts -> pass/fail/unknown
-  state.py             Rolling spend, idempotency, duplicate & session-integrity signals
-  decision_engine.py   Orchestrates the above into ALLOW/REVIEW/BLOCK
-  intervention.py      Local ask_missing_fact/ask_this_time/never gloss on a decision
-  payment.py           Mock PSP enforcing the authorization/payment boundary
-  viseca_mapping.py    ALLOW/REVIEW/BLOCK <-> approve/decline/step_up (one place)
-  csv_data.py          Read-only loaders for data/official/*.csv
-  offline_replay.py    Builds official-schema events from the CSV pack and replays them
-  viseca_client.py     HTTP adapter for the hosted API
-  live_worker.py       The executable poll/decide/submit worker
-  api.py               Small FastAPI demo backend (not the official integration)
-data/official/          Read-only copy of the official synthetic data pack
-ui/index.html            Single-page demo UI (vanilla JS, no framework)
-tests/                   pytest suite (see "Tests" below)
-docs/                    Architecture, security, Viseca integration, final review
+src/wallet_control/        THE RUNTIME -- only code that runs in production
+  mandate.py               The customer's policy: draft/confirm/tighten-only/revoke
+  policy_compiler.py       Natural language -> hard_rules, deterministic, no model
+  facts.py                 The official event -> canonical facts; the ONE place
+                           merchant text is read
+  rules.py                 Evaluates one hard_rule against facts -> pass/fail/unknown
+  decision_engine.py       The core: binding, platform status, replay, safety checks,
+                           and _decide()  (fail > unknown > pass)
+  state.py                 THE SECURITY OBJECT: the write-once decision ledger, the
+                           execution lifecycle, rolling spend, revocation, checkpoint
+  payment.py               The execution boundary -- one function may move money
+  audit.py                 Audit timeline + delegation view (pure projections)
+  attack_demo.py           The eight judge-facing attacks, run against the real engine
+  drift.py                 Explains how a re-delivered authorization differs (cannot gate)
+  money.py                 Exact-decimal CHF math and the fixed FX table
+  intervention.py          Decision -> the customer-facing intervention gloss
+  viseca_mapping.py        ALLOW/REVIEW/BLOCK <-> approve/decline/step_up, in one place
+  csv_data.py              Read-only loaders for data/official/*.csv
+  offline_replay.py        Builds official-schema events from the pack and replays them
+  viseca_client.py         HTTP client for the hosted API (only the endpoints we call)
+  live_worker.py           The poll/decide/submit worker; one RunState per run_id
+  api.py                   Demo backend + static UI (same engine, no separate path)
+
+research/                  APPARATUS -- never imported by the runtime (asserted by a test)
+  fulfillment.py           "Has this job already been done?", derived from the ledger
+  red_team.py              17 hand-written adversarial scenarios
+  red_team_corpus.py       133 generated cases
+  security_object.py       Eight competing models of the fundamental security object
+  demo_scenario.py         The R&D walkthrough
+
+data/official/             Read-only copy of the official synthetic data pack
+ui/index.html              The whole customer experience: mobile-first, one file,
+                           no framework, no build step
+tests/                     622 tests
+scripts/                   Replay, adversarial suites, research experiments
+docs/                      Architecture, security audits, runbook, demo script
 ```
 
 ## Quickstart
@@ -76,9 +92,17 @@ python scripts/run_replay.py
 Start the demo backend + UI:
 
 ```bash
-uvicorn wallet_control.api:app --reload
-# open http://127.0.0.1:8000/
+uvicorn wallet_control.api:app --port 8420
+# open http://localhost:8420
 ```
+
+Check it before demoing -- `matches_regression_boundary` must be `true`:
+
+```bash
+curl -s localhost:8420/api/health
+```
+
+Full operator instructions: [`RUNBOOK.md`](RUNBOOK.md).
 
 Run the live worker against the hosted API (event day only):
 
@@ -94,31 +118,19 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-187 tests, including 8 Hypothesis property-based tests (each checked against
-100-200 generated inputs, so the effective coverage is closer to a few thousand
-generated cases for those properties alone) and a 10-instruction adversarial fuzz
-corpus for the policy compiler. Covers mandate lifecycle and tighten-only PATCH
-semantics (including malformed-identifier rejection), the policy compiler
-(paraphrased instructions, contradictory/ambiguous amounts, false-positive-prone
-phrasing, and a curated fuzz corpus -- not just the five official sentences), the
-rules engine (including per-item scoping so an unrelated add-on cannot false-fail
-the correct primary item), the decision engine's ALLOW/REVIEW/BLOCK priority
-(including the "zero hard rules must never mean unlimited authority" safety net,
-and confirmed by mutation testing to actually be enforced, not merely asserted),
-prompt-injection and Unicode-obfuscation resistance, duplicate/retry/idempotency
-(including a same-ID delivery with mutated facts), the payment boundary (including
-charge_id-reuse, merchant-binding misuse, and zero/negative-amount rejection),
-human resolution scoping, the offline replay, the Viseca decision mapping,
-event-schema validity against the official JSON Schema, the live worker (against
-a fake client -- no API key needed -- including network-failure handling,
-crash-recovery via checkpoint, and stopping rather than retrying forever on a
-fatal 401/403), and the demo API end-to-end. See
-[docs/MASTER_R_AND_D_AUDIT.md](docs/MASTER_R_AND_D_AUDIT.md) for the full third
-audit pass (property-based testing, mutation testing, fuzzing, and a genuine
-comparison of alternative architectures) and
-[docs/SECOND_ADVERSARIAL_AUDIT.md](docs/SECOND_ADVERSARIAL_AUDIT.md) for the
-second pass's 18 findings, including the most serious one found across all three
-passes.
+**622 tests.** The structure is deliberate rather than count-driven:
+
+- `tests/security/test_product_invariants.py` -- the twelve product claims as
+  property tests over generated inputs, each named after the sentence we would say
+  to a judge.
+- `tests/security/test_resolution_escape_hatch.py` -- three vulnerabilities found by
+  an independent audit of the frozen build, each with a minimal reproduction.
+- `tests/test_failure_modes.py` -- 26 dependency-failure cases; found a real defect.
+- `tests/test_runtime_boundary.py` -- asserts the runtime never imports research.
+- `tests/security/test_state_machine.py` -- a stateful model over the whole lifecycle.
+
+Official replay: **45 events, 19 allow / 2 review / 24 block** -- a regression
+boundary, not a score. There are no official expected-decision labels.
 
 ## Offline replay results (this engine's actual output, not an answer key)
 
