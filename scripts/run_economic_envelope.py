@@ -15,10 +15,14 @@ already ALLOWED -- so it is policy-compliant by construction, not by our judgeme
 
 Read the output with two qualifications, both load-bearing:
 
-  * These are AUTHORIZATIONS, not losses. Neither this wallet nor the official
-    schema models a credit limit, so what finally stops the agent lives outside
-    this system. That is the finding, not a caveat: the customer's stated policy
-    contributes nothing to the bound.
+  * These are AUTHORIZATIONS, not losses. The WALLET models no credit limit -- but
+    the official schema does, and an earlier version of this docstring wrongly said
+    it did not. `accounts.csv` carries `monthly_limit_chf` for every account, and
+    the scenario cards resolve to CHF 3,200-5,000 a month, so the real ceiling is
+    nearer CHF 38,400-60,000 a year than the figures below. The finding is
+    unchanged and the magnitude is not: the customer's stated policy contributes
+    nothing to the bound, and what does bound it is an account limit they never set
+    as part of this delegation. See docs/SECURITY_OBJECT_FALSIFICATION.md.
   * A year is an illustration of a RATE, not a prediction. There is no horizon to
     predict with -- which is the other half of the finding.
 
