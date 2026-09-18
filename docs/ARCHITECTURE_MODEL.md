@@ -6,11 +6,24 @@ Derived from the code as it stands, not from intent.
 
 ## 1. The security object
 
+**Corrected by the falsification pass.** This section used to name one object. A
+security object is only fundamental relative to a SCOPE, and this delegation has
+three — see `SECURITY_OBJECT_FALSIFICATION.md`:
+
+| scope | object | bounds | status |
+| --- | --- | --- | --- |
+| an authorization | **the decision ledger** | money moves once, correctly, and stops on revocation | built |
+| a mandate | **the derived job capability** | how many times the delegated job is performed | built |
+| an account | account-scoped rolling spend | total francs | **not built** |
+
+Protecting the ledger perfectly leaves 4 of the 5 official mandates economically
+unbounded, so it is fundamental at the scope of an authorization and nowhere else.
+The rest of this section describes that scope, which is where it does hold.
+
 **The run's persisted decision ledger** — `RunState._decisions`, a map from
 `authorization_id` to an immutable `StoredDecision`, checkpointed with the run.
 
-Everything else that looks like a security object is either *derived from it* or
-*enforced against it*:
+Everything else at THIS scope is either *derived from it* or *enforced against it*:
 
 | Thing | Status |
 | --- | --- |
