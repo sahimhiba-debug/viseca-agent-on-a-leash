@@ -204,16 +204,6 @@ class Mandate:
             )
         self.uncertainty_policy = new_policy
 
-    def replace_guidance(self, guidance: list[str] | None, open_questions: list[str] | None) -> None:
-        """`guidance`/`open_questions` are explanatory text, not authority -- the API
-        contract explicitly allows PATCH to replace them wholesale (unlike hard_rules).
-        """
-        self._require_active()
-        if guidance is not None:
-            self.guidance = list(guidance)
-        if open_questions is not None:
-            self.open_questions = list(open_questions)
-
     def revoke(self) -> None:
         if self.status in (MandateStatus.REVOKED, MandateStatus.EXPIRED):
             return

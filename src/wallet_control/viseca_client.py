@@ -70,6 +70,16 @@ def _json_or_empty(response: httpx.Response) -> dict[str, Any]:
 
 
 class VisecaClient:
+    """The official endpoints this solution actually calls.
+
+    Six further endpoints exist in the official contract -- reference data, the
+    history CSV, GET/PATCH mandate, the event feed and team reset -- and are not
+    implemented here. We read the history from the vendored data pack, never patch a
+    mandate at runtime, and do not consume the event feed. An untested HTTP wrapper
+    for an endpoint nobody calls is a liability, not coverage; each is three lines
+    if a need appears.
+    """
+
     def __init__(self, base_url: str, api_key: str, timeout: float = 30.0) -> None:
         self._api_key = api_key  # never logged, never included in __repr__
         self._client = httpx.Client(
@@ -115,12 +125,6 @@ class VisecaClient:
     def bootstrap(self) -> dict[str, Any]:
         return _json_or_empty(self._request("GET", "/v1/bootstrap"))
 
-    def reference_data(self) -> dict[str, Any]:
-        return _json_or_empty(self._request("GET", "/v1/reference-data"))
-
-    def authorization_history_csv(self) -> bytes:
-        return self._request("GET", "/v1/reference-data/authorization-history.csv").content
-
     # --- mandate lifecycle --------------------------------------------------------------
     def create_mandate_draft(
         self,
@@ -141,29 +145,6 @@ class VisecaClient:
 
     def confirm_mandate(self, draft_id: str) -> dict[str, Any]:
         return _json_or_empty(self._request("POST", f"/v1/mandates/{draft_id}/confirm", json={"confirmed": True}))
-
-    def get_mandate(self, mandate_id: str) -> dict[str, Any]:
-        return _json_or_empty(self._request("GET", f"/v1/mandates/{mandate_id}"))
-
-    def patch_mandate(
-        self,
-        mandate_id: str,
-        *,
-        hard_rules: list[dict[str, Any]] | None = None,
-        uncertainty_policy: str | None = None,
-        guidance: list[str] | None = None,
-        open_questions: list[str] | None = None,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {}
-        if hard_rules is not None:
-            payload["hard_rules"] = hard_rules
-        if uncertainty_policy is not None:
-            payload["uncertainty_policy"] = uncertainty_policy
-        if guidance is not None:
-            payload["guidance"] = guidance
-        if open_questions is not None:
-            payload["open_questions"] = open_questions
-        return _json_or_empty(self._request("PATCH", f"/v1/mandates/{mandate_id}", json=payload))
 
     def revoke_mandate(self, mandate_id: str) -> dict[str, Any]:
         return _json_or_empty(self._request("DELETE", f"/v1/mandates/{mandate_id}"))
@@ -231,8 +212,3 @@ class VisecaClient:
     def list_authorizations(self) -> dict[str, Any]:
         return _json_or_empty(self._request("GET", "/v1/authorizations"))
 
-    def events(self, since: int = 0) -> dict[str, Any]:
-        return _json_or_empty(self._request("GET", "/v1/events", params={"since": since}))
-
-    def team_reset(self) -> dict[str, Any]:
-        return _json_or_empty(self._request("POST", "/v1/team/reset"))
