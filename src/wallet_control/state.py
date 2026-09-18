@@ -177,9 +177,10 @@ class PaymentAuthority:
     # (deep-security finding V8). One source of truth, and it is checkpointed.
     consumed_at: datetime | None = None
 
-    def is_valid(self, *, now: datetime | None = None) -> bool:
-        now = now or datetime.now(timezone.utc)
-        return not self.revoked and self.consumed_at is None and now <= self.expires_at
+    # NOTE: there is deliberately no `is_valid()` helper here. One existed and was
+    # never called: validity is decided at the payment boundary, against live run
+    # state, and a second security-looking predicate that nothing consults is an
+    # invitation to believe the wrong thing is enforcing the rule.
 
     def as_dict(self) -> dict:
         return {

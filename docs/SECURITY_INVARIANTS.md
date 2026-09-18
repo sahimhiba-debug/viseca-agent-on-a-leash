@@ -1,4 +1,10 @@
-# Security invariants
+# Security invariants (historical, per-pass record)
+
+> **The authoritative list is `docs/SECURITY_INVARIANTS_FINAL.md`.** This file is
+> kept as the chronological record of how each invariant was discovered, pass by
+> pass (I1-I32, in discovery order). Where the two differ, the final list wins --
+> notably I29, which the deep-security pass proved was NOT holding as stated here
+> (a human-approved step-up minted no authority, so nothing revoked it).
 
 A formal list of the properties this system must never violate, grouped the way
 the third-pass audit brief asked for (AUTHORITY / PAYMENT / REPLAY / POLICY / TIME

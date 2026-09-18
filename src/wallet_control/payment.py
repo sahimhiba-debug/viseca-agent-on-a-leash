@@ -139,9 +139,6 @@ class MockPSP:
         self._state.consume_authority(authorization_id, executed_at)
         return record
 
-    def charge_for(self, charge_id: str, authorization_id: str) -> ChargeRecord | None:
-        return self._charges.get(charge_id)
-
     def is_charged(self, authorization_id: str) -> bool:
         authority = self._state.get_authority(authorization_id)
         return authority is not None and authority.consumed_at is not None
@@ -149,25 +146,21 @@ class MockPSP:
     def charge_via_authority(
         self, *, charge_id: str, authority: PaymentAuthority, amount_chf: Decimal, now: datetime | None = None
     ) -> ChargeRecord:
-        """R&D Track A: execute a charge against a `PaymentAuthority` as a single,
-        self-contained object, rather than four independently-supplied parameters.
+        """Charge against a `PaymentAuthority` object instead of four separate
+        parameters. **Pure delegation, and nothing more.**
 
-        This is an ERGONOMIC wrapper, not a separate security layer, and the
-        docs say so plainly: every binding it relies on (merchant, approved
-        amount, single execution, expiry, revocation) is enforced inside
-        `charge()` against the run's own live records, so reaching for `charge()`
-        directly cannot bypass any of it. The one check that genuinely belongs
-        here is the ceiling carried by the PASSED authority object, which may be
-        narrower than the originally approved amount (an attenuated grant);
-        `charge()` only knows the approved amount, not that narrowing.
+        It carries no check of its own, deliberately. It used to verify the ceiling
+        on the PASSED authority, on the theory that an attenuated grant could be
+        narrower than the approved amount -- but `issue_authority` always sets
+        `amount_ceiling_chf` to exactly the approved amount and nothing in this
+        codebase attenuates, so that check was provably identical to the one
+        `charge()` already performs. It was removed rather than kept "just in case":
+        a redundant check inside a wrapper is how a wrapper starts looking like a
+        security layer.
 
-        Note the deliberate asymmetry: expiry and revocation are re-read from
-        `self._state` inside `charge()` rather than trusted from the `authority`
-        argument, so handing this method a stale copy taken before a revocation
-        does not resurrect it.
+        Everything real happens in `charge()`, against live run state rather than
+        against this argument -- so handing this method a stale copy captured before
+        a revocation does not resurrect it, and reaching for `charge()` directly
+        bypasses nothing.
         """
-        if amount_chf > authority.amount_ceiling_chf:
-            raise PaymentError(
-                f"requested charge CHF {amount_chf} exceeds the authority's own ceiling CHF {authority.amount_ceiling_chf}"
-            )
         return self.charge(charge_id=charge_id, authorization_id=authority.authorization_id, amount_chf=amount_chf, merchant_id=authority.merchant_id, now=now)

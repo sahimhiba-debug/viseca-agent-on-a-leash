@@ -46,3 +46,82 @@ authority. Everything else the decision engine reads is either platform-supplied
 structured data (trusted directly), or merchant-supplied free text read through a
 whitelist narrow enough that reading it can only ever produce a fact, never a
 rule.**
+
+---
+
+# The formal authority model
+
+Added by the deep-security pass, which asked the question this document had never
+answered precisely: **what exactly does an authority authorize?**
+
+Derived from the code, not from intent. `RunState.issue_authority` is the only
+constructor of a `PaymentAuthority` in the repository, and `MockPSP.charge` is the
+only consumer.
+
+## The tuple
+
+An approval authorizes exactly this, and nothing wider:
+
+```
+AUTHORIZE(
+    authorization_id   -- this one purchase, by the platform's live id
+    merchant_id        -- this one counterparty
+    amount <= ceiling  -- at most the amount actually approved, in CHF
+    once               -- consumed_at; persisted, so a restart does not reset it
+    until expires_at   -- 15 real-clock minutes from issue, never extended
+    while not revoked  -- the customer's brake, and the platform's status fields
+)
+```
+
+So the answer to "is it CHF 400, or CHF 400 at merchant X, or this exact
+transaction?" is: **this exact transaction, once, for a short while, unless
+stopped** — with the two qualifications below, which are part of the answer rather
+than exceptions to it.
+
+## What is bound, and where it is enforced
+
+| Element | In the authority | Enforced at execution | Notes |
+| --- | --- | --- | --- |
+| authorization_id | yes | yes | the charge is bound to it; it cannot be redirected |
+| merchant_id | yes | yes | compared against the **stored decision**, not the passed object |
+| amount ceiling | yes | yes | `Decimal`; CHF 0.001 over is refused |
+| single use | `consumed_at` | yes | persisted — survives a crash |
+| expiry | `expires_at` | yes | judged by the boundary's **own** clock |
+| revocation | `revoked` | yes | re-read live, so a stale copy cannot resurrect it |
+| mandate_id | yes | **no** | provenance. Caller-asserted at resolution time and unverified; it labels the audit record, it does not gate money |
+| policy_version | yes | **no** | provenance. A run is bound to one snapshot, so it cannot change beneath an outstanding authority; enforcing it would be a dead branch |
+| basket_fingerprint | yes | **no** | provenance *here*. The basket is frozen at the DECISION layer by `authorization_id_conflict`, which is where the comparison is actually possible — the charge path receives an amount, not a basket |
+| currency | yes | n/a | always CHF; conversion happens before the boundary |
+
+Two things are deliberately **not** in the tuple: there is no parent/child
+authority, no attenuation and no authority family in this codebase. Earlier
+briefing material described such a model; it does not exist here, and inventing one
+to match the description would add a lifecycle with no caller.
+
+## What freezes the facts
+
+The authority binds *money and counterparty*. What binds the *purchase* is a
+separate mechanism at the decision layer, the repeat-delivery fingerprint:
+
+```
+(merchant_id, billing_amount_chf,
+ [(item_id, item_name, quantity, return_window_days, final_sale, stated_size), ...])
+```
+
+Note the last three: facts **derived from** merchant text, never the raw text. That
+asymmetry is load-bearing in both directions — a text edit that moves a fact is a
+conflict, while casing, padding and zero-width characters remain an ordinary retry.
+
+Not in the fingerprint, each for a stated reason: `unit_price` (no rule reads it;
+the total is compared separately), `order_returnable` (platform-supplied, different
+trust tier), `timestamp` (a re-delivery may legitimately carry a new one).
+
+Identity — `card_id` and `mandate_id` — is checked *before* the fingerprint, because
+"is this event ours?" precedes "have we seen this purchase?".
+
+## The one-sentence version, restated precisely
+
+An ALLOW is not permission to spend; it is a single-use, time-boxed, merchant- and
+amount-bound authorization to execute one specific purchase, revocable until it is
+spent, and independently re-verified against persisted state at the only point
+where money moves.
