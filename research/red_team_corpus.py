@@ -23,10 +23,10 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Callable
 
-from .decision_engine import evaluate_authorization, resolve_authorization
-from .mandate import HardRule, Mandate, UncertaintyPolicy
-from .payment import MockPSP, PaymentError
-from .state import HistoryIndex, ResolutionError, RunState
+from wallet_control.decision_engine import evaluate_authorization, resolve_authorization
+from wallet_control.mandate import HardRule, Mandate, UncertaintyPolicy
+from wallet_control.payment import MockPSP, PaymentError
+from wallet_control.state import HistoryIndex, ResolutionError, RunState
 
 MERCHANT = "ME_CORPUS_1"
 OTHER_MERCHANT = "ME_CORPUS_2"

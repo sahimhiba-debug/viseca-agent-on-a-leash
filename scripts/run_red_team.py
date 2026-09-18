@@ -13,8 +13,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # research/ lives at the repo root, outside the shipped package
 
-from wallet_control import red_team  # noqa: E402
+from research import red_team  # noqa: E402
 
 
 def main() -> int:

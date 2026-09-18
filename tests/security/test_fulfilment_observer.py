@@ -25,7 +25,7 @@ import pytest
 
 from tests.helpers import make_event
 from wallet_control.decision_engine import evaluate_authorization, resolve_authorization
-from wallet_control.fulfillment import MandateShape, classify_shape, fulfilment_state, job_anchor
+from research.fulfillment import MandateShape, classify_shape, fulfilment_state, job_anchor
 from wallet_control.mandate import HardRule, Mandate, UncertaintyPolicy
 from wallet_control.state import HistoryIndex, RunState
 

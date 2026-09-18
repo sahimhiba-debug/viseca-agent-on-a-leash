@@ -35,7 +35,7 @@ from wallet_control.offline_replay import (
     history_csv_path, replay_scenario, scenario_rows,
 )
 from wallet_control.payment import MockPSP, PaymentError
-from wallet_control.security_object import MODELS, assess_all
+from research.security_object import MODELS, assess_all
 from wallet_control.state import HistoryIndex, RunState
 
 HORIZON, SPACING, CAP = 365, timedelta(minutes=61), 400

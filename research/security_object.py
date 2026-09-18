@@ -42,10 +42,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
 
-from .csv_data import account_limits_for_card
+from wallet_control.csv_data import account_limits_for_card
 from .fulfillment import MandateShape, classify_shape, job_anchor, units_in_basket
-from .mandate import MandateSnapshot, MandateStatus
-from .state import RunState, StoredDecision
+from wallet_control.mandate import MandateSnapshot, MandateStatus
+from wallet_control.state import RunState, StoredDecision
 
 Standing = Literal["within", "outside", "unknown"]
 

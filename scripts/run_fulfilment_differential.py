@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))  # research/ lives at the repo root, outside the shipped package
 
 from wallet_control.csv_data import (  # noqa: E402
     history_csv_path,
@@ -27,7 +28,7 @@ from wallet_control.csv_data import (  # noqa: E402
     scenario_rows,
 )
 from wallet_control.decision_engine import evaluate_authorization  # noqa: E402
-from wallet_control.fulfillment import classify_shape, fulfilment_state  # noqa: E402
+from research.fulfillment import classify_shape, fulfilment_state  # noqa: E402
 from wallet_control.offline_replay import (  # noqa: E402
     ALL_SCENARIO_IDS,
     build_event,

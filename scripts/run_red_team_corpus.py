@@ -15,8 +15,9 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # research/ lives at the repo root, outside the shipped package
 
-from wallet_control.red_team_corpus import run_all  # noqa: E402
+from research.red_team_corpus import run_all  # noqa: E402
 
 
 def main() -> int:

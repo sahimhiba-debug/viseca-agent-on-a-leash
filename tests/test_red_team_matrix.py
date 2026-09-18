@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from wallet_control import red_team
+from research import red_team
 
 ATTACKS = [
     red_team.attack_prompt_injection_preauthorization,

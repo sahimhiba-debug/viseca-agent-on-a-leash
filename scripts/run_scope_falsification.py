@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT))
 from tests.helpers import make_event, make_mandate
 from wallet_control.csv_data import DATA_DIR, load_accounts, load_cards
 from wallet_control.decision_engine import evaluate_authorization
-from wallet_control.fulfillment import fulfilment_state
+from research.fulfillment import fulfilment_state
 from wallet_control.mandate import HardRule
 from wallet_control.state import HistoryIndex, RunState
 

@@ -38,10 +38,11 @@ from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # research/ lives at the repo root, outside the shipped package
 
 from wallet_control.csv_data import load_merchants, load_purchase_attempt_items, load_scenario_catalogue
 from wallet_control.decision_engine import evaluate_authorization
-from wallet_control.fulfillment import classify_shape, fulfilment_state
+from research.fulfillment import classify_shape, fulfilment_state
 from wallet_control.offline_replay import (
     ALL_SCENARIO_IDS,
     build_event,

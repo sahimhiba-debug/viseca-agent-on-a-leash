@@ -31,7 +31,7 @@ from wallet_control.decision_engine import evaluate_authorization
 from wallet_control.mandate import HardRule
 from wallet_control.offline_replay import ALL_SCENARIO_IDS, compile_and_confirm_mandate_for_scenario
 from wallet_control.payment import MockPSP, PaymentError
-from wallet_control.security_object import MODELS, m2_ledger, m4c_capability_chf, m5_job, m8_account
+from research.security_object import MODELS, m2_ledger, m4c_capability_chf, m5_job, m8_account
 from wallet_control.state import HistoryIndex, RunState
 
 M, CARD = "ME_TEST_0001", "CA_TEST"
@@ -80,7 +80,7 @@ def test_requiring_personal_consent_for_every_purchase_is_degenerate():
     """M6 is trivially safe and trivially useless: it bounds the outcome at CHF 0 by
     questioning all 19 approved purchases in the official corpus. It is included in
     the model set precisely to fix that end of the scale."""
-    from wallet_control.security_object import m6_consent
+    from research.security_object import m6_consent
 
     md, s = _mandate(), _state()
     _buy(md, s, "AU1")

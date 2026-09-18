@@ -58,11 +58,11 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
-from .decision_engine import EngineDecision, evaluate_authorization, resolve_authorization
-from .mandate import Mandate, MandateSnapshot
-from .payment import ChargeRecord, MockPSP, PaymentError
-from .policy_compiler import compile_instruction
-from .state import HistoryIndex, RunState
+from wallet_control.decision_engine import EngineDecision, evaluate_authorization, resolve_authorization
+from wallet_control.mandate import Mandate, MandateSnapshot
+from wallet_control.payment import ChargeRecord, MockPSP, PaymentError
+from wallet_control.policy_compiler import compile_instruction
+from wallet_control.state import HistoryIndex, RunState
 
 INSTRUCTION = (
     "Buy the 32-inch monitor I chose, for CHF 350 or less. Do not add anything I did not "

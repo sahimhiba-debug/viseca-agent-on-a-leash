@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from wallet_control.demo_scenario import run_demo_scenario
+from research.demo_scenario import run_demo_scenario
 
 
 def test_step1_honest_proposal_allows_despite_injected_text():

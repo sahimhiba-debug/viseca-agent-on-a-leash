@@ -68,8 +68,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
-from .mandate import MandateSnapshot
-from .state import RunState
+from wallet_control.mandate import MandateSnapshot
+from wallet_control.state import RunState
 
 
 class MandateShape(str, Enum):

@@ -29,7 +29,6 @@ from .attack_demo import run_all_attacks
 from .audit import audit_timeline, delegation_summary
 from .csv_data import account_limits_for_card, history_csv_path, load_merchants, load_purchase_attempt_items, load_scenario_catalogue, scenario_rows
 from .decision_engine import evaluate_authorization, resolve_authorization
-from .demo_scenario import run_demo_scenario
 from .mandate import Mandate
 from .offline_replay import build_event, compile_and_confirm_mandate_for_scenario
 from .policy_compiler import compile_instruction
@@ -226,40 +225,6 @@ def _decision_summary(event: dict[str, Any], result) -> dict[str, Any]:
         "security_verdict": result.security_verdict,
         "drift": result.drift.as_dict() if result.drift is not None else None,
         "payment_authority": result.payment_authority.as_dict() if result.payment_authority is not None else None,
-    }
-
-
-@app.get("/api/rnd-demo")
-def get_rnd_demo() -> dict[str, Any]:
-    """The new, clearly-synthetic R&D scenario (`demo_scenario.py`) -- entirely
-    separate from `/api/scenarios`, which only ever serves the official 45-event
-    data. Returns the whole pre-narrated walkthrough (every id DEMO-prefixed) in
-    one response: this is a fixed story used to demonstrate Tracks A/D/E, not an
-    interactive run a caller can resolve step-by-step."""
-    result = run_demo_scenario()
-    steps = [
-        {"label": step.label, **_decision_summary(step.event, step.result)}
-        for step in result.steps
-    ]
-    resolution = _decision_summary(result.steps[1].event, result.resolution) if result.resolution is not None else None
-    mandate = result.mandate
-    return {
-        "scenario_id": "DEMO_RND_0001",
-        "mandate": {
-            "mandate_id": mandate.mandate_id,
-            "status": mandate.status.value,
-            "instruction": mandate.instruction,
-            "hard_rules": [r.as_dict() for r in mandate.hard_rules],
-            "uncertainty_policy": mandate.uncertainty_policy.value,
-        },
-        "steps": steps,
-        "resolution": resolution,
-        "legitimate_charge": (
-            {"charge_id": result.legitimate_charge.charge_id, "amount_chf": str(result.legitimate_charge.amount_chf)}
-            if result.legitimate_charge is not None
-            else None
-        ),
-        "tampered_charge_refusal_reason": result.tampered_charge_error,
     }
 
 

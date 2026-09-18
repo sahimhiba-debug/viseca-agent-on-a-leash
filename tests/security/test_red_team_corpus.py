@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from wallet_control.red_team_corpus import all_cases
+from research.red_team_corpus import all_cases
 
 CASES = all_cases()
 
