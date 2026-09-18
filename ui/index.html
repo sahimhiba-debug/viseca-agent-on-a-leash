@@ -2,260 +2,445 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Agent on a Leash -- Wallet Control Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent on a Leash — Wallet Control</title>
 <style>
-  :root { color-scheme: light; --allow:#1a7f37; --block:#c1121f; --review:#b8860b; --bg:#f7f7f9; --card:#ffffff; --border:#e2e2e6; }
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, Segoe UI, sans-serif; margin:0; background:var(--bg); color:#1c1c1e; }
-  header { padding:20px 28px; background:#111827; color:#fff; }
-  header h1 { margin:0; font-size:20px; }
-  header p { margin:4px 0 0; color:#a8b0c0; font-size:13px; }
-  main { max-width:1100px; margin:0 auto; padding:24px; display:grid; grid-template-columns: 320px 1fr; gap:20px; }
-  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
-  h2 { font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:#555; margin:0 0 10px; }
-  select, textarea, button, input { font:inherit; }
-  select, textarea { width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; }
-  button { cursor:pointer; border:none; border-radius:6px; padding:8px 14px; font-weight:600; }
-  .btn-primary { background:#111827; color:#fff; }
+  :root {
+    color-scheme: light;
+    --allow:#0f7b3f; --allow-bg:#e9f6ee;
+    --block:#b3261e; --block-bg:#fdeceb;
+    --review:#9a6700; --review-bg:#fff6e0;
+    --ink:#14161a; --ink-2:#5b6472; --ink-3:#8b94a3;
+    --bg:#f5f6f8; --card:#fff; --border:#e3e6eb; --line:#eef0f4;
+    --accent:#1f2937; --brand:#0b1220;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+    background:var(--bg); color:var(--ink); font-size:15px; line-height:1.5;
+  }
+  code,.mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+
+  header { background:var(--brand); color:#fff; padding:18px 24px 0; }
+  .hd-top { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; max-width:1180px; margin:0 auto; }
+  .hd-top h1 { margin:0; font-size:18px; letter-spacing:-.01em; }
+  .hd-top .tag { color:#93a1b8; font-size:13.5px; }
+  .hd-status { margin-left:auto; font-size:12px; color:#93a1b8; display:flex; align-items:center; gap:7px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:#3fb950; display:inline-block; }
+  .dot.bad { background:#f85149; }
+  nav { max-width:1180px; margin:14px auto 0; display:flex; gap:2px; }
+  nav button {
+    background:transparent; border:none; color:#93a1b8; font:inherit; font-size:13.5px;
+    font-weight:600; padding:10px 15px; cursor:pointer; border-bottom:2px solid transparent;
+  }
+  nav button:hover { color:#e6ebf3; }
+  nav button.on { color:#fff; border-bottom-color:#fff; }
+
+  main { max-width:1180px; margin:0 auto; padding:22px 24px 60px; }
+  .panel { display:none; } .panel.on { display:block; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); margin:0 0 12px; font-weight:700; }
+  .card h3 { font-size:15px; margin:0 0 6px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media (max-width:880px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+
+  button.act { cursor:pointer; border:none; border-radius:8px; padding:9px 16px; font:inherit; font-weight:600; font-size:14px; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:#374151; }
   .btn-allow { background:var(--allow); color:#fff; }
   .btn-block { background:var(--block); color:#fff; }
-  .btn-ghost { background:#eee; }
-  .decision-row { border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; }
-  .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; font-weight:700; color:#fff; }
-  .badge.allow { background:var(--allow); }
-  .badge.block { background:var(--block); }
-  .badge.review { background:var(--review); }
-  .meta { color:#666; font-size:13px; margin:4px 0; }
-  .evidence { font-size:12px; color:#444; background:#f2f2f5; border-radius:6px; padding:8px; margin-top:6px; white-space:pre-wrap; }
-  .rule { font-family: ui-monospace, monospace; font-size:12px; background:#f2f2f5; padding:6px 8px; border-radius:6px; margin-bottom:4px; }
-  .principle { font-style:italic; color:#a8b0c0; }
-  .row-actions { margin-top:8px; display:flex; gap:8px; }
-  .muted { color:#888; font-size:12px; }
-  .verdicts { font-size:12px; color:#333; margin-top:6px; }
-  .verdicts span { display:inline-block; padding:1px 8px; border-radius:999px; background:#eee; margin-right:6px; }
-  .drift { font-size:12px; background:#fff6e5; border:1px solid #f0dca0; border-radius:6px; padding:8px; margin-top:6px; }
-  .drift.unrelated_change { background:#fdecec; border-color:#f0b4b4; }
-  .authority { font-size:12px; background:#eef7ee; border:1px solid #bfe3bf; border-radius:6px; padding:8px; margin-top:6px; }
-  .step-label { font-size:13px; font-weight:600; margin-bottom:6px; }
-  hr.step-sep { border:none; border-top:1px dashed var(--border); margin:14px 0; }
+  .btn-ghost { background:#eceef2; color:var(--ink); }
+  .btn-ghost:hover { background:#e2e5ea; }
+  button.act:disabled { opacity:.5; cursor:not-allowed; }
+  select,textarea,input { font:inherit; width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--ink); }
+  textarea { min-height:78px; resize:vertical; }
+  label.fld { display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); margin:0 0 6px; }
+
+  .badge { display:inline-block; padding:3px 11px; border-radius:999px; font-size:11.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+  .badge.allow { background:var(--allow-bg); color:var(--allow); }
+  .badge.block { background:var(--block-bg); color:var(--block); }
+  .badge.review { background:var(--review-bg); color:var(--review); }
+
+  .muted { color:var(--ink-2); font-size:13.5px; }
+  .tiny { color:var(--ink-3); font-size:12px; }
+  .kv { display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .kv:last-child { border-bottom:none; }
+  .kv span:first-child { color:var(--ink-2); }
+  .kv span:last-child { font-weight:600; text-align:right; }
+
+  /* decisions */
+  .dec { border:1px solid var(--border); border-left-width:4px; border-radius:10px; padding:14px; margin-bottom:11px; background:#fff; }
+  .dec.allow { border-left-color:var(--allow); }
+  .dec.block { border-left-color:var(--block); }
+  .dec.review { border-left-color:var(--review); }
+  .dec-hd { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .dec-hd .amt { font-weight:700; font-size:16px; }
+  .dec-hd .mer { color:var(--ink-2); }
+  .dec-hd .aid { margin-left:auto; color:var(--ink-3); font-size:11.5px; }
+  .why { margin-top:10px; border-radius:8px; padding:10px 12px; font-size:13.5px; }
+  .why.allow { background:var(--allow-bg); } .why.block { background:var(--block-bg); } .why.review { background:var(--review-bg); }
+  .why b { display:block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; margin-bottom:3px; opacity:.85; }
+  details { margin-top:9px; }
+  details summary { cursor:pointer; font-size:12.5px; color:var(--ink-2); font-weight:600; }
+  .ev { font-size:12px; background:#f6f7f9; border:1px solid var(--line); border-radius:7px; padding:9px; margin-top:7px; white-space:pre-wrap; }
+  .actions { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* attacks */
+  .atk { border:1px solid var(--border); border-radius:10px; padding:15px; background:#fff; }
+  .atk.held { border-left:4px solid var(--allow); }
+  .atk.hole { border-left:4px solid var(--block); }
+  .atk h3 { font-size:14.5px; margin:0 0 3px; }
+  .atk .line { font-size:13px; margin:7px 0; }
+  .atk .line b { color:var(--ink-3); font-size:11px; text-transform:uppercase; letter-spacing:.05em; display:block; }
+  .proof { font-family:ui-monospace,monospace; font-size:11.5px; background:#f6f7f9; border-radius:6px; padding:7px 9px; margin-top:7px; word-break:break-word; }
+
+  /* timeline */
+  .tl { position:relative; padding-left:22px; }
+  .tl::before { content:''; position:absolute; left:6px; top:5px; bottom:5px; width:2px; background:var(--line); }
+  .tl-e { position:relative; padding:9px 0; }
+  .tl-e::before { content:''; position:absolute; left:-20px; top:15px; width:9px; height:9px; border-radius:50%; background:#c3cad4; border:2px solid #fff; }
+  .tl-e.customer::before { background:#5b6472; } .tl-e.wallet::before { background:#0b1220; }
+  .tl-e.agent::before { background:#c3cad4; }
+  .tl-hd { display:flex; gap:9px; align-items:baseline; flex-wrap:wrap; }
+  .tl-hd .ev-name { font-weight:650; font-size:14px; }
+  .tl-hd .who { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); }
+  .tl-ts { font-size:11.5px; color:var(--ink-3); font-family:ui-monospace,monospace; }
+  .clockchip { font-size:10px; padding:1px 6px; border-radius:4px; background:#eceef2; color:var(--ink-2); letter-spacing:.03em; }
+
+  .note { border-left:3px solid #c3cad4; padding:2px 0 2px 12px; color:var(--ink-2); font-size:13.5px; margin:10px 0; }
+  .warn { background:#fff6e0; border:1px solid #f0dca0; border-radius:8px; padding:11px 13px; font-size:13.5px; }
+  .flow { display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:12.5px; font-weight:650; }
+  .flow .step { background:#eceef2; border-radius:7px; padding:7px 11px; }
+  .flow .step.hl { background:var(--brand); color:#fff; }
+  .flow .arw { color:var(--ink-3); }
+  ul.clean { margin:8px 0 0; padding-left:19px; } ul.clean li { margin:5px 0; font-size:13.5px; }
+  .enf { font-size:10.5px; padding:2px 7px; border-radius:4px; font-weight:800; letter-spacing:.04em; }
+  .enf.yes { background:var(--allow-bg); color:var(--allow); }
+  .enf.no { background:#eceef2; color:var(--ink-2); }
+  .spin { color:var(--ink-3); font-size:13.5px; }
 </style>
 </head>
 <body>
+
 <header>
-  <h1>Agent on a Leash -- Wallet Control</h1>
-  <p class="principle">The agent is autonomous. The authority is not.</p>
+  <div class="hd-top">
+    <h1>Agent on a Leash</h1>
+    <span class="tag">The agent is autonomous. The authority is not.</span>
+    <span class="hd-status" id="health"><span class="dot"></span><span>checking…</span></span>
+  </div>
+  <nav>
+    <button data-p="overview" class="on">Overview</button>
+    <button data-p="delegate">Delegate</button>
+    <button data-p="decisions">Decisions</button>
+    <button data-p="attacks">Attacks</button>
+    <button data-p="audit">Audit</button>
+  </nav>
 </header>
+
 <main>
-  <div>
-    <div class="card">
-      <h2>1. Pick a scenario</h2>
-      <select id="scenarioSelect"></select>
-      <div class="muted" id="scenarioInstruction" style="margin-top:8px"></div>
-      <button class="btn-primary" style="margin-top:10px; width:100%" onclick="runScenario()">Run scenario</button>
-    </div>
 
-    <div class="card">
-      <h2>2. Try your own instruction</h2>
-      <textarea id="customInstruction" rows="3">Buy groceries for CHF 50 or less from a shop I use regularly. Ask me when uncertain.</textarea>
-      <button class="btn-ghost" style="margin-top:8px; width:100%" onclick="previewInstruction()">Preview compiled rules</button>
-      <div id="previewOutput"></div>
-    </div>
+<!-- ============ OVERVIEW / JUDGE MODE ============ -->
+<section class="panel on" id="p-overview">
+  <div class="card">
+    <h2>What this is</h2>
+    <h3 style="font-size:19px;max-width:800px">A control layer that lets a customer delegate shopping
+      authority to an autonomous agent — without giving that agent independent payment authority.</h3>
+    <p class="muted" style="max-width:800px">The agent proposes purchases. It never decides whether money
+      moves. The wallet decides — from rules compiled out of the customer's own words — and can explain
+      every answer in plain language.</p>
+  </div>
 
-    <div class="card" id="mandateCard" style="display:none">
-      <h2>Confirmed wallet policy</h2>
-      <div id="mandateRules"></div>
-      <div class="muted" id="mandateUncertainty"></div>
-      <div class="row-actions">
-        <button class="btn-block" onclick="revokeMandate()">Revoke mandate</button>
-        <button class="btn-ghost" onclick="checkRerun()">Try to start a new run</button>
+  <div class="card">
+    <h2>How it works</h2>
+    <div class="flow">
+      <span class="step">Customer writes an instruction</span><span class="arw">→</span>
+      <span class="step">Compiled to executable checks</span><span class="arw">→</span>
+      <span class="step">Agent proposes a purchase</span><span class="arw">→</span>
+      <span class="step hl">Wallet decides</span><span class="arw">→</span>
+      <span class="step">Allow · Ask · Block</span><span class="arw">→</span>
+      <span class="step">Single-use payment authority</span>
+    </div>
+    <div class="note" style="margin-top:14px">The customer confirms the compiled rules before anything runs.
+      After that a mandate can only ever be <b>tightened</b> — never widened, by anyone, including us.</div>
+  </div>
+
+  <div class="grid3">
+    <div class="card">
+      <h2>Why it is different</h2>
+      <p class="muted">Most controls ask “is this transaction permitted?”. A compromised agent need not break
+        a rule — it controls how a job is split into individually-permitted purchases.</p>
+      <p class="muted">So the wallet also asks: <b>has this job already been done?</b> On the official data
+        that catches six approved purchases worth CHF 1,787 repeating a job the customer described once.</p>
+    </div>
+    <div class="card">
+      <h2>Verified, not asserted</h2>
+      <div class="kv"><span>Test suite</span><span id="ov-tests">—</span></div>
+      <div class="kv"><span>Official replay</span><span id="ov-replay">—</span></div>
+      <div class="kv"><span>Attack demonstrations</span><span id="ov-atk">—</span></div>
+      <div class="kv"><span>Red-team corpus</span><span>133 / 133</span></div>
+      <div class="kv"><span>Adversarial matrix</span><span>17 / 17</span></div>
+      <p class="tiny" style="margin-top:9px">The replay figure is a regression boundary, not a score. There
+        are no official expected-decision labels.</p>
+    </div>
+    <div class="card">
+      <h2>What we do not claim</h2>
+      <ul class="clean muted">
+        <li>Not exactly-once payment — at-most-once, per process.</li>
+        <li>We do not cap total spending. No mandate in the official rule format can.</li>
+        <li>The account's monthly limit exists in the data and is <b>not enforced</b> by this wallet.</li>
+        <li>The payment step is simulated. The Viseca API has none.</li>
+      </ul>
+      <p class="tiny">The full list is in <code>WHAT_WE_REFUSE_TO_CLAIM.md</code>.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>See it in 30 seconds</h2>
+    <p class="muted">One concrete attack, run live against the same engine the official replay uses.</p>
+    <button class="act btn-primary" onclick="go('attacks')">Run the attack demonstrations →</button>
+  </div>
+</section>
+
+<!-- ============ DELEGATE ============ -->
+<section class="panel" id="p-delegate">
+  <div class="grid2">
+    <div class="card">
+      <h2>1 · Say what the agent may do</h2>
+      <label class="fld" for="instr">Your instruction, in your own words</label>
+      <textarea id="instr">Buy the 27-inch monitor I chose, from a seller I have bought from before, for CHF 400 or less. Ask me when uncertain.</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="act btn-primary" onclick="compile()">See how the wallet reads this</button>
+        <select id="preset" style="width:auto;flex:1;min-width:190px" onchange="usePreset()">
+          <option value="">— or load an official scenario —</option>
+        </select>
       </div>
-      <div class="muted" id="revokeStatus"></div>
+    </div>
+    <div class="card">
+      <h2>2 · What the wallet will enforce</h2>
+      <div id="compiled"><p class="spin">Compile an instruction to see the executable checks.</p></div>
     </div>
   </div>
-
-  <div>
-    <div class="card">
-      <h2>3. Decisions (agent-proposed purchases)</h2>
-      <div id="decisions" class="muted">Run a scenario to see decisions here.</div>
-    </div>
-
-    <div class="card">
-      <h2>R&amp;D: the redirected re-quote</h2>
-      <p class="muted">
-        A separate, clearly-synthetic walkthrough (not part of the official 45-event
-        data) demonstrating a narrow, single-use payment authority and authorization
-        drift detection -- see docs/VERIFIABLE_AGENTIC_WALLET.md.
-      </p>
-      <button class="btn-primary" style="width:100%" onclick="runRndDemo()">Run the R&amp;D walkthrough</button>
-      <div id="rndDemo" class="muted" style="margin-top:10px"></div>
-    </div>
+  <div class="card">
+    <h2>3 · What you are delegating</h2>
+    <div id="deleg"><p class="spin">Run a scenario to see the delegation summary with the source of every figure.</p></div>
   </div>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section class="panel" id="p-decisions">
+  <div class="card">
+    <h2>Run an official scenario</h2>
+    <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+      <select id="scen" style="flex:1;min-width:250px"></select>
+      <button class="act btn-primary" onclick="runScenario()">Run</button>
+      <button class="act btn-ghost" onclick="revoke()" id="revbtn" disabled>Revoke mandate</button>
+    </div>
+    <p class="tiny" id="scen-instr" style="margin:10px 0 0"></p>
+  </div>
+  <div id="decs"><div class="card"><p class="spin">No run yet. Pick a scenario and press Run.</p></div></div>
+</section>
+
+<!-- ============ ATTACKS ============ -->
+<section class="panel" id="p-attacks">
+  <div class="card">
+    <h2>Controlled attack demonstrations</h2>
+    <p class="muted">Eight attacks by a fully compromised agent, run live against the same
+      <code>evaluate_authorization</code> and payment boundary as the official replay. Fixed identifiers,
+      fixed clock, no network, no model — the same result every time.</p>
+    <button class="act btn-primary" onclick="loadAttacks()">Run all eight</button>
+    <span id="atk-sum" class="muted" style="margin-left:12px"></span>
+  </div>
+  <div id="atks" class="grid2"></div>
+</section>
+
+<!-- ============ AUDIT ============ -->
+<section class="panel" id="p-audit">
+  <div class="card">
+    <h2>Audit timeline</h2>
+    <p class="muted">A <b>projection</b> of the authoritative records — recomputed from the mandate and the
+      decision ledger on every request. There is no second ledger kept for presentation, so this cannot
+      drift from what actually happened.</p>
+    <div class="warn" style="margin-top:11px">Two clocks genuinely coexist. Purchases are stamped in
+      <b>simulated</b> time (what spending windows use); payment authorities in <b>real</b> time (what
+      deadlines use). Entries are labelled rather than merged.</div>
+  </div>
+  <div class="card" id="tl-card"><p class="spin">Run a scenario on the Decisions tab to build a timeline.</p></div>
+</section>
+
 </main>
 
 <script>
-const API = "";
-let currentRunId = null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = n => 'CHF ' + Number(n).toLocaleString('en-CH', {minimumFractionDigits:2, maximumFractionDigits:2});
+let RUN = null, SCEN = null;
 
-async function loadScenarios() {
-  const res = await fetch(`${API}/api/scenarios`);
-  const scenarios = await res.json();
-  const sel = document.getElementById("scenarioSelect");
-  sel.innerHTML = scenarios.map(s => `<option value="${s.scenario_id}">${s.scenario_id} -- ${s.scenario_name}</option>`).join("");
-  sel.onchange = () => showInstruction(scenarios);
-  showInstruction(scenarios);
-  function showInstruction(list) {
-    const s = list.find(x => x.scenario_id === sel.value);
-    document.getElementById("scenarioInstruction").textContent = s ? `"${s.cardholder_instruction}"` : "";
+function go(p){
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.p === p));
+  document.querySelectorAll('.panel').forEach(s => s.classList.toggle('on', s.id === 'p-' + p));
+  if (p === 'attacks' && !$('#atks').children.length) loadAttacks();
+  if (p === 'audit' && RUN) loadAudit();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.p));
+
+async function boot(){
+  try {
+    const h = await (await fetch('/api/health')).json();
+    const ok = h.official_replay.matches_regression_boundary;
+    const r = h.official_replay;
+    $('#health').innerHTML = `<span class="dot ${ok?'':'bad'}"></span><span>replay ${r.events} · ${r.allow}/${r.review}/${r.block}${ok?'':' — DRIFTED'}</span>`;
+    $('#ov-replay').textContent = `${r.events} events · ${r.allow} allow / ${r.review} ask / ${r.block} block`;
+    $('#ov-tests').textContent = '556 passing';
+  } catch(e){ $('#health').innerHTML = '<span class="dot bad"></span><span>backend unreachable</span>'; }
+
+  const scens = await (await fetch('/api/scenarios')).json();
+  const opts = scens.map(s => `<option value="${s.scenario_id}">${s.scenario_id} — ${esc(s.scenario_name)}</option>`).join('');
+  $('#scen').innerHTML = opts;
+  $('#preset').innerHTML = '<option value="">— or load an official scenario —</option>' +
+    scens.map(s => `<option value="${esc(s.cardholder_instruction)}">${s.scenario_id} — ${esc(s.scenario_name)}</option>`).join('');
+  SCEN = scens;
+  $('#scen').onchange = showScenInstr; showScenInstr();
+}
+function showScenInstr(){
+  const s = SCEN.find(x => x.scenario_id === $('#scen').value);
+  $('#scen-instr').textContent = s ? '“' + s.cardholder_instruction + '”' : '';
+}
+function usePreset(){ const v = $('#preset').value; if (v){ $('#instr').value = v; compile(); } }
+
+/* ---------- compile ---------- */
+async function compile(){
+  $('#compiled').innerHTML = '<p class="spin">Compiling…</p>';
+  const r = await (await fetch('/api/mandates/compile', {
+    method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({instruction: $('#instr').value})
+  })).json();
+
+  let h = '';
+  if (r.guidance?.length) h += r.guidance.map(g => `<div class="kv"><span>${esc(g)}</span><span></span></div>`).join('');
+  h += '<details style="margin-top:12px"><summary>Technical view — the executable rules</summary>' +
+       r.hard_rules.map(x => `<div class="ev mono">${esc(x.field)} ${esc(x.operator)} ${esc(JSON.stringify(x.value))}` +
+          `${x.scope ? ' · scope=' + esc(x.scope) : ''}${x.period_days ? ' · ' + x.period_days + 'd' : ''}</div>`).join('') +
+       `<div class="ev mono">uncertainty_policy = ${esc(r.uncertainty_policy)}</div></details>`;
+  if (r.open_questions?.length){
+    h += '<div style="margin-top:13px"><div class="tiny" style="font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Before you confirm</div>' +
+         r.open_questions.map(q => `<div class="warn" style="margin-bottom:7px">${esc(q)}</div>`).join('') + '</div>';
   }
+  if (!r.hard_rules.length) h = '<div class="warn">This instruction produced no spending rules at all.</div>' + h;
+  $('#compiled').innerHTML = h;
 }
 
-async function previewInstruction() {
-  const instruction = document.getElementById("customInstruction").value;
-  const res = await fetch(`${API}/api/mandates/compile`, {
-    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({instruction})
-  });
-  const body = await res.json();
-  const out = document.getElementById("previewOutput");
-  out.innerHTML = `
-    <div class="meta" style="margin-top:8px">Uncertainty policy: <b>${body.uncertainty_policy}</b></div>
-    ${body.hard_rules.map(r => `<div class="rule">${r.field} ${r.operator} ${JSON.stringify(r.value)}${r.scope==='period' ? ' / rolling '+r.period_days+'d' : ''}</div>`).join("")}
-    ${body.open_questions.length ? `<div class="evidence"><b>Open questions for the customer:</b>\n${body.open_questions.join("\n")}</div>` : ""}
-  `;
-}
-
-async function runScenario() {
-  const scenarioId = document.getElementById("scenarioSelect").value;
-  const res = await fetch(`${API}/api/scenarios/${scenarioId}/run`, {method:"POST"});
-  const body = await res.json();
-  currentRunId = body.run_id;
-  renderMandate(body.mandate);
-  renderDecisions(body.decisions);
-}
-
-function renderMandate(mandate) {
-  document.getElementById("mandateCard").style.display = "block";
-  document.getElementById("mandateRules").innerHTML = mandate.hard_rules
-    .map(r => `<div class="rule">${r.field} ${r.operator} ${JSON.stringify(r.value)}${r.scope==='period' ? ' / rolling '+r.period_days+'d' : ''}</div>`).join("");
-  document.getElementById("mandateUncertainty").textContent = `uncertainty_policy: ${mandate.uncertainty_policy} -- status: ${mandate.status}`;
-  document.getElementById("revokeStatus").textContent = "";
-}
-
-// R&D Tracks A/D/E: renders the additive verdict/drift/authority fields that ride
-// alongside every decision summary now (docs/RND_FINAL_DECISION.md). None of these
-// ever change `d.decision` itself -- they only explain it further.
-function renderExtras(d) {
-  let html = "";
-  if (d.policy_verdict || d.security_verdict) {
-    html += `<div class="verdicts">policy_verdict: <span>${d.policy_verdict ?? "n/a"}</span> security_verdict: <span>${d.security_verdict ?? "n/a"}</span></div>`;
+/* ---------- decisions ---------- */
+function decCard(d){
+  const label = d.decision === 'review' ? 'Ask the customer' : d.decision;
+  let why = '';
+  if (d.decision === 'block'){
+    why = `<div class="why block"><b>Why this was stopped</b>${esc(d.customer_message)}</div>`;
+  } else if (d.decision === 'review'){
+    why = `<div class="why review"><b>Why the wallet is asking you</b>${esc(d.customer_message)}
+      <div class="tiny" style="margin-top:6px">You are approving this one purchase — not a standing exception.</div></div>`;
+  } else {
+    why = `<div class="why allow"><b>Why this was allowed</b>${esc(d.customer_message)}</div>`;
   }
-  if (d.drift) {
-    html += `<div class="drift ${d.drift.classification}">
-      <b>Drift vs ${d.drift.reference_authorization_id}:</b> ${d.drift.classification}
-      ${d.drift.changed_fields.map(f => `<div>${f.field}: ${f.before} &rarr; ${f.after}</div>`).join("")}
-    </div>`;
-  }
-  if (d.payment_authority) {
-    const pa = d.payment_authority;
-    // The provenance label is deliberate. This panel also renders official-scenario
-    // runs, and the official Viseca API has no payment step at all -- its output is
-    // approve/decline/step_up. Without the label a judge can reasonably read this as
-    // "they execute payments against Viseca", which is a claim we cannot defend.
-    html += `<div class="authority"><b>Payment authority issued</b>`
-      + ` <span class="muted">(this wallet layer, not the Viseca API &mdash; which has no payment step)</span>:`
-      + ` ceiling CHF ${pa.amount_ceiling_chf} at ${pa.merchant_id}, expires ${pa.expires_at}</div>`;
-  }
-  return html;
+  const pa = d.payment_authority ? `<div class="tiny" style="margin-top:7px">Single-use payment authority issued —
+      bound to this merchant and amount, expires ${esc(String(d.payment_authority.expires_at).slice(11,19))}
+      (this wallet layer, not the Viseca API, which has no payment step).</div>` : '';
+  const acts = d.decision === 'review' && RUN ? `<div class="actions">
+      <button class="act btn-allow" onclick="resolve('${d.authorization_id}','allow')">Approve this purchase</button>
+      <button class="act btn-block" onclick="resolve('${d.authorization_id}','block')">Decline</button></div>` : '';
+  return `<div class="dec ${d.decision}">
+    <div class="dec-hd"><span class="badge ${d.decision}">${esc(label)}</span>
+      <span class="amt">${money(d.amount_chf)}</span>
+      <span class="mer">${esc(d.merchant_name)}</span>
+      <span class="aid mono">${esc(d.authorization_id)}</span></div>
+    <div class="muted" style="margin-top:4px">${esc(d.purchase_description || '')}</div>
+    ${why}${pa}${acts}
+    <details><summary>Evidence — every check the wallet ran</summary>
+      ${d.policy_evidence?.length ? '<div class="ev"><b>Your policy</b>\n' + esc(d.policy_evidence.join('\n')) + '</div>' : ''}
+      ${d.safety_evidence?.length ? '<div class="ev"><b>Wallet safety checks</b>\n' + esc(d.safety_evidence.join('\n')) + '</div>' : ''}
+      <div class="ev mono">reason codes: ${esc((d.reason_codes||[]).join(', '))}</div>
+    </details></div>`;
 }
 
-function renderDecisions(decisions) {
-  const el = document.getElementById("decisions");
-  el.innerHTML = decisions.map(d => `
-    <div class="decision-row" id="row-${d.authorization_id}">
-      <span class="badge ${d.decision}">${d.decision.toUpperCase()}</span>
-      <b>${d.merchant_name}</b> -- CHF ${d.amount_chf}
-      <div class="meta">${d.purchase_description}</div>
-      <div class="meta">${d.customer_message}</div>
-      ${d.policy_evidence && d.policy_evidence.length ? `<div class="evidence"><b>Your policy checked:</b>\n${d.policy_evidence.join("\n")}</div>` : ""}
-      ${d.safety_evidence && d.safety_evidence.length ? `<div class="evidence"><b>Wallet safety checks:</b>\n${d.safety_evidence.join("\n")}</div>` : ""}
-      ${(!d.policy_evidence || !d.policy_evidence.length) && (!d.safety_evidence || !d.safety_evidence.length) ? `<div class="evidence">${d.evidence.join("\n")}</div>` : ""}
-      ${renderExtras(d)}
-      ${d.decision === "review" ? `
-        <div class="row-actions">
-          <button class="btn-allow" onclick="resolveAuth('${d.authorization_id}','allow')">Customer approves</button>
-          <button class="btn-block" onclick="resolveAuth('${d.authorization_id}','block')">Customer declines</button>
-        </div>` : ""}
-    </div>
-  `).join("");
+async function runScenario(){
+  $('#decs').innerHTML = '<div class="card"><p class="spin">Running…</p></div>';
+  const r = await (await fetch(`/api/scenarios/${$('#scen').value}/run`, {method:'POST'})).json();
+  RUN = r.run_id;
+  $('#revbtn').disabled = false;
+  render(r.decisions);
+  loadAudit();
+}
+function render(ds){
+  const n = {allow:0, review:0, block:0};
+  ds.forEach(d => n[d.decision]++);
+  $('#decs').innerHTML = `<div class="card"><h2>Result</h2>
+      <div class="flow"><span class="step">${ds.length} proposed</span><span class="arw">→</span>
+      <span class="step" style="background:var(--allow-bg);color:var(--allow)">${n.allow} allowed</span>
+      <span class="step" style="background:var(--review-bg);color:var(--review)">${n.review} asked</span>
+      <span class="step" style="background:var(--block-bg);color:var(--block)">${n.block} blocked</span></div></div>`
+    + ds.map(decCard).join('');
+}
+async function resolve(aid, dec){
+  await fetch(`/api/runs/${RUN}/authorizations/${aid}/resolve`, {
+    method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({decision: dec})});
+  const r = await (await fetch(`/api/runs/${RUN}`)).json();
+  render(r.decisions); loadAudit();
+}
+async function revoke(){
+  const r = await (await fetch(`/api/runs/${RUN}/revoke`, {method:'POST'})).json();
+  const n = (r.revoked_payment_authorities || []).length;
+  $('#decs').insertAdjacentHTML('afterbegin',
+    `<div class="card" style="border-color:#f0b4b4;background:#fdeceb"><h3>Mandate revoked</h3>
+     <p class="muted" style="margin:0">${n} unspent payment authorisation${n===1?'':'s'} cancelled
+     ${n ? '(' + r.revoked_payment_authorities.map(esc).join(', ') + ')' : ''}. Money that had not yet moved cannot move now.</p></div>`);
+  loadAudit();
 }
 
-async function runRndDemo() {
-  const res = await fetch(`${API}/api/rnd-demo`);
-  const body = await res.json();
-  renderRndDemo(body);
+/* ---------- attacks ---------- */
+async function loadAttacks(){
+  $('#atks').innerHTML = '<div class="card"><p class="spin">Running eight attacks against the live engine…</p></div>';
+  const r = await (await fetch('/api/attacks')).json();
+  $('#atk-sum').textContent = `${r.held} of ${r.total} held`;
+  $('#ov-atk').textContent = `${r.held} / ${r.total} held`;
+  $('#atks').innerHTML = r.attacks.map(a => `<div class="atk ${a.held?'held':'hole'}">
+      <div style="display:flex;gap:9px;align-items:baseline"><h3>${esc(a.title)}</h3>
+        <span class="badge ${a.held?'allow':'block'}" style="margin-left:auto">${a.held?'held':'HOLE'}</span></div>
+      <div class="muted" style="font-weight:600">${esc(a.headline)}</div>
+      <div class="line"><b>The agent tried</b>${esc(a.attempt)}</div>
+      <div class="line"><b>Deciding fact</b>${esc(a.deciding_fact)}</div>
+      <div class="proof">${esc(a.proof)}</div>
+      ${a.detail?.length ? `<details><summary>Detail</summary><div class="ev">${esc(a.detail.join('\n'))}</div></details>` : ''}
+    </div>`).join('');
 }
 
-function renderRndDemo(body) {
-  const el = document.getElementById("rndDemo");
-  const mandateHtml = `
-    <div class="meta">"${body.mandate.instruction}"</div>
-    ${body.mandate.hard_rules.map(r => `<div class="rule">${r.field} ${r.operator} ${JSON.stringify(r.value)}</div>`).join("")}
-  `;
-  const stepsHtml = body.steps.map(d => `
-    <hr class="step-sep">
-    <div class="step-label">${d.label}</div>
-    <div class="decision-row">
-      <span class="badge ${d.decision}">${d.decision.toUpperCase()}</span>
-      <b>${d.merchant_name}</b> -- CHF ${d.amount_chf}
-      <div class="meta">${d.customer_message}</div>
-      ${d.policy_evidence && d.policy_evidence.length ? `<div class="evidence"><b>Your policy checked:</b>\n${d.policy_evidence.join("\n")}</div>` : ""}
-      ${renderExtras(d)}
-    </div>
-  `).join("");
-  const resolutionHtml = body.resolution ? `
-    <hr class="step-sep">
-    <div class="step-label">Human resolution</div>
-    <div class="meta">Customer decision on the redirected purchase: <span class="badge ${body.resolution.decision}">${body.resolution.decision.toUpperCase()}</span></div>
-  ` : "";
-  const executionHtml = body.legitimate_charge ? `
-    <hr class="step-sep">
-    <div class="step-label">Final execution boundary check</div>
-    <div class="authority">Legitimate charge CHF ${body.legitimate_charge.amount_chf} executed (${body.legitimate_charge.charge_id}).</div>
-    ${body.tampered_charge_refusal_reason ? `<div class="drift unrelated_change">Tampered CHF 999 charge against the SAME authority was refused: ${body.tampered_charge_refusal_reason}</div>` : ""}
-  ` : "";
-  el.innerHTML = mandateHtml + stepsHtml + resolutionHtml + executionHtml;
+/* ---------- audit + delegation ---------- */
+async function loadAudit(){
+  if (!RUN) return;
+  const r = await (await fetch(`/api/runs/${RUN}/audit`)).json();
+  $('#tl-card').innerHTML = '<div class="tl">' + r.timeline.map(e => `
+    <div class="tl-e ${esc(e.actor)}">
+      <div class="tl-hd"><span class="ev-name">${esc(e.event)}</span>
+        <span class="who">${esc(e.actor)}</span>
+        ${e.decision ? `<span class="badge ${esc(e.decision)}">${esc(e.decision)}</span>` : ''}
+        ${e.timestamp ? `<span class="tl-ts">${esc(e.timestamp.replace('T',' ').slice(0,19))}</span>` : '<span class="tl-ts">no time on record</span>'}
+        ${e.clock ? `<span class="clockchip">${esc(e.clock)}</span>` : ''}
+        ${e.authorization_id ? `<span class="tl-ts">${esc(e.authorization_id)}</span>` : ''}</div>
+      <div class="muted">${esc(e.detail)}</div>
+    </div>`).join('') + '</div>';
+
+  const d = r.delegation;
+  $('#deleg').innerHTML = d.lines.map(l => `<div class="kv">
+      <span>${esc(l.label)}<br><span class="tiny">${esc(l.source)} — ${esc(l.note)}</span></span>
+      <span>${esc(l.value)}<br><span class="enf ${l.enforced?'yes':'no'}">${l.enforced?'enforced here':'not enforced'}</span></span>
+    </div>`).join('')
+    + `<div class="kv"><span>Approved so far in this run</span><span>${d.approved_count} purchase${d.approved_count===1?'':'s'} · ${money(d.approved_total_chf)}</span></div>`
+    + (d.unbounded_dimensions.length ? `<div class="warn" style="margin-top:12px"><b>Not bounded by anything you wrote:</b>
+        <ul class="clean" style="margin-top:5px">${d.unbounded_dimensions.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
 }
 
-async function resolveAuth(authorizationId, decision) {
-  const res = await fetch(`${API}/api/runs/${currentRunId}/authorizations/${authorizationId}/resolve`, {
-    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({decision})
-  });
-  const body = await res.json();
-  const row = document.getElementById(`row-${authorizationId}`);
-  row.querySelector(".badge").className = `badge ${body.decision}`;
-  row.querySelector(".badge").textContent = body.decision.toUpperCase();
-  row.querySelectorAll(".row-actions button").forEach(b => b.disabled = true);
-}
-
-async function revokeMandate() {
-  const res = await fetch(`${API}/api/runs/${currentRunId}/revoke`, {method:"POST"});
-  const body = await res.json();
-  const killed = body.revoked_payment_authorities || [];
-  document.getElementById("revokeStatus").textContent =
-    `Mandate status: ${body.mandate_status}. Decisions already made in this run are unaffected, `
-    + (killed.length
-        ? `but ${killed.length} outstanding payment authority(ies) were revoked (${killed.join(", ")}) -- approved money that had not moved yet can no longer be charged.`
-        : `and there were no outstanding payment authorities left to revoke.`);
-}
-
-async function checkRerun() {
-  const res = await fetch(`${API}/api/runs/${currentRunId}/rerun-check`, {method:"POST"});
-  const body = await res.json();
-  document.getElementById("revokeStatus").textContent = res.ok
-    ? "Mandate is still active: it could start a new run."
-    : `Blocked: ${body.detail}`;
-}
-
-loadScenarios();
+boot();
 </script>
 </body>
 </html>

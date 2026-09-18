@@ -271,6 +271,15 @@ class RunState:
         """
         return tuple(d for d in self._decisions.values() if d.decision == "allow")
 
+    def all_decisions(self) -> tuple[StoredDecision, ...]:
+        """Read-only view of every recorded decision, whatever it was.
+
+        Used by the audit projection. It is a VIEW, not a second record: callers get
+        the same immutable `StoredDecision` objects the ledger holds, so a timeline
+        built from this cannot disagree with the ledger it describes.
+        """
+        return tuple(self._decisions.values())
+
     def check_repeat_fingerprint(
         self, authorization_id: str, *, merchant_id: str, basket_key: BasketKey, billing_amount_chf: Decimal
     ) -> bool:

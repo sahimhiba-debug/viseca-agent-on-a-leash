@@ -25,7 +25,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .csv_data import history_csv_path, load_merchants, load_purchase_attempt_items, load_scenario_catalogue, scenario_rows
+from .attack_demo import run_all_attacks
+from .audit import audit_timeline, delegation_summary
+from .csv_data import account_limits_for_card, history_csv_path, load_merchants, load_purchase_attempt_items, load_scenario_catalogue, scenario_rows
 from .decision_engine import evaluate_authorization, resolve_authorization
 from .demo_scenario import run_demo_scenario
 from .mandate import Mandate
@@ -58,6 +60,59 @@ class CompileRequest(BaseModel):
 class ResolveRequest(BaseModel):
     decision: str  # "allow" | "block"
     customer_message: str | None = None
+
+
+@app.get("/api/health")
+def health() -> dict[str, Any]:
+    """Liveness plus the numbers a teammate needs before a demo: if the replay has
+    moved off 19/2/24, something is wrong and it is better to find out here than on
+    stage."""
+    from .offline_replay import replay_all
+
+    replay = replay_all()
+    counts = replay.total_counts()
+    return {
+        "status": "ok",
+        "active_runs": len(_RUNS),
+        "official_replay": {
+            "events": replay.total_events(),
+            "allow": counts["allow"], "review": counts["review"], "block": counts["block"],
+            "expected": {"events": 45, "allow": 19, "review": 2, "block": 24},
+            "matches_regression_boundary": (
+                replay.total_events() == 45 and counts["allow"] == 19
+                and counts["review"] == 2 and counts["block"] == 24
+            ),
+        },
+    }
+
+
+@app.post("/api/demo/reset")
+def demo_reset() -> dict[str, Any]:
+    """Clear every in-memory run so a demo starts from a known state.
+
+    This touches only the demo server's run dict. It cannot alter the official data,
+    the compiled policies, or any decision already recorded in a run it removes --
+    those runs simply cease to exist.
+    """
+    cleared = len(_RUNS)
+    _RUNS.clear()
+    return {"cleared_runs": cleared}
+
+
+@app.get("/api/attacks")
+def attacks() -> dict[str, Any]:
+    """The eight attack demonstrations, run live against the real engine.
+
+    Deterministic: fixed ids, fixed simulated clock, no network, no model. These use
+    the same `evaluate_authorization` and `MockPSP.charge` as the official replay, so
+    they cannot drift away from the product without the test suite failing.
+    """
+    results = [a.as_dict() for a in run_all_attacks()]
+    return {
+        "attacks": results,
+        "held": sum(1 for r in results if r["held"]),
+        "total": len(results),
+    }
 
 
 @app.get("/api/scenarios")
@@ -186,6 +241,23 @@ def get_rnd_demo() -> dict[str, Any]:
             else None
         ),
         "tampered_charge_refusal_reason": result.tampered_charge_error,
+    }
+
+
+@app.get("/api/runs/{run_id}/audit")
+def get_run_audit(run_id: str) -> dict[str, Any]:
+    """The audit timeline and the delegation summary -- both PROJECTIONS.
+
+    Recomputed from the mandate snapshot and the decision ledger on every call. There
+    is no presentation ledger that could drift from the record it describes.
+    """
+    run = _require_run(run_id)
+    snapshot = run.mandate.snapshot()
+    return {
+        "run_id": run_id,
+        "timeline": [e.as_dict() for e in audit_timeline(snapshot, run.state)],
+        "delegation": delegation_summary(
+            snapshot, run.state, account_limits_for_card(snapshot.card_id or "")),
     }
 
 
