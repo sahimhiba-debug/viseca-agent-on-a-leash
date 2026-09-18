@@ -69,6 +69,7 @@ from enum import Enum
 from typing import Literal
 
 from .mandate import MandateSnapshot
+from .state import RunState
 
 
 class MandateShape(str, Enum):
@@ -157,102 +158,20 @@ class FulfilmentVerdict:
         }
 
 
-def job_key(mandate: MandateSnapshot) -> tuple[str, ...]:
-    """What counts as 'the same job', derived from the customer's own compiled
-    anchors rather than from the basket.
-
-    This is the property that makes the check hard to evade rather than merely
-    hard to trigger: the key is the set of item constraints the CUSTOMER wrote. To
-    propose a purchase that does not match this key, a compromised agent must
-    propose something outside those constraints -- which the ordinary rule engine
-    already blocks. Evading the fulfilment check therefore costs the agent the
-    policy check, and vice versa.
-    """
-    anchors: list[str] = []
-    for rule in mandate.hard_rules:
-        if rule.field in ("item.category", "item.name_contains", "item.size"):
-            value = rule.value
-            anchors.append(f"{rule.field}={sorted(value) if isinstance(value, list) else value}")
-    return tuple(sorted(anchors))
-
-
-class FulfilmentMonitor:
-    """Observes approved purchases for one run and reports repeat fulfilments.
-
-    Holds no authority and gates nothing. It is an observer by construction: the
-    only thing it can do is return a verdict.
-    """
-
-    def __init__(self, mandate: MandateSnapshot) -> None:
-        self.mandate = mandate
-        self.classification = classify_shape(mandate.instruction)
-        self._key = job_key(mandate)
-        self._anchor = job_anchor(mandate)
-        self._fulfilled_by: str | None = None
-        self._units_fulfilled = 0
-
-    def observe_allow(self, authorization_id: str, *, units: int = 1) -> None:
-        if self._fulfilled_by is None:
-            self._fulfilled_by = authorization_id
-        self._units_fulfilled += max(units, 1)
-
-    def assess(self, authorization_id: str, *, units: int = 1) -> FulfilmentVerdict:
-        """`units` is how many times THIS purchase performs the job -- the quantity
-        of matching items in its basket.
-
-        Counting units rather than purchases is not a detail. Audit 1 defeated the
-        purchase-counting version in one move: buy two pairs of shoes in a single
-        authorization for CHF 198 against a CHF 200 cap. One purchase, one
-        fulfilment by the old measure, and the customer asked to replace one pair.
-        """
-        shape = self.classification.shape
-        if shape is not MandateShape.ONE_SHOT:
-            return FulfilmentVerdict(
-                "not_applicable", shape,
-                f"this mandate is {shape.value}: {self.classification.evidence}",
-            )
-        if self._anchor is None:
-            # One-shot by phrasing, but the customer named no distinguishing product,
-            # so "the same job" is not identifiable. Saying nothing beats guessing.
-            return FulfilmentVerdict(
-                "not_applicable", shape,
-                "this mandate names no specific product, so repeat fulfilment cannot be identified",
-            )
-
-        units = max(units, 1)
-        already = self._units_fulfilled if self._fulfilled_by != authorization_id else 0
-
-        if already == 0 and units > 1:
-            return FulfilmentVerdict(
-                "over_fulfilled", shape,
-                (
-                    f"this mandate describes a single job ({self.classification.evidence}), but this "
-                    f"one purchase performs it {units} times ({units} matching items)."
-                ),
-            )
-        if already == 0:
-            return FulfilmentVerdict(
-                "first_fulfilment", shape,
-                f"one-shot job, not yet fulfilled ({self.classification.evidence})",
-            )
-        return FulfilmentVerdict(
-            "already_fulfilled", shape,
-            (
-                f"this mandate describes a single job ({self.classification.evidence}), and it was "
-                f"already fulfilled by {self._fulfilled_by}. This purchase would perform it again."
-            ),
-            prior_authorization_id=self._fulfilled_by,
-        )
-
-
 def job_anchor(mandate: MandateSnapshot) -> str | None:
-    """The SPECIFIC product phrase that identifies this job, if the customer gave one.
+    """The SPECIFIC product phrase identifying this job, if the customer gave one.
 
-    A category is not specific enough to count fulfilments. "One ordinary grocery
-    item" and "clothing" name a kind, not a job -- counting units against them would
-    mean a basket of two different groceries looked like the job done twice. Only a
-    distinguishing phrase (`item.name_contains`) identifies a job well enough to say
-    it has been performed. Without one, this module says nothing at all.
+    A category is not specific enough. "One ordinary grocery item" and "clothing"
+    name a kind, not a job -- counting against them would make a basket of two
+    different groceries look like the job done twice. Only a distinguishing phrase
+    (`item.name_contains`) identifies a job well enough to say it has been
+    performed; without one this module says nothing at all.
+
+    Using the customer's own compiled anchor is also what makes the check hard to
+    evade rather than merely hard to trigger: to propose a purchase that does not
+    match it, a compromised agent must propose something outside the customer's
+    item constraints -- which the ordinary rule engine already blocks. Evading the
+    fulfilment check costs the agent the policy check, and vice versa.
     """
     for rule in mandate.hard_rules:
         if rule.field == "item.name_contains":
@@ -260,20 +179,81 @@ def job_anchor(mandate: MandateSnapshot) -> str | None:
     return None
 
 
-def units_in(event: dict, mandate: MandateSnapshot) -> int:
-    """How many times one event performs THIS job: the quantity of items matching
-    the job's specific anchor -- not the size of the basket.
-
-    Audit 2 defeated the basket-counting version without any attack at all: one pair
-    of shoes plus a shoe-care kit counted as two units and was flagged as buying the
-    shoes twice. A false prompt is cheaper than a false approval, but it is still a
-    defect, and an observer that cries wolf is one the customer learns to dismiss.
-    """
-    anchor = job_anchor(mandate)
+def units_in_basket(basket_key, anchor: str | None) -> int:
+    """How many times one recorded purchase performs the job, read from the
+    PERSISTED basket fingerprint `(item_id, item_name, quantity, ...)`."""
     if anchor is None:
         return 1
-    return sum(
-        int(line.get("quantity", 1))
-        for line in event["authorization"]["items"]
-        if anchor in str(line.get("item_name", "")).lower()
-    ) or 1
+    return sum(int(line[2]) for line in basket_key if anchor in str(line[1]).lower()) or 1
+
+
+def fulfilment_state(
+    mandate: MandateSnapshot, state: RunState, *, assessing: str | None = None
+) -> FulfilmentVerdict:
+    """Derive fulfilment from the run's persisted decision ledger. Stateless.
+
+    This replaced a stateful `FulfilmentMonitor` that kept its own tally, and the
+    replacement is the actual research result of this pass. That monitor
+    reproduced, exactly, the defect class found three times in `PaymentAuthority`:
+
+      * a human-approved step-up never reached it, because it was fed from engine
+        ALLOWs rather than from the decision of record (the shape of V2);
+      * a restart reset it to zero, because its tally lived in memory while the
+        decisions lived in the checkpoint (the shape of V3, V8 and V10).
+
+    Both are the same mistake -- lifecycle state kept BESIDE the record it
+    describes, free to diverge from it. Deriving instead of storing removes the
+    possibility rather than fixing the instances:
+
+      * human approvals are included, because `record_resolution` rewrites the
+        stored decision and this reads stored decisions;
+      * it survives restart, because `_decisions` is checkpointed;
+      * two workers restoring one checkpoint agree, because both compute the same
+        function of the same input;
+      * there is no transition to race, so no lock is needed.
+
+    `assessing` is the authorization currently being judged, excluded so a purchase
+    is never counted as its own predecessor.
+    """
+    classification = classify_shape(mandate.instruction)
+    shape = classification.shape
+    if shape is not MandateShape.ONE_SHOT:
+        return FulfilmentVerdict(
+            "not_applicable", shape, f"this mandate is {shape.value}: {classification.evidence}"
+        )
+
+    anchor = job_anchor(mandate)
+    if anchor is None:
+        return FulfilmentVerdict(
+            "not_applicable", shape,
+            "this mandate names no specific product, so repeat fulfilment cannot be identified",
+        )
+
+    prior = [d for d in state.approved_decisions() if d.authorization_id != assessing]
+    matching = [(d, units_in_basket(d.basket_key, anchor)) for d in prior]
+    matching = [(d, u) for d, u in matching if any(anchor in str(line[1]).lower() for line in d.basket_key)]
+    units_done = sum(u for _, u in matching)
+
+    current = state.get_stored_decision(assessing) if assessing else None
+    units_now = units_in_basket(current.basket_key, anchor) if current else 1
+
+    if units_done == 0 and units_now > 1:
+        return FulfilmentVerdict(
+            "over_fulfilled", shape,
+            (
+                f"this mandate describes a single job ({classification.evidence}), but this one "
+                f"purchase performs it {units_now} times ({units_now} matching items)."
+            ),
+        )
+    if units_done == 0:
+        return FulfilmentVerdict(
+            "first_fulfilment", shape, f"one-shot job, not yet fulfilled ({classification.evidence})"
+        )
+    return FulfilmentVerdict(
+        "already_fulfilled", shape,
+        (
+            f"this mandate describes a single job ({classification.evidence}), and it was already "
+            f"fulfilled by {matching[0][0].authorization_id}. This purchase would perform it again."
+        ),
+        prior_authorization_id=matching[0][0].authorization_id,
+    )

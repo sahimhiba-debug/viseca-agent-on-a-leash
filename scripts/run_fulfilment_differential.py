@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""The differential experiment: replay the official 45 events through the shipping
-engine and through the fulfilment observer, and report every disagreement.
+"""Differential: the shipping engine's decisions vs. fulfilment DERIVED from the
+run's own persisted decision ledger.
 
-The shipping engine's decisions are NOT modified. This script observes.
+The engine is not modified. This replays the official 45 events exactly as
+`offline_replay` does, and additionally derives fulfilment after each approval.
 
-    python scripts/run_fulfilment_differential.py
+    python scripts/run_fulfilment_differential.py [--json]
 """
 
 from __future__ import annotations
 
 import csv
+import json
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -17,71 +19,118 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from wallet_control.fulfillment import FulfilmentMonitor, job_anchor  # noqa: E402
-from wallet_control.offline_replay import replay_all  # noqa: E402
+from wallet_control.csv_data import (  # noqa: E402
+    history_csv_path,
+    load_merchants,
+    load_purchase_attempt_items,
+    load_scenario_catalogue,
+    scenario_rows,
+)
+from wallet_control.decision_engine import evaluate_authorization  # noqa: E402
+from wallet_control.fulfillment import classify_shape, fulfilment_state  # noqa: E402
+from wallet_control.offline_replay import (  # noqa: E402
+    ALL_SCENARIO_IDS,
+    build_event,
+    compile_and_confirm_mandate_for_scenario,
+)
+from wallet_control.state import HistoryIndex, RunState  # noqa: E402
 
 
 def main() -> int:
-    items: dict[str, list[str]] = defaultdict(list)
-    quantities: dict[str, list[str]] = defaultdict(list)
+    as_json = "--json" in sys.argv
+    history = HistoryIndex.from_csv(history_csv_path())
+    items_by_auth = load_purchase_attempt_items()
+    merchants = load_merchants()
+    catalogue = load_scenario_catalogue()
+
+    names: dict[str, list[str]] = defaultdict(list)
     with (ROOT / "data/official/purchase_attempt_items.csv").open() as f:
         for row in csv.DictReader(f):
-            items[row["authorization_id"]].append(row["item_name"])
-            quantities[row["authorization_id"]].append(row["quantity"])
-    amounts = {}
-    with (ROOT / "data/official/purchase_attempts.csv").open() as f:
-        for row in csv.DictReader(f):
-            amounts[row["authorization_id"]] = (row["billing_amount_chf"], row["timestamp"][:10])
+            names[row["authorization_id"]].append(row["item_name"])
 
-    def matching_units(authorization_id: str, mandate) -> int:
-        anchor = job_anchor(mandate)
-        if anchor is None:
-            return 1
-        return sum(
-            int(q) for name, q in zip(items[authorization_id], quantities[authorization_id])
-            if anchor in name.lower()
-        ) or 1
-
-    result = replay_all()
-    disagreements = 0
+    report: dict = {
+        "scenarios": [],
+        "disagreements": [],
+        "engine_counts": {"allow": 0, "review": 0, "block": 0},
+    }
     exposed = 0.0
 
-    print("Differential: shipping engine vs fulfilment observer, official 45 events\n")
-    for scenario in result.scenarios:
-        monitor = FulfilmentMonitor(scenario.mandate)
-        shape = monitor.classification
-        print(f"=== {scenario.scenario_id}  [{shape.shape.value.upper()}] {shape.evidence}")
-        print(f'    "{scenario.cardholder_instruction[:92]}"')
+    for scenario_id in ALL_SCENARIO_IDS:
+        mandate = compile_and_confirm_mandate_for_scenario(scenario_id).snapshot()
+        state = RunState(history=history, card_id=mandate.card_id)
+        shape = classify_shape(mandate.instruction)
+        entry = {
+            "scenario_id": scenario_id,
+            "shape": shape.shape.value,
+            "evidence": shape.evidence,
+            "instruction": catalogue[scenario_id]["cardholder_instruction"],
+            "decisions": [],
+        }
+        if not as_json:
+            print(f"=== {scenario_id}  [{shape.shape.value.upper()}] {shape.evidence}")
+            print(f'    "{entry["instruction"][:92]}"')
 
-        for decision in scenario.decisions:
-            if decision.decision != "allow":
+        for row in scenario_rows(scenario_id):
+            context = {
+                "approved_spend_in_period_chf": float(state.total_approved_spend_chf()),
+                "recent_authorizations": state.recent_authorizations_context(),
+            }
+            event = build_event(
+                row, items_by_auth[row["authorization_id"]], merchants[row["merchant_id"]], mandate, context
+            )
+            result = evaluate_authorization(event, mandate, state)
+            report["engine_counts"][result.decision] += 1
+            if result.decision != "allow":
                 continue
-            units = matching_units(decision.authorization_id, scenario.mandate)
-            verdict = monitor.assess(decision.authorization_id, units=units)
-            amount, day = amounts[decision.authorization_id]
-            if verdict.would_ask_customer:
-                disagreements += 1
-                exposed += float(amount)
-                print(
-                    f"    DISAGREE  {decision.authorization_id}  {day}  CHF {amount:>7}  {items[decision.authorization_id]}"
-                )
-                print(f"              engine: ALLOW   observer: ask the customer")
-                print(f"              {verdict.detail}")
-            else:
-                print(f"      agree   {decision.authorization_id}  {day}  CHF {amount:>7}  ALLOW")
-            monitor.observe_allow(decision.authorization_id, units=units)
-        print()
 
-    totals = result.total_counts()
+            verdict = fulfilment_state(mandate, state, assessing=result.authorization_id)
+            record = {
+                "authorization_id": result.authorization_id,
+                "date": row["timestamp"][:10],
+                "amount_chf": float(row["billing_amount_chf"]),
+                "items": names[result.authorization_id],
+                "engine": "allow",
+                "fulfilment": verdict.verdict,
+                "would_ask_customer": verdict.would_ask_customer,
+                "detail": verdict.detail,
+            }
+            entry["decisions"].append(record)
+
+            if verdict.would_ask_customer:
+                report["disagreements"].append({"scenario_id": scenario_id, **record})
+                exposed += record["amount_chf"]
+                if not as_json:
+                    print(
+                        f"    DISAGREE  {record['authorization_id']}  {record['date']}  "
+                        f"CHF {record['amount_chf']:>7.2f}  {record['items']}"
+                    )
+                    print(f"              engine: ALLOW   derived: {verdict.verdict} -> ask the customer")
+                    print(f"              {verdict.detail}")
+            elif not as_json:
+                print(
+                    f"      agree   {record['authorization_id']}  {record['date']}  "
+                    f"CHF {record['amount_chf']:>7.2f}  ALLOW"
+                )
+
+        report["scenarios"].append(entry)
+        if not as_json:
+            print()
+
+    report["total_disagreements"] = len(report["disagreements"])
+    report["exposed_chf"] = round(exposed, 2)
+
+    if as_json:
+        print(json.dumps(report, indent=2))
+        return 0
+
     print("=" * 74)
-    print(f"Official engine (UNCHANGED): {result.total_events()} events  {totals}")
-    print(f"Disagreements: {disagreements} purchases the engine allows and the observer would question")
-    print(f"Spend behind those purchases: CHF {exposed:,.2f}")
+    print(f"Official engine (UNCHANGED): 45 events  {report['engine_counts']}")
+    print(f"Disagreements: {report['total_disagreements']}   spend behind them: CHF {exposed:,.2f}")
     print()
-    print("Every one of those purchases satisfies the customer's policy in full. They")
-    print("are repeat performances of a job the customer described once. No existing")
-    print("check sees them: the near-duplicate window is 60 minutes and these are days")
-    print("apart, at the same merchant, for the same item, at legitimate prices.")
+    print("Fulfilment is DERIVED from the run's persisted decision ledger, not tracked")
+    print("beside it. That is why it survives a restart, includes step-ups a human")
+    print("approved, and gives two workers the same answer: there is no second record")
+    print("that can drift from the first.")
     return 0
 
 

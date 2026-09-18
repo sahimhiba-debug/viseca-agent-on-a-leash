@@ -247,6 +247,17 @@ class RunState:
     def get_stored_decision(self, authorization_id: str) -> StoredDecision | None:
         return self._decisions.get(authorization_id)
 
+    def approved_decisions(self) -> tuple[StoredDecision, ...]:
+        """Read-only view of every decision that currently stands as approved.
+
+        Includes step-ups a human later approved, because `record_resolution`
+        rewrites the stored decision rather than keeping the answer somewhere
+        else. Anything derived from this view therefore cannot miss a
+        human-approved purchase, and is persisted for free -- decisions are in
+        `to_snapshot`.
+        """
+        return tuple(d for d in self._decisions.values() if d.decision == "allow")
+
     def check_repeat_fingerprint(
         self, authorization_id: str, *, merchant_id: str, basket_key: BasketKey, billing_amount_chf: Decimal
     ) -> bool:
