@@ -67,9 +67,11 @@ AUTHORIZE(
     authorization_id   -- this one purchase, by the platform's live id
     merchant_id        -- this one counterparty
     amount <= ceiling  -- at most the amount actually approved, in CHF
-    once               -- consumed_at; persisted, so a restart does not reset it
+    once               -- consumed_at; durable across a restart iff a persist hook
+                          is wired, and scoped to ONE run state
     until expires_at   -- 15 real-clock minutes from issue, never extended
-    while not revoked  -- the customer's brake, and the platform's status fields
+    while not revoked  -- the customer's brake, the platform's authority/card
+                          status fields, AND mandate.status being ACTIVE
 )
 ```
 
@@ -85,7 +87,7 @@ than exceptions to it.
 | authorization_id | yes | yes | the charge is bound to it; it cannot be redirected |
 | merchant_id | yes | yes | compared against the **stored decision**, not the passed object |
 | amount ceiling | yes | yes | `Decimal`; CHF 0.001 over is refused |
-| single use | `consumed_at` | yes | persisted — survives a crash |
+| single use | `consumed_at` | yes | durable across a crash only when the executor has a persist hook; per-`RunState`, so two workers each execute once (V11) |
 | expiry | `expires_at` | yes | judged by the boundary's **own** clock |
 | revocation | `revoked` | yes | re-read live, so a stale copy cannot resurrect it |
 | mandate_id | yes | **no** | provenance. Caller-asserted at resolution time and unverified; it labels the audit record, it does not gate money |

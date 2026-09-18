@@ -59,12 +59,20 @@ passed authority object — so a forged object with an inflated ceiling still fa
 *Violated by:* redirecting a grant to another purchase or payee.
 *Tests:* corpus `P06`, `P07`; `test_properties.py::test_property_charge_never_exceeds_approved_amount_or_wrong_merchant`.
 
-**B2. An authority is single-use, and single-use survives a crash.**
-`PaymentAuthority.consumed_at` is set at execution and is checkpointed with the
-rest of `RunState`.
-*Violated by:* charging twice — including by restarting the process between
-attempts (this was V8).
-*Tests:* corpus `H01`, `N03`; `test_payment_boundary.py`.
+**B2. An authority is single-use within one run state, and durably so when the
+executor is given a persist hook.**
+`consumed_at` is set at execution, written through the injected `persist` hook
+BEFORE the charge record exists, and checkpointed with the rest of `RunState`.
+
+Stated conditionally on purpose. The proof pass showed the unconditional version
+was false twice over: consumption was memory-only (V10), and single-use is a
+property of ONE `RunState`, so two workers restoring the same checkpoint each
+execute once (V11, scoped not fixed). What holds is: one run state, one process,
+one execution — durable across a crash iff a persist hook is supplied.
+*Violated by:* charging twice in one process; or across a crash with no hook; or
+from two run states at all.
+*Tests:* `test_execution_durability.py` (both halves, including the limitation),
+corpus `H01`, `N03`, the state machine's `consumption_is_monotonic`.
 
 **B3. An authority expires on the payment boundary's own clock.**
 `MockPSP._clock`, injected at construction. The per-call `now=` timestamps the
@@ -72,7 +80,7 @@ record and cannot gate expiry.
 *Violated by:* a caller claiming it is still issue time (this was V4).
 *Tests:* `test_authority_lifecycle.py::test_expiry_cannot_be_defeated_by_rewinding_the_supplied_clock`, corpus `J02`.
 
-**B4. Revocation is monotonic, cascading, and durable.**
+**B4. Revocation is monotonic and cascading, and durable under the same condition as B2.**
 `revoke_authority` / `revoke_outstanding_authorities` use `dataclasses.replace` on a
 frozen object; nothing clears `revoked`. Revoking the mandate revokes every
 outstanding authority in the run, and authorities are checkpointed.
@@ -100,7 +108,7 @@ was handed.
 *Tests:* `test_properties.py::test_property_block_or_review_can_never_be_charged`, corpus `E08`.
 
 **C3. There is exactly one point where money moves.**
-`ChargeRecord` is constructed at `payment.py:134` and nowhere else.
+`ChargeRecord` is constructed at `payment.py:167` and nowhere else (verified by grep, and re-verified whenever this file changes).
 *Violated by:* any second execution path. Verified structurally by grep, not by
 assertion.
 
@@ -167,6 +175,15 @@ A purchase awaiting a human is not approved spend.
 
 ## F. The platform's own signals
 
+**F0. A mandate that is not ACTIVE authorizes nothing.**
+`mandate.status` (`active|superseded|revoked|expired`) is checked before anything
+else is decided. Anything other than `active` is a hard failure.
+*Violated by:* V12 — a revoked mandate produced ALLOW, minted an authority and
+charged, through both the local revoke path and a live snapshot rebuilt from an
+event whose mandate block said `revoked`. Until this pass, revocation was enforced
+only when it came through our own demo endpoint.
+*Test:* `test_mandate_status.py` (9).
+
 **F1. A platform-declared dead authority or blocked card is a hard failure.**
 `authority_status ∈ {revoked, expired}` or `card_status_at_attempt = blocked` →
 `fail`, which no `uncertainty_policy` can soften.
@@ -229,6 +246,8 @@ These are **not** guaranteed. Listing them is part of the model.
 | That merchant claims about size and return terms are true | no independent source exists; merchant text can satisfy exactly these two predicates |
 | Product identity beyond name matching | no SKU/colour/width ontology |
 | Thread safety | `charge()` is check-then-act with no lock; single-execution held under 24-way contention but that is the GIL, not design |
+| Single-use across two run states or two processes | `consumed_at` lives in one `RunState`; two workers restoring one checkpoint each execute once. Closing it needs a shared store with atomic compare-and-set, deliberately not built |
+| Single-use across a crash without a persist hook | consumption is memory-only; the last checkpoint is written after a DECISION and knows nothing about a charge |
 | Idempotent retry of a completed charge after a restart | the `charge_id` ledger is in-memory; a post-restart retry fails closed rather than returning the original record |
 | `policy_version`, `basket_fingerprint`, `mandate_id` on the authority | provenance, not enforced bindings — see `SECURITY_MODEL.md` |
 | Anything about a hostile platform | every fact originates from its event stream |

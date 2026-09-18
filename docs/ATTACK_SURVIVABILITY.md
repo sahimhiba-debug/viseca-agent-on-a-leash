@@ -10,8 +10,9 @@ One page. Every row is backed by code and a test, or it is marked as not backed.
 | --- | --- |
 | A compromised agent cannot mint its own authority | only `RunState.issue_authority` constructs one, gated on `allow` |
 | An approval cannot be moved to another purchase, merchant or amount | corpus `P06`–`P08`, 15 mutation families × 3 contexts |
-| An approval is single-use, and that survives a crash | `consumed_at` is persisted; corpus `H01`, `N03` |
-| Revocation stops money that has not moved — including a human-approved step-up, and across a restart | `test_revocation_end_to_end.py`, corpus `F01`, `N01` |
+| An approval is single-use within one run state — durably across a crash when the executor has a persist hook | `test_execution_durability.py`; state machine over 6,000 sequences |
+| Revocation stops money that has not moved — including a human-approved step-up, and across a restart (same persist-hook condition) | `test_revocation_end_to_end.py`, corpus `F01`, `N01` |
+| A mandate that is not ACTIVE authorizes nothing | `test_mandate_status.py` |
 | A platform-declared revoked/expired authority or blocked card cannot be paid | `test_platform_status.py`, corpus `F02` |
 | Merchant text cannot become instruction | 30 injection cases; structural test that the compiler is never called from the engine |
 | A re-delivery with any security-relevant change cannot inherit the approval | mutation fuzzer, 15 `B*b` corpus cases |
@@ -44,6 +45,8 @@ composition.
 | Assumption | Where it lives |
 | --- | --- |
 | Single process | `charge()` is check-then-act with no lock. 24 threads racing one charge produced exactly one execution, but that is the GIL and a small window, not synchronisation |
+| One run state | Single-use is per-`RunState`. Two workers restoring the same checkpoint each execute once (V11). Pinned by a test; closing it needs a shared store with atomic compare-and-set |
+| A persist hook is supplied to the executor | Without one, consumption is memory-only and a crash resurrects a spendable authority (V10) |
 | Retry of a completed charge after a restart fails closed rather than returning the original record | the `charge_id` ledger is in-memory; consumption is persisted, so the retry is refused — safe, not idempotent |
 | `MockPSP` stands in for a payment rail | auth-vs-capture, partial capture and reversal do not exist here |
 
@@ -65,9 +68,12 @@ Marked because confusing these with controls is its own risk.
 
 ## 5. The honest prior
 
-Three of the eight vulnerabilities fixed in this pass were in code that the two
-previous passes had reviewed and declared hardened. One of them (V2) falsified an
-invariant a previous pass had explicitly claimed and tested.
+Twelve vulnerabilities across five passes. Three of V1–V8 were in code earlier
+passes had declared hardened; V2 falsified an invariant a previous pass explicitly
+claimed and tested; and V10 falsified the previous pass's own V8 fix, whose test
+had been generous enough to snapshot at the convenient moment. V12 — a revoked
+mandate that still authorized — survived four passes and was found only by
+re-running the schema audit over nested objects.
 
 Two more (V7, V8) were found by tooling built during this pass, not by reading —
 and both lived in compositions, not in any single field. Every vulnerability found

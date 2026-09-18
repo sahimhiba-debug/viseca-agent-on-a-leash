@@ -16,6 +16,11 @@ also listed.
 ## Authority
 
 **I1. No authority exists without a valid customer-confirmed mandate.**
+> **This was FALSE as stated until the proof pass (V12).** `Mandate.confirm()` is
+> indeed the only route to ACTIVE, but nothing re-checked that the snapshot was
+> STILL active at evaluation time, so a revoked mandate kept authorizing. See
+> `SECURITY_INVARIANTS_FINAL.md` F0.
+
 Enforced by: `Mandate.confirm()` is the only path from `DRAFT` to `ACTIVE`, and
 `decision_engine.evaluate_authorization` only ever reads `mandate.hard_rules` from
 a `MandateSnapshot`, which can only be produced by `Mandate.snapshot()` on an
@@ -77,7 +82,7 @@ example and by property (`test_properties.py::test_property_charge_never_exceeds
 as I9 covers this jointly (both the amount and merchant axes are varied together).
 
 **I11. One authorization cannot silently execute multiple times.**
-`MockPSP._charged_authorizations` is checked before every charge. Tested by:
+*(Superseded: that in-memory set was removed in the proof pass. Single-use now lives on the persisted authority as `consumed_at` -- see SECURITY_INVARIANTS_FINAL.md B2, which also states the two conditions it depends on.)* Tested by:
 `test_payment_boundary.py::test_one_authorization_cannot_be_charged_twice`.
 
 **I12. Reusing an idempotency key with different semantics must fail.**
