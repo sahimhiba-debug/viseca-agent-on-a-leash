@@ -252,6 +252,19 @@ class RunState:
     _approved_spend: list[tuple[datetime, Decimal]] = field(default_factory=list)
     _recent_attempts: list[_RecentAttempt] = field(default_factory=list)
     _last_device_id: str | None = None
+    # When the customer revoked this run's mandate. This is RUN-LEVEL state, not a
+    # per-record flag, and the distinction is the whole fix for F1.
+    #
+    # Revocation used to be only a sweep over existing records. A sweep cannot cover
+    # a record that does not exist yet, so a purchase still WAITING for the customer
+    # carried no lifecycle to revoke, and answering it afterwards minted a fresh,
+    # unrevoked authority -- the money the customer had just tried to stop. Found by
+    # an independent security audit and reproduced end-to-end through the HTTP API:
+    # revoke -> resolve(allow) -> CHF 175 charged.
+    #
+    # Holding the fact at the scope the bound belongs to (the run) makes "nothing
+    # may be authorised after revocation" true for records not yet written.
+    _revoked_at: datetime | None = None
     # Guards the authority compare-and-set. Not serialized (to_snapshot lists its
     # keys explicitly) and excluded from equality -- it is machinery, not state.
     _consume_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
@@ -343,6 +356,18 @@ class RunState:
         deadlines" -- a step_up answered an hour late must not be attributed to a
         different window than the one it actually occurred in.
         """
+        # Under the SAME lock that guards the payment transition. Without it this is
+        # a check-then-act: two concurrent answers to one step-up were both accepted,
+        # last writer wins, and a purchase the customer DECLINED could end with a live
+        # payment authority. Reproduced in 75/4000 uninstrumented trials by an
+        # independent audit, which put it well: the file locked the money transition
+        # and left the consent transition bare.
+        with self._consume_lock:
+            return self._record_resolution_locked(authorization_id, final_decision, resolved_at)
+
+    def _record_resolution_locked(
+        self, authorization_id: str, final_decision: Decision, resolved_at: datetime
+    ) -> StoredDecision:
         existing = self._decisions.get(authorization_id)
         if existing is None:
             raise ResolutionError(f"cannot resolve {authorization_id}: it was never sent to the customer for review")
@@ -497,6 +522,11 @@ class RunState:
         is never extended by asking again.
         """
         with self._consume_lock:
+            if self._revoked_at is not None:
+                raise AuthorityError(
+                    f"cannot issue a payment authority for {authorization_id}: the customer revoked "
+                    f"this mandate at {self._revoked_at.isoformat()}"
+                )
             stored = self._decisions.get(authorization_id)
             if stored is None or stored.decision != "allow":
                 raise AuthorityError(
@@ -580,10 +610,19 @@ class RunState:
             self._decisions[authorization_id] = replace(existing, consumed_at=executed_at)
             return PaymentAuthority.project(self._decisions[authorization_id])
 
-    def revoke_outstanding_authorities(self) -> tuple[str, ...]:
+    @property
+    def is_revoked(self) -> bool:
+        return self._revoked_at is not None
+
+    def revoke_outstanding_authorities(self, *, now: datetime | None = None) -> tuple[str, ...]:
         """Revoke every still-valid authority in this run, returning the
         authorization_ids actually revoked. Called when the customer revokes the
         mandate: money that has been authorized but not yet spent must stop.
+
+        It also records the revocation at RUN level, so that a purchase still waiting
+        for the customer -- which has no lifecycle yet, and so nothing to sweep --
+        cannot acquire one afterwards. Without that, the emergency brake missed
+        exactly the purchase the customer had been asked about.
 
         This is about our own synthetic capability object, not about official
         decision semantics: technical_details.md leaves the effect of revocation
@@ -604,6 +643,10 @@ class RunState:
         binding. See docs/FINAL_ARCHITECTURE_ATTACK.md for the full analysis.
         """
         with self._consume_lock:
+            # Record the run-level fact FIRST: if anything below were to fail, a run
+            # marked revoked that swept nothing is safe, while a run that swept
+            # records but forgot it was revoked is the bug this fixes.
+            self._revoked_at = now or datetime.now(timezone.utc)
             revoked: list[str] = []
             for authorization_id, stored in list(self._decisions.items()):
                 if stored.execution_expires_at is None or stored.revoked:
@@ -629,6 +672,7 @@ class RunState:
         return {
             "card_id": self.card_id,
             "last_device_id": self._last_device_id,
+            "revoked_at": self._revoked_at.isoformat() if self._revoked_at else None,
             "decisions": [
                 {
                     "authorization_id": d.authorization_id,
@@ -670,6 +714,8 @@ class RunState:
     def from_snapshot(cls, snapshot: dict, history: HistoryIndex) -> "RunState":
         state = cls(history=history, card_id=snapshot["card_id"])
         state._last_device_id = snapshot.get("last_device_id")
+        revoked_at = snapshot.get("revoked_at")
+        state._revoked_at = datetime.fromisoformat(revoked_at) if revoked_at else None
         for d in snapshot["decisions"]:
             state._decisions[d["authorization_id"]] = StoredDecision(
                 authorization_id=d["authorization_id"],

@@ -127,6 +127,25 @@ def _run_binding_failures(auth: dict[str, Any], mandate: MandateSnapshot, state:
             )
         )
 
+    # The customer revoked this run's mandate through our own endpoint. The event's
+    # `mandate.status` may still say "active" -- the platform has its own view and may
+    # not have caught up, and in the offline/demo path there is no platform to tell.
+    # Either way a purchase arriving after the brake was pulled must not be approved.
+    #
+    # Found by the stateful model immediately after run-level revocation was added:
+    # a NEW purchase after revocation used to reach `issue_authority` and raise,
+    # crashing the engine rather than declining the purchase. Blocking is both the
+    # safe answer and the one the customer asked for.
+    if state.is_revoked:
+        failures.append(
+            RuleEvaluation(
+                rule=_MANDATE_STATUS_RULE,
+                outcome="fail",
+                detail="the customer revoked this mandate; no further purchase may be authorized under it",
+                source="safety",
+            )
+        )
+
     if auth.get("card_id") != state.card_id:
         failures.append(
             RuleEvaluation(
@@ -541,6 +560,32 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
     )
 
 
+def _period_rules_breached_now(
+    mandate: MandateSnapshot | None, state: RunState, authorization_id: str
+) -> str | None:
+    """Would approving this pending purchase now break a rolling-period ceiling?
+
+    Re-derived from live state at the moment of resolution rather than trusted from
+    the evaluation that raised the step-up. Returns the breached rule's description,
+    or None.
+    """
+    if mandate is None:
+        return None
+    pending = state.get_stored_decision(authorization_id)
+    if pending is None:
+        return None
+    for rule in mandate.hard_rules:
+        if rule.field != "authorization.billing_amount_chf" or rule.scope != "period" or not rule.period_days:
+            continue
+        prior = state.rolling_spend_chf(pending.timestamp, rule.period_days)
+        if prior + pending.billing_amount_chf > to_decimal(rule.value):
+            return (
+                f"{rule.period_days}d spend would reach "
+                f"CHF {prior + pending.billing_amount_chf} against a CHF {rule.value} ceiling"
+            )
+    return None
+
+
 def resolve_authorization(
     authorization_id: str, human_decision: Decision, state: RunState, *, resolved_at: datetime, mandate: MandateSnapshot | None = None
 ) -> EngineDecision:
@@ -560,6 +605,53 @@ def resolve_authorization(
     """
     if human_decision == "review":
         raise ValueError("a human resolution must be 'allow' or 'block', not 'review'")
+
+    # Two things can have changed between the wallet asking and the customer
+    # answering, and BOTH used to be ignored. An independent security audit named the
+    # shape exactly: this function was the one unguarded escape hatch, checking a
+    # single flag set minutes or hours earlier and re-deriving nothing from
+    # authoritative state.
+    #
+    # A customer's "yes" is an answer to a question, not an override of their own
+    # later instructions, so where the two conflict the safe one wins and we record
+    # WHY rather than silently downgrading.
+    override_reason: str | None = None
+
+    if human_decision == "allow":
+        # (1) The customer revoked the mandate while this purchase was waiting. The
+        # revocation is the later and stronger instruction.
+        if state.is_revoked:
+            override_reason = "mandate_revoked_before_resolution"
+        else:
+            # (2) A rolling-period ceiling that was satisfied when we asked may not be
+            # satisfied now -- and a compromised agent chooses what gets asked, so it
+            # could force purchases into the queue and have them approved one at a
+            # time, each individually reasonable, together far over the customer's own
+            # weekly cap. Measured at CHF 2,400 against a CHF 500 / 7-day cap before
+            # this check existed.
+            breached = _period_rules_breached_now(mandate, state, authorization_id)
+            if breached is not None:
+                override_reason = f"period_limit_exceeded:{breached}"
+
+    if override_reason is not None:
+        stored = state.record_resolution(authorization_id, "block", resolved_at)
+        return EngineDecision(
+            authorization_id=authorization_id,
+            decision=stored.decision,
+            reason_codes=("customer_resolution", override_reason),
+            customer_message=(
+                "Your approval arrived after you revoked this mandate, so the purchase was declined."
+                if override_reason.startswith("mandate_revoked")
+                else "Approving this purchase would now exceed the spending limit you set, so it was declined."
+            ),
+            evidence=(f"resolved by the customer at {resolved_at.isoformat()}", override_reason),
+            rule_evaluations=(),
+            intervention=_TERMINAL_INTERVENTION[stored.decision],
+            facts=None,
+            idempotent_replay=False,
+            payment_authority=None,
+        )
+
     stored = state.record_resolution(authorization_id, human_decision, resolved_at)
     payment_authority: PaymentAuthority | None = None
     if stored.decision == "allow" and mandate is not None:
