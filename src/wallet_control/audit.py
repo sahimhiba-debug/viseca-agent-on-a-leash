@@ -50,7 +50,8 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat().replace("+00:00", "Z") if value is not None else None
 
 
-def audit_timeline(mandate: MandateSnapshot, state: RunState) -> list[AuditEntry]:
+def audit_timeline(mandate: MandateSnapshot, state: RunState,
+                   *, confirmed_at: datetime | None = None) -> list[AuditEntry]:
     """Derive the timeline from the mandate and the decision ledger.
 
     Ordered by the SIMULATED purchase time the platform supplied, which is the same
@@ -59,8 +60,8 @@ def audit_timeline(mandate: MandateSnapshot, state: RunState) -> list[AuditEntry
     """
     entries: list[AuditEntry] = [
         AuditEntry(
-            timestamp=None, actor="customer", event="Mandate confirmed",
-            authorization_id=None,
+            timestamp=_iso(confirmed_at), actor="customer", event="Mandate confirmed",
+            authorization_id=None, clock="real" if confirmed_at else None,
             detail=f'"{mandate.instruction}" -> {len(mandate.hard_rules)} executable checks, '
                    f"uncertainty policy: {mandate.uncertainty_policy.value}",
         )
@@ -75,11 +76,19 @@ def audit_timeline(mandate: MandateSnapshot, state: RunState) -> list[AuditEntry
             detail=f"CHF {stored.billing_amount_chf} at {stored.merchant_id} -- {basket}",
             clock="simulated",
         ))
+        # The WALLET's own answer, which is not always the final outcome. For a
+        # purchase the wallet stepped up and a human then approved, this used to
+        # record "allow" at the original timestamp -- so an auditor could not tell
+        # that the wallet had ever hesitated, and the customer's override vanished
+        # into a decision attributed to policy. That is the single most
+        # audit-relevant distinction in a run, and it was the one fact erased.
+        wallet_answer = "review" if stored.was_reviewed else stored.decision
         entries.append(AuditEntry(
             timestamp=when, actor="wallet", event="Wallet decision",
             authorization_id=stored.authorization_id,
-            decision=stored.decision,
-            detail=", ".join(stored.reason_codes) or stored.decision,
+            decision=wallet_answer,
+            detail=(", ".join(stored.reason_codes)
+                    or ("asked the customer" if wallet_answer == "review" else wallet_answer)),
             clock="simulated",
         ))
         if stored.was_reviewed:
@@ -87,7 +96,8 @@ def audit_timeline(mandate: MandateSnapshot, state: RunState) -> list[AuditEntry
                 timestamp=_iso(stored.resolved_at), actor="customer",
                 event="Customer resolved a step-up",
                 authorization_id=stored.authorization_id, decision=stored.decision,
-                detail=f"the customer answered: {stored.decision}",
+                detail=(f"the customer answered {stored.decision!r}; this OVERRIDES the "
+                        f"wallet's request for confirmation, it does not replace the policy"),
                 clock="real",
             ))
         if stored.execution_issued_at is not None:

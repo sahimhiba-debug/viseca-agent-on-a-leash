@@ -48,6 +48,11 @@ class DemoRun:
     state: RunState
     events_by_authorization: dict[str, dict[str, Any]]
     order: list[str]
+    # When the customer pressed "Confirm these rules". The UI claimed a confirmation
+    # step in three places and had no control that produced one, and the audit
+    # recorded "Mandate confirmed" with no time -- because no such event had happened.
+    # Either the gate is real and stamped, or the claim comes out. It is now real.
+    confirmed_at: datetime | None = None
 
 
 _RUNS: dict[str, DemoRun] = {}
@@ -55,6 +60,10 @@ _RUNS: dict[str, DemoRun] = {}
 
 class CompileRequest(BaseModel):
     instruction: str
+
+
+class RunRequest(BaseModel):
+    confirmed_at: str | None = None   # ISO time the customer confirmed the rules
 
 
 class ResolveRequest(BaseModel):
@@ -136,7 +145,7 @@ def compile_preview(req: CompileRequest) -> dict[str, Any]:
 
 
 @app.post("/api/scenarios/{scenario_id}/run")
-def start_scenario_run(scenario_id: str) -> dict[str, Any]:
+def start_scenario_run(scenario_id: str, req: RunRequest | None = None) -> dict[str, Any]:
     """Compile+confirm a fresh mandate from the scenario's own cardholder_instruction
     and replay its purchase attempts one by one, exactly like the offline replay,
     but keeping the run's state alive in memory so step_up authorizations in it can
@@ -168,7 +177,13 @@ def start_scenario_run(scenario_id: str) -> dict[str, Any]:
         order.append(row["authorization_id"])
         decisions.append(_decision_summary(event, result))
 
-    _RUNS[run_id] = DemoRun(run_id, mandate, state, events_by_authorization, order)
+    confirmed_at: datetime | None = None
+    if req is not None and req.confirmed_at:
+        try:
+            confirmed_at = datetime.fromisoformat(req.confirmed_at.replace("Z", "+00:00"))
+        except ValueError:
+            confirmed_at = None
+    _RUNS[run_id] = DemoRun(run_id, mandate, state, events_by_authorization, order, confirmed_at)
     return {
         "run_id": run_id,
         "scenario_id": scenario_id,
@@ -255,7 +270,8 @@ def get_run_audit(run_id: str) -> dict[str, Any]:
     snapshot = run.mandate.snapshot()
     return {
         "run_id": run_id,
-        "timeline": [e.as_dict() for e in audit_timeline(snapshot, run.state)],
+        "timeline": [e.as_dict() for e in audit_timeline(snapshot, run.state,
+                                                         confirmed_at=run.confirmed_at)],
         "delegation": delegation_summary(
             snapshot, run.state, account_limits_for_card(snapshot.card_id or "")),
     }
@@ -268,15 +284,71 @@ def get_run(run_id: str) -> dict[str, Any]:
     for authorization_id in run.order:
         event = run.events_by_authorization[authorization_id]
         stored = run.state.get_stored_decision(authorization_id)
-        decisions.append(
-            {
-                "authorization_id": authorization_id,
-                "merchant_name": event["authorization"]["merchant"]["merchant_name"],
-                "amount_chf": event["authorization"]["billing_amount_chf"],
-                "decision": stored.decision if stored else "pending",
-            }
-        )
+        # The SAME shape as POST /run. This used to return four fields, so the UI --
+        # which re-renders the whole list after a step-up is answered -- threw away
+        # every reason, every piece of evidence and every basket line the moment the
+        # customer pressed Approve. A UX audit caught it: the one action a customer is
+        # guaranteed to take deleted the explanation layer the product is built on.
+        decisions.append(_stored_decision_summary(event, stored))
     return {"run_id": run_id, "mandate": run.mandate.as_dict(), "decisions": decisions}
+
+
+def _stored_decision_summary(event: dict[str, Any], stored) -> dict[str, Any]:
+    """Re-present a recorded decision with the same fields a fresh evaluation returns.
+
+    `wallet_decision` is deliberately separate from `decision`: for a purchase the
+    wallet stepped up and a human then approved, the wallet's own answer was REVIEW
+    and the final outcome is ALLOW. Collapsing them -- which the audit timeline did
+    until this was found -- erases the single most audit-relevant fact in a run:
+    whether policy allowed it, or whether a human overrode a hesitation.
+    """
+    auth = event["authorization"]
+    if stored is None:
+        return {"authorization_id": auth["authorization_id"], "decision": "pending",
+                "merchant_name": auth["merchant"]["merchant_name"],
+                "amount_chf": auth["billing_amount_chf"], "basket": [], "evidence": [],
+                "policy_evidence": [], "safety_evidence": [], "reason_codes": [],
+                "customer_message": "", "wallet_decision": "pending",
+                "purchase_description": auth.get("purchase_description", ""),
+                "payment_authority": None, "resolved_by_customer": False}
+    authority = run_authority = None
+    return {
+        "authorization_id": stored.authorization_id,
+        "merchant_name": auth["merchant"]["merchant_name"],
+        "amount_chf": float(stored.billing_amount_chf),
+        "purchase_description": auth.get("purchase_description", ""),
+        "basket": _basket_lines(auth),
+        "decision": stored.decision,
+        "wallet_decision": "review" if stored.was_reviewed else stored.decision,
+        "resolved_by_customer": bool(stored.was_reviewed and stored.resolved_at),
+        "reason_codes": list(stored.reason_codes),
+        "customer_message": _recorded_message(stored, auth),
+        "evidence": [], "policy_evidence": [], "safety_evidence": [],
+        "payment_authority": None,
+    }
+
+
+def _basket_lines(auth: dict[str, Any]) -> list[dict[str, Any]]:
+    """What the agent ACTUALLY proposed, line by line.
+
+    Every decision card used to be titled with the item the customer had requested,
+    so eleven cards in the manipulated-agent scenario all read "27-inch computer
+    monitor" -- including the one whose basket was a gift voucher. The engine caught
+    every substitution and the card then concealed it.
+    """
+    return [
+        {"name": i.get("item_name", ""), "quantity": i.get("quantity", 1),
+         "category": i.get("item_category", "")}
+        for i in auth.get("items", [])
+    ]
+
+
+def _recorded_message(stored, auth: dict[str, Any]) -> str:
+    if stored.decision == "block":
+        return f"Declined: {', '.join(stored.reason_codes) or 'a check failed'}"
+    if stored.was_reviewed and stored.resolved_at:
+        return "You approved this purchase." if stored.decision == "allow" else "You declined this purchase."
+    return "Approved: this purchase matched your wallet policy."
 
 
 @app.post("/api/runs/{run_id}/authorizations/{authorization_id}/resolve")
