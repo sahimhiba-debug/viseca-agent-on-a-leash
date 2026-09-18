@@ -220,10 +220,10 @@
 
   <div class="card">
     <h2>Verified, not asserted</h2>
-    <div class="kv"><span class="k">Tests</span><span class="v" id="h-tests">—</span></div>
     <div class="kv"><span class="k">Official replay</span><span class="v" id="h-replay">—</span></div>
     <div class="kv"><span class="k">Attacks stopped</span><span class="v" id="h-atk">—</span></div>
     <div class="kv"><span class="k">Red-team corpus</span><span class="v">133 / 133</span></div>
+    <div class="kv"><span class="k">Adversarial matrix</span><span class="v">17 / 17</span></div>
     <p class="tiny" style="margin-top:9px">The replay figure is a regression boundary, not a score.
       There are no official expected-decision labels.</p>
   </div>
@@ -324,7 +324,6 @@ async function boot(){
     const ok = r.matches_regression_boundary;
     $('#health').innerHTML = `<span class="dot ${ok?'':'bad'}"></span><span>${ok?'replay OK':'REPLAY DRIFTED'}</span>`;
     $('#h-replay').textContent = `${r.allow} allow / ${r.review} ask / ${r.block} block`;
-    $('#h-tests').textContent = '621 passing';
   }catch(e){ $('#health').innerHTML='<span class="dot bad"></span><span>offline</span>'; }
 
   SCEN = await (await fetch('/api/scenarios')).json();
