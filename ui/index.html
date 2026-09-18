@@ -156,7 +156,13 @@ function renderExtras(d) {
   }
   if (d.payment_authority) {
     const pa = d.payment_authority;
-    html += `<div class="authority"><b>Payment authority issued:</b> ceiling CHF ${pa.amount_ceiling_chf} at ${pa.merchant_id}, expires ${pa.expires_at}</div>`;
+    // The provenance label is deliberate. This panel also renders official-scenario
+    // runs, and the official Viseca API has no payment step at all -- its output is
+    // approve/decline/step_up. Without the label a judge can reasonably read this as
+    // "they execute payments against Viseca", which is a claim we cannot defend.
+    html += `<div class="authority"><b>Payment authority issued</b>`
+      + ` <span class="muted">(this wallet layer, not the Viseca API &mdash; which has no payment step)</span>:`
+      + ` ceiling CHF ${pa.amount_ceiling_chf} at ${pa.merchant_id}, expires ${pa.expires_at}</div>`;
   }
   return html;
 }
