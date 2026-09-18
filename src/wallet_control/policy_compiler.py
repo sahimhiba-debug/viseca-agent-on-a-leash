@@ -373,27 +373,56 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
             "setting below, since there is nothing else to check it against."
         )
 
-    # A per-purchase cap bounds each purchase and bounds nothing in total. A
-    # compromised agent confined to such a policy spends the cap, repeatedly,
-    # forever -- measured at CHF 1,000 over 50 purchases against SCEN0000's CHF 20
-    # cap, versus exactly CHF 300 against SCEN0001's rolling cap, where it is
-    # blocked and stays blocked. Four of the five official mandates have the
-    # unbounded shape.
+    # Total economic exposure, disclosed before the customer confirms.
     #
-    # That is the wallet working correctly: every one of those purchases satisfies
-    # the policy the customer confirmed. Which is the point -- total exposure is set
-    # by the policy, and the customer cannot bound it if nobody tells them it is
-    # unbounded. This is a disclosure, shown before confirmation; it creates no rule
-    # and is read by no evaluation, so it cannot change a decision.
-    has_purchase_cap = any(
-        r.field == "authorization.billing_amount_chf" and r.scope == "purchase" for r in rules
+    # The rule vocabulary has exactly two scopes -- "purchase" and "period" -- and
+    # technical_details.md closes the set: "No extra rule fields are allowed." So a
+    # customer can state a ceiling PER PURCHASE and a ceiling PER ROLLING WINDOW, and
+    # there is no way to state either a total or a date on which the delegation ends.
+    #
+    # That has a consequence worth being precise about, because an earlier version of
+    # this disclosure got it wrong in both directions:
+    #
+    #   * It claimed a rolling cap leaves the agent "blocked and stays blocked". It
+    #     does not. The window rolls and re-opens: measured against SCEN0001, a
+    #     policy-compliant agent draws CHF 240 every 7 days without interruption,
+    #     CHF 12,480 in a simulated year. A rolling cap is a RATE, not a total.
+    #   * It then advised the customer to "add a total, such as no more than CHF X
+    #     across any 7 days" -- which is that same rate. The advice named the thing
+    #     the customer wanted and handed them a construct that does not provide it.
+    #
+    # So neither branch below promises a bound the vocabulary cannot deliver. Both
+    # state the exposure in the customer's own unit and leave the judgement to them.
+    # This is disclosure only: it creates no rule and is read by no evaluation, so it
+    # cannot change a decision.
+    per_purchase = next(
+        (r for r in rules if r.field == "authorization.billing_amount_chf" and r.scope == "purchase"), None
     )
-    has_period_cap = any(r.scope == "period" for r in rules)
-    if has_purchase_cap and not has_period_cap:
+    period_rule = next((r for r in rules if r.scope == "period"), None)
+
+    if period_rule is not None and period_rule.period_days:
+        exact = float(period_rule.value) * (365 / period_rule.period_days)
+        # "about CHF 15,643 a year" reads as a calculation the customer is expected to
+        # check; it is an illustration of a rate, and the spurious precision invites
+        # them to argue with the last three digits instead of the magnitude. Round to
+        # a figure that carries the point, without collapsing a small rate to zero.
+        step = 100 if exact >= 1000 else 10
+        annual = max(step, round(exact / step) * step)
         open_questions.append(
-            "This policy limits each individual purchase but not the total. The agent could make "
-            "any number of purchases up to that limit. Consider adding a total, such as "
-            "\"no more than CHF X across any 7 days\"."
+            f"Your CHF {float(period_rule.value):g} limit applies to each rolling "
+            f"{period_rule.period_days}-day window, so it paces spending rather than capping it: the "
+            f"window re-opens and the agent may spend up to that amount again, indefinitely. At that "
+            f"rate the delegation is worth about CHF {annual:,.0f} a year. There is no way to set an "
+            f"overall total or an end date, so if that figure is more than you intend to delegate, "
+            f"revoke or tighten this mandate when the job is done."
+        )
+    elif per_purchase is not None:
+        open_questions.append(
+            f"Your CHF {float(per_purchase.value):g} limit applies to each individual purchase, not to "
+            f"the total. The agent may make any number of purchases at that limit, so this mandate "
+            f"does not bound what you are delegating overall. Adding a rolling weekly limit would "
+            f"slow that down but would still not set a total -- there is no way to state one. Revoke "
+            f"the mandate when the job is done."
         )
 
     return CompiledPolicy(

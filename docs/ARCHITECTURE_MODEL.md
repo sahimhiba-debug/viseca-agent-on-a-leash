@@ -76,14 +76,22 @@ dimensions the customer expressed; every unexpressed dimension is unbounded.
 | Dimension | Bounded by | Official coverage |
 | --- | --- | --- |
 | amount per transaction | the cap the customer stated | 4 of 5 mandates |
-| **total amount** | a `scope="period"` rule | **1 of 5** |
+| rate of spend | a `scope="period"` rule | 1 of 5 |
+| **total amount** | **nothing in the vocabulary** | **0 of 5** |
+| **horizon / end date** | **nothing the customer can set** (the platform may expire a mandate; they cannot) | **0 of 5** |
 | counterparty | merchant rules | 3 of 5 |
 | product | item rules | 3 of 5 |
 | **performances of the job** | **nothing in the vocabulary** | **0 of 5** |
-| time | platform-side mandate expiry only | — |
 
-The two bold rows are the project's two economic findings. Neither is a rule
-violation; both are dimensions the customer never bounded and was never told about.
+The bold rows are the project's economic findings. None is a rule violation; all
+are dimensions the customer never bounded and was never told about.
+
+The `total amount` row was corrected by the economic-delegation pass, which had
+previously been credited to the `scope="period"` rule. A rolling window bounds a
+RATE: it re-opens, and CHF 300 a week is CHF 15,600 a year. Since `total` and
+`horizon` are both inexpressible — `technical_details.md`: *"No extra rule fields
+are allowed"* — total economic delegation cannot be bounded by any mandate written
+in the official format. See `ECONOMIC_DELEGATION_RESEARCH.md`.
 
 ## 6. Derived economic exposure
 

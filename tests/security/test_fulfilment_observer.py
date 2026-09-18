@@ -112,12 +112,36 @@ def test_repeatable_and_unclear_mandates_are_never_questioned(instruction):
     assert not verdict.would_ask_customer
 
 
-def test_a_mandate_with_no_specific_product_is_never_questioned():
+def test_a_one_shot_mandate_with_no_specific_product_still_counts_purchases():
+    """This test previously asserted the opposite -- that an anchorless one-shot
+    mandate is never questioned -- on the reasoning that "a category is not specific
+    enough to count against". That reasoning is sound about UNITS WITHIN A BASKET and
+    was wrongly extended to REPETITION ACROSS baskets.
+
+    The economic-delegation pass measured what the gap was worth: SCEN0000 says "buy
+    one ordinary grocery item for CHF 20 or less" and a fully policy-compliant agent
+    draws CHF 172,320 through it in a simulated year, unquestioned. Counting
+    purchases (not units) closes it without making any claim about basket
+    composition, and changes nothing on the official data."""
     mandate, state = _mandate("Buy one ordinary grocery item.", anchor=None), _state()
     assert job_anchor(mandate) is None
     _buy(mandate, state, "AU1")
+    assert fulfilment_state(mandate, state, assessing="AU1").verdict == "first_fulfilment"
+
     _buy(mandate, state, "AU2")
-    assert fulfilment_state(mandate, state, assessing="AU2").verdict == "not_applicable"
+    verdict = fulfilment_state(mandate, state, assessing="AU2")
+    assert verdict.verdict == "already_fulfilled"
+    assert verdict.prior_authorization_id == "AU1"
+    assert verdict.would_ask_customer
+
+
+def test_an_anchorless_one_shot_mandate_makes_no_claim_about_basket_composition():
+    """The other half: counting PURCHASES must not become counting ITEMS. A single
+    first purchase containing several groceries is one performance of the job -- the
+    module has no basis to say how many items belong in one grocery basket."""
+    mandate, state = _mandate("Buy one ordinary grocery item.", anchor=None), _state()
+    _buy(mandate, state, "AU1", qty=4)
+    assert fulfilment_state(mandate, state, assessing="AU1").verdict == "first_fulfilment"
 
 
 # --- AUDIT 1: batch evasion --------------------------------------------------------
@@ -263,3 +287,41 @@ def test_the_strongest_recommendation_is_to_ask():
     _buy(mandate, state, "AU2")
     for verdict in (fulfilment_state(mandate, state, assessing="AU1"), fulfilment_state(mandate, state, assessing="AU2")):
         assert verdict.verdict in ("first_fulfilment", "already_fulfilled", "over_fulfilled", "not_applicable")
+
+
+# --- ECONOMIC-DELEGATION PASS: audit findings on the anchorless one-shot change ----
+
+
+@pytest.mark.parametrize("instruction", [
+    "Buy one of each item on my shopping list, CHF 30 or less each.",
+    "Buy one of every size, CHF 30 or less each.",
+    "Purchase one per child, CHF 30 or less each.",
+])
+def test_a_distributive_quantity_is_not_a_single_job(instruction):
+    """Audit 1 of the economic-delegation pass.
+
+    "one of each" says how many of EACH thing, over a list whose length is not one.
+    While anchorless one-shot mandates were silent, misreading this was free. Once
+    they count purchases it is not: a nine-item shopping list would interrupt the
+    customer eight times, and a control that cries wolf eight times is training them
+    to dismiss the one interruption that matters."""
+    assert classify_shape(instruction).shape is not MandateShape.ONE_SHOT
+
+
+def test_a_cancelled_first_purchase_is_a_known_blind_spot():
+    """Audit 1, the finding NOT fixed, pinned here so it cannot be forgotten or
+    quietly claimed away.
+
+    If the first purchase is approved and later cancelled, a legitimate retry is
+    still reported as a repeat. Fixing it needs `related_authorization_id` on the
+    authoritative `StoredDecision`, and this pass declined to widen the security
+    core for it: the verdict only ASKS the customer, who can answer "the first one
+    was cancelled", and the measured cost on the official data is zero rows --
+    `related_authorization_status` appears once, as "declined", and a declined
+    purchase was never approved so it never enters this count."""
+    mandate, state = _mandate("Buy one ordinary grocery item.", anchor=None), _state()
+    _buy(mandate, state, "AU1")
+    _buy(mandate, state, "AU2")
+    verdict = fulfilment_state(mandate, state, assessing="AU2")
+    assert verdict.verdict == "already_fulfilled"     # even if AU1 was later cancelled
+    assert verdict.would_ask_customer                 # it asks; it never blocks

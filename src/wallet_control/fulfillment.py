@@ -100,7 +100,16 @@ _RECURRING_PATTERNS: list[tuple[str, str]] = [
 _ONE_SHOT_PATTERNS: list[tuple[str, str]] = [
     (r"\breplace\s+my\b", "'replace my ...' describes a single replacement"),
     (r"\bthe\b[^.]{0,40}\bi\s+chose\b", "'the ... I chose' names one specific item already selected"),
-    (r"\bbuy\s+one\b|\bpurchase\s+one\b", "'buy one' states the quantity explicitly"),
+    # "one of each" / "one of every" / "one per ..." is a DISTRIBUTIVE quantity: it
+    # says how many of each thing, over a list whose length is not one. Reading it as
+    # a single job is wrong, and the economic-delegation pass made that wrongness
+    # expensive: before anchorless one-shot mandates counted purchases, a
+    # misclassification here was silent and free. Now it would question every
+    # purchase after the first -- and a control that interrupts a customer nine times
+    # for a nine-item shopping list teaches them to dismiss it, which costs more than
+    # it protects.
+    (r"\b(?:buy|purchase)\s+one\b(?!\s+of\s+(?:each|every)\b)(?!\s+per\b)",
+     "'buy one' states the quantity explicitly"),
     (r"\bthe\s+one\s+i\b", "'the one I ...' names a single item"),
 ]
 
@@ -224,9 +233,32 @@ def fulfilment_state(
 
     anchor = job_anchor(mandate)
     if anchor is None:
+        # No specific product, so UNITS cannot be counted -- but PURCHASES can, and
+        # for a one-shot job the second purchase is a second performance whatever is
+        # in it. An earlier pass returned `not_applicable` here on the reasoning that
+        # "a category is not specific enough". That reasoning is about units within
+        # one basket; it was wrongly applied to repetition across baskets, and the
+        # gap it left is the largest single economic hole measured in this project:
+        # SCEN0000 says "buy ONE ordinary grocery item for CHF 20 or less" and a
+        # policy-compliant agent draws CHF 172,320 through it in a simulated year.
+        #
+        # Counting purchases rather than units is what keeps this sound: it says
+        # nothing about what belongs in a single grocery basket, only that the job
+        # was already done once. On the official data it changes nothing.
+        earlier = [d for d in state.approved_decisions() if d.authorization_id != assessing]
+        if not earlier:
+            return FulfilmentVerdict(
+                "first_fulfilment", shape,
+                f"one-shot job, not yet fulfilled ({classification.evidence})",
+            )
         return FulfilmentVerdict(
-            "not_applicable", shape,
-            "this mandate names no specific product, so repeat fulfilment cannot be identified",
+            "already_fulfilled", shape,
+            (
+                f"this mandate describes a single job ({classification.evidence}) and names no "
+                f"specific product, so it cannot be told apart from the purchase that already "
+                f"fulfilled it ({earlier[0].authorization_id}). This purchase would perform it again."
+            ),
+            prior_authorization_id=earlier[0].authorization_id,
         )
 
     prior = [d for d in state.approved_decisions() if d.authorization_id != assessing]
