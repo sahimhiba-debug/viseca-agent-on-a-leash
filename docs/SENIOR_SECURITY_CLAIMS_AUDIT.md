@@ -23,12 +23,19 @@ named test fails when the property is removed.
 | 16 | An external dependency failure never becomes an approval | `viseca_client` normalises everything to `VisecaApiError`; no approve-on-failure path exists | `test_failure_modes` (26 tests) | **PROVEN** |
 | 17 | The audit trail cannot drift from the ledger | `audit.py` is a pure projection, recomputed per call | `test_product_surface::test_the_audit_timeline_is_recomputed_not_stored` | **PROVEN** |
 | 18 | The attack demonstrations run against the real engine | `attack_demo` imports the production entry points | `test_attack_demonstrations_use_the_real_engine` | **PROVEN** |
+| 18b | **A rolling cap holds for every window containing a purchase, not just the one ending at it** | `state.peak_window_spend_chf`, called from the evaluation and resolution paths | `test_window_containment` (10 tests) | **PROVEN** — closes a 60% cap breach reachable through the official step-up path |
 | 19 | A one-shot job is performed once | `research/fulfillment.py`, derived from the ledger | `test_fulfilment_observer` (32 tests) | **PARTIALLY PROVEN — within a run only, and NOT in the decision path** |
 | 20 | Exactly-once payment | — | — | **NOT PROVEN.** At-most-once, per process. Two workers restoring one checkpoint can each consume once. |
 | 21 | Total spending is capped | — | — | **NOT PROVEN — impossible.** `scope` is `purchase` or `period`; the spec closes the set. |
 | 22 | The account's monthly limit is enforced | — | — | **OUTSIDE SYSTEM BOUNDARY.** Real data; no account-scoped counter exists in the official API. Displayed marked *not enforced*. |
 | 23 | Merchant claims (size, return window, finality) are true | — | — | **OUTSIDE SYSTEM BOUNDARY.** Attacker-controlled text; we derive from it and cannot verify it. |
 | 24 | The step-up channel authenticates the customer | — | — | **NOT PROVEN.** The demo API has no auth and records no `resolved_by`. Scoped as an event-day demo. |
+
+## Claims corrected by the window-containment pass
+
+- *"A rolling ceiling is re-checked when the human answers"* (claim 12) was **true but
+  insufficient**: the re-check used a backward-looking window and therefore missed the
+  very case it was written for. Corrected; the claim now holds.
 
 ## Claims removed during this review
 

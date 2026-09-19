@@ -118,7 +118,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**622 tests.** The structure is deliberate rather than count-driven:
+**643 tests.** The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say

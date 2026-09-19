@@ -42,7 +42,7 @@ something has changed the decision engine — **do not demo**, run the test suit
 source .venv/bin/activate && python3 -m pytest -q
 ```
 
-Expect **622 passed**. Useful subsets:
+Expect **643 passed**. Useful subsets:
 
 ```bash
 python3 -m pytest tests/security -q          # security + invariants + scope model

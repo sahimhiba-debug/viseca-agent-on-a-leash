@@ -9,6 +9,7 @@ full classification, including the claims we removed, is in
 | We prevent authorization replay | `MockPSP.charge` consumes under an atomic compare-and-set before charging — `test_I4_I5_I6_*`, `attack_4_replay` | **proven, in one process** |
 | We prevent merchant redirection | merchant compared against the stored decision — `test_I2_I3_*`, `attack_3` | **proven** |
 | We enforce the customer's amount limit | the rule engine, and again at the execution boundary — `test_I2_I3_*`, `attack_1` | **proven** |
+| **A rolling spending cap cannot be breached by proposal order or by a late human answer** | every window containing the purchase is checked, not just the one ending at it — `test_window_containment` (10 tests); 367/400 breaching orders → 0/400 | **proven** |
 | We support human step-up | `resolve_authorization`, scoped to one authorization — `test_I8_*`, `attack_7` | **proven** |
 | We support revocation, including for a purchase still awaiting an answer | run-level `_revoked_at` + sweep — `test_F1`, `test_F1b`, `test_F1c`, `attack_5` | **proven** |
 | Merchant text cannot redefine policy | text yields only three narrowing derived facts — `test_I7_*` (6 payloads), `attack_2` | **proven** |
