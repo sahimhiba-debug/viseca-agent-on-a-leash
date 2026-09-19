@@ -271,3 +271,36 @@ def test_I12_a_missing_fact_is_reported_unknown_and_never_invented(details):
     result = _buy(md, s, "AU1", amt=100.0, details=details)
     windows = [e for e in result.rule_evaluations if e.rule.field == "order.return_window_days"]
     assert windows and windows[0].outcome == "unknown", f"a window was invented from {details!r}"
+
+
+# --- I13: the event's own arithmetic must agree with itself ----------------------
+
+
+@given(subtotal=amounts, delivery=st.decimals(min_value=Decimal("0"), max_value=Decimal("200"), places=2),
+       claimed_total=amounts)
+@SETTINGS
+def test_I13_an_internally_inconsistent_amount_is_refused(subtotal, delivery, claimed_total):
+    """`amount` is the total INCLUDING delivery, with `items_subtotal` and
+    `delivery_fee` as its components. Found at the final gate: nothing checked they
+    agreed, so an event could claim a CHF 100 total whose parts summed to CHF 600 and
+    be approved against a CHF 400 ceiling.
+
+    All 45 official rows agree exactly, so a mismatch is an internally inconsistent
+    event rather than a rounding artefact."""
+    md, s = _mandate(cap=1000), _state()
+    ev = make_event(mandate=md, authorization_id="AU1", amount=float(claimed_total),
+                    billing_amount_chf=float(claimed_total), items_subtotal=float(subtotal),
+                    delivery_fee=float(delivery), merchant_id=M)
+    result = evaluate_authorization(ev, md, s)
+    if abs((subtotal + delivery) - claimed_total) > Decimal("0.01"):
+        assert result.decision == "block", "an event whose parts do not sum to its total was accepted"
+        assert any("amount_integrity" in c for c in result.reason_codes)
+
+
+def test_I13b_a_consistent_purchase_with_delivery_still_passes():
+    """The other half: delivery is already inside the total, and adding it again would
+    double-count a legitimate purchase."""
+    md, s = _mandate(cap=400), _state()
+    ev = make_event(mandate=md, authorization_id="AU1", amount=380.0, billing_amount_chf=380.0,
+                    items_subtotal=330.0, delivery_fee=50.0, merchant_id=M)
+    assert evaluate_authorization(ev, md, s).decision == "allow"

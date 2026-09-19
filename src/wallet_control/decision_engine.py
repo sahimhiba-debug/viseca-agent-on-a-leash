@@ -456,6 +456,24 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         evaluations.append(
             RuleEvaluation(rule=_AMOUNT_INTEGRITY_RULE, outcome="fail", detail=f"billing_amount_chf={billing_amount_chf} is not positive", source="safety")
         )
+    # `amount` is documented as the total INCLUDING delivery, with `items_subtotal`
+    # and `delivery_fee` as its components. Nothing checked that they agreed, so an
+    # event could claim a CHF 100 total whose parts summed to CHF 600 and be approved
+    # against a CHF 400 ceiling. All 45 official rows agree exactly, so a mismatch is
+    # an internally inconsistent event, not a rounding artefact.
+    #
+    # This is the same guard as the FX check below, on the other half of the same
+    # arithmetic -- not a new mechanism.
+    parts = to_decimal(auth["items_subtotal"]) + to_decimal(auth["delivery_fee"])
+    if abs(parts - to_decimal(auth["amount"])) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
+        evaluations.append(
+            RuleEvaluation(
+                rule=_AMOUNT_INTEGRITY_RULE,
+                outcome="fail",
+                detail=f"items_subtotal + delivery_fee = {parts} does not match amount={auth['amount']}",
+                source="safety",
+            )
+        )
     expected_chf = to_chf(to_decimal(auth["amount"]), auth["currency"])
     if abs(expected_chf - billing_amount_chf) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
         evaluations.append(
