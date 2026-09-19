@@ -167,6 +167,7 @@ behind every one of the 45 decisions.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
 - [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
+- [docs/MULTI_DAY_RESEARCH_PROGRAM.md](docs/MULTI_DAY_RESEARCH_PROGRAM.md) -- the final research report: what an outside researcher would attack, what happened when we attacked it ourselves, and what is still risky
 - [docs/FINAL_AUDIT_PACKAGE.md](docs/FINAL_AUDIT_PACKAGE.md) -- **start here if you are auditing this.** Where to attack first, ranked, and how to falsify each claim
 - [docs/WHAT_WE_REFUSE_TO_CLAIM.md](docs/WHAT_WE_REFUSE_TO_CLAIM.md) -- the limitations, stated as refusals rather than buried
 - [docs/FINAL_INVARIANTS.md](docs/FINAL_INVARIANTS.md) -- the I1-I33 invariant register, each with what enforces it and the test that fails if you remove the mechanism. The register is machine-checked: `test_every_test_the_register_cites_exists`. It is *not* a formal proof and does not claim to be
