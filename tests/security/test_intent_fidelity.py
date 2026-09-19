@@ -207,3 +207,25 @@ def test_the_coverage_check_creates_no_rules():
     without = compile_instruction("Buy a monitor for CHF 400 or less. Ask me when uncertain.")
     assert [r.field for r in with_marker.hard_rules] == [r.field for r in without.hard_rules]
     assert len(with_marker.open_questions) > len(without.open_questions)
+
+
+@pytest.mark.parametrize(
+    "phrase", ["in total", "total", "overall", "altogether", "in all"],
+)
+def test_an_overall_total_produces_no_order_ceiling_and_says_so(phrase):
+    """"no more than CHF 50 IN TOTAL" is the same inversion as "per week", pointing at
+    the one scope this vocabulary cannot express at all.
+
+    Reading it as a per-order ceiling told the customer "your CHF 50 limit applies to
+    each individual purchase, not to the total" -- contradicting the word they wrote --
+    and then explained that a total cannot be set. Creating NO rule and saying so is
+    the honest handling; quietly substituting a weaker scope for the one they asked
+    for is not.
+
+    Found as a surviving mutant: the behaviour was fixed and disclosed, but nothing
+    pinned it, so reverting the fix passed the whole suite.
+    """
+    compiled = compile_instruction(f"Buy groceries, no more than CHF 50 {phrase}. Ask me when uncertain.")
+    amounts = [r for r in compiled.hard_rules if r.field == "authorization.billing_amount_chf"]
+    assert not amounts, f"{phrase!r} produced {[(r.operator, r.value, r.scope) for r in amounts]}"
+    assert "OVERALL TOTAL" in " ".join(compiled.open_questions), "the loss must be stated"
