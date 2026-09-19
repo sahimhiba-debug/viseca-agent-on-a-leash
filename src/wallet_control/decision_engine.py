@@ -380,13 +380,82 @@ def _scoped_verdict(evaluations: list[RuleEvaluation], source: str, uncertainty_
     return decision
 
 
+# Plain sentences for the fields a customer can act on. This is the SAME wording the
+# UI shows (`RULE_TEXT` / `UNSURE_TEXT` in ui/index.html); the two are kept in step by
+# `test_plain_language_is_consistent_between_the_engine_and_the_ui`.
+_PLAIN_FAIL = {
+    "authorization.billing_amount_chf": "the amount is above the limit you set",
+    "item.name_contains": "this is not the item you asked for",
+    "item.category": "this is a kind of item you did not ask for",
+    "item.unrequested_present": "the basket contains something you did not ask for",
+    "merchant.familiar": "you have never paid this seller before",
+    "merchant.category": "this is not the kind of shop you allowed",
+    "order.return_window_days": "the return window is shorter than you asked for",
+    "item.size": "the size is not the one you asked for",
+    "session.integrity_risk": "something about this session looks wrong",
+    "order.duplicate_suspected": "this looks like the same order again",
+    "authorization.amount_integrity": "the stated CHF amount does not match the currency conversion",
+    "authorization.authority_status": "the authority behind this purchase is no longer active",
+    "authorization.card_status_at_attempt": "the card is blocked",
+    "authorization.mandate_status": "this mandate is no longer active",
+    "authorization.basket_present": "this purchase lists no items to check",
+}
+_PLAIN_UNKNOWN = {
+    "order.duplicate_suspected": "this looks like an order you already placed, and the wallet cannot tell whether you meant to order it twice",
+    "order.return_window_days": "the seller did not say whether this can be returned",
+    "item.size": "the seller did not state the size",
+    "merchant.familiar": "the wallet has no purchase history to check this seller against",
+    "session.integrity_risk": "something about this session could not be verified",
+    "authorization.basket_present": "this purchase lists no items to check",
+}
+
+
+def _plain_reason(evaluation: RuleEvaluation) -> str:
+    rule = evaluation.rule
+    # A per-order breach and a rolling-window breach are the SAME field and mean
+    # entirely different things to a person: "this order is too big" versus "you have
+    # spent too much this week". Collapsing them to one sentence blames the wrong
+    # boundary -- the customer would look at the order rather than at the week.
+    if rule.field == "authorization.billing_amount_chf" and rule.scope == "period" and evaluation.outcome == "fail":
+        window = f"{rule.period_days}-day" if rule.period_days else "rolling"
+        return f"it would take you over the CHF {float(rule.value):g} you allowed across any {window} period"
+    table = _PLAIN_UNKNOWN if evaluation.outcome == "unknown" else _PLAIN_FAIL
+    fallback = rule.field.replace(".", " ").replace("_", " ")
+    return table.get(rule.field) or f"a check on {fallback} did not pass"
+
+
 def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], facts: PurchaseFacts) -> str:
+    """Prose for a person. The technical detail goes in `evidence`, not here.
+
+    `technical_details.md` shows this field carrying sentences -- "Please review this
+    purchase." -- and says to "show the reason and purchase details to the real
+    customer". This used to emit the engine's internal evaluation dump instead:
+
+        Declined: CHF 62.0 at Alpine Basket -- authorization.billing_amount_chf
+        (fail): projected 7-day spend=361.5 CHF (including this purchase);
+        item.category (fail): item_categories=['cosmetics', 'groceries'], outside
+        requested set: ['cosmetics']
+
+    Internal field names, the engine's own `(fail)` vocabulary, and a Python list
+    repr -- submitted to the platform in a field called `customer_message`. The demo
+    UI was never affected, because it renders `reason_codes` through its own
+    plain-language table and hides the raw evidence behind a disclosure. The OFFICIAL
+    path had no such layer, so the polished explanation existed only where we happened
+    to look. The same facts still reach the platform, in `evidence`, which the spec
+    describes as "facts supporting the result".
+    """
+    amount = f"CHF {facts.billing_amount_chf}"
     if decision == "allow":
-        return f"Approved: CHF {facts.billing_amount_chf} at {facts.merchant_name} matches your wallet policy."
+        return f"Approved: {amount} at {facts.merchant_name} matches the rules you set."
     problems = [e for e in evaluations if e.outcome in ("fail", "unknown")]
-    detail = "; ".join(f"{e.rule.field} ({e.outcome}): {e.detail}" for e in problems) or "no specific rule detail"
-    verb = "Declined" if decision == "block" else "Needs your confirmation"
-    return f"{verb}: CHF {facts.billing_amount_chf} at {facts.merchant_name} -- {detail}"
+    reasons = list(dict.fromkeys(_plain_reason(e) for e in problems))
+    detail = "; ".join(reasons) if reasons else "a check did not pass"
+    if decision == "block":
+        return f"Declined: {amount} at {facts.merchant_name}. Reason: {detail}."
+    return (
+        f"Please review this purchase: {amount} at {facts.merchant_name}. "
+        f"The wallet could not decide on its own because {detail}."
+    )
 
 
 def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, state: RunState) -> EngineDecision:

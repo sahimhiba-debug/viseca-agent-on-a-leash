@@ -44,6 +44,7 @@ fail.
 | I19 | A run keeps its original snapshot for RULES | `live_worker` | `test_mandate_lifecycle` |
 | I20 | The platform's reported `mandate.status` is read **live** and may only narrow | `_run_binding_failures` | `test_a_mid_run_mandate_revocation_*` |
 | I21 | An event must belong to this run (`card_id`, `mandate_id`) | same | `test_run_binding` |
+| I39 | **`customer_message` is prose for a person, never the engine's internals** — no field names, no `(fail)` vocabulary, no Python reprs; technical facts go to `evidence` | `decision_engine._customer_message` | `test_no_official_decision_leaks_engine_internals_to_the_customer` |
 | I37 | **A period-qualified amount compiles to a period rule, never a per-order ceiling** — "CHF 250 per week" is a budget, not an order limit | `policy_compiler._AMOUNT_THEN_PERIOD_RE` | `test_a_period_qualified_amount_is_a_budget_not_an_order_ceiling` |
 | I38 | **Restrictive language that produced no rule is named back to the customer** — the compiler never treats an unrecognised restriction as silent permission | `policy_compiler._coverage_questions` | `test_a_quantity_the_vocabulary_cannot_express_is_named_back_to_the_customer` |
 | I36 | **Every rule field the engine recognises has a DECLARED meaning for absence of its subject**, and `pass` is never it — the field list is discovered from `rules.py` by AST, so a new field with no decision fails the suite | `rules.py` (checked, not enforced) | `test_every_recognised_rule_field_has_a_declared_absence_case` |
