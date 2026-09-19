@@ -30,7 +30,9 @@ from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from tests.helpers import make_event, make_mandate
-from wallet_control.decision_engine import evaluate_authorization, resolve_authorization
+from wallet_control.decision_engine import (
+    _AMOUNT_INTEGRITY_TOLERANCE_CHF, evaluate_authorization, resolve_authorization,
+)
 from wallet_control.mandate import HardRule, MandateError, UncertaintyPolicy
 from wallet_control.payment import MockPSP, PaymentError
 from wallet_control.state import HistoryIndex, ResolutionError, RunState
@@ -234,12 +236,17 @@ def test_I10_billing_integrity_cannot_be_bypassed(amount, currency, claimed):
     """`billing_amount_chf` is published as `amount x fx_rates[currency]`, so it is
     checkable rather than trusted. A declared figure that does not match is refused
     whatever it would have done to the cap."""
+    # The threshold is IMPORTED, not restated. Both of these tests hard-coded 0.01
+    # while the engine tolerates 0.02 for independent double-rounding, so they
+    # asserted a block the engine was never going to make. Hypothesis only rarely
+    # generated a difference inside that gap, so the suite was quietly flaky for a
+    # long time -- a test that duplicates a production constant will drift from it.
     truth = (amount * FX[currency]).quantize(Decimal("0.01"))
     md, s = _mandate(cap=1000), _state()
     ev = make_event(mandate=md, authorization_id="AU1", amount=float(amount), currency=currency,
                     billing_amount_chf=float(claimed), merchant_id=M)
     result = evaluate_authorization(ev, md, s)
-    if abs(truth - claimed) > Decimal("0.01"):
+    if abs(truth - claimed) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
         assert result.decision == "block"
         assert any("amount_integrity" in c for c in result.reason_codes)
 
@@ -292,7 +299,7 @@ def test_I13_an_internally_inconsistent_amount_is_refused(subtotal, delivery, cl
                     billing_amount_chf=float(claimed_total), items_subtotal=float(subtotal),
                     delivery_fee=float(delivery), merchant_id=M)
     result = evaluate_authorization(ev, md, s)
-    if abs((subtotal + delivery) - claimed_total) > Decimal("0.01"):
+    if abs((subtotal + delivery) - claimed_total) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
         assert result.decision == "block", "an event whose parts do not sum to its total was accepted"
         assert any("amount_integrity" in c for c in result.reason_codes)
 
@@ -304,3 +311,23 @@ def test_I13b_a_consistent_purchase_with_delivery_still_passes():
     ev = make_event(mandate=md, authorization_id="AU1", amount=380.0, billing_amount_chf=380.0,
                     items_subtotal=330.0, delivery_fee=50.0, merchant_id=M)
     assert evaluate_authorization(ev, md, s).decision == "allow"
+
+
+def test_the_amount_integrity_tolerance_is_exactly_what_double_rounding_needs():
+    """Pinned explicitly, because a property test alone let it drift.
+
+    The pack rounds monetary values to two decimal places with half-even rounding,
+    so one rounding can move a figure by at most 0.005 and two independent roundings
+    by at most 0.01. The engine allows 0.02 -- twice what is needed, which is slack
+    rather than a hole: an adversary gains at most two centimes per purchase and the
+    parts/total check constrains the same arithmetic from the other side.
+
+    The boundary is asserted here rather than left to random exploration."""
+    md, s = _mandate(cap=1000), _state()
+    for delta, expected in ((Decimal("0.02"), "allow"), (Decimal("0.03"), "block")):
+        state = _state()
+        ev = make_event(mandate=md, authorization_id="AU1", amount=100.0, currency="CHF",
+                        billing_amount_chf=float(Decimal("100.00") + delta), merchant_id=M)
+        assert evaluate_authorization(ev, md, state).decision == expected, (
+            f"a {delta} discrepancy should {expected}")
+    assert _AMOUNT_INTEGRITY_TOLERANCE_CHF == Decimal("0.02")

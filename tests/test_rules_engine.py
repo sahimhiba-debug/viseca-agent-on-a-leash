@@ -205,3 +205,23 @@ def test_period_scope_uses_projected_spend_from_context():
 def test_unrecognized_field_fails_closed_to_unknown():
     rule = HardRule(field="not.a.real.field", operator="=", value="x")
     assert evaluate_rule(rule, _facts(), EMPTY_CTX).outcome == "unknown"
+
+
+def test_a_period_rule_with_no_period_length_escalates_rather_than_passing():
+    """Found by mutation testing: this branch had no test, so replacing its `unknown`
+    with `pass` left the whole suite green.
+
+    It is reachable from the official contract -- the event schema declares
+    `period_days` as `["integer","null"]`, so a platform-supplied mandate may carry a
+    period-scoped amount rule with no window length. Our own compiler never emits one.
+    A rolling window with no length cannot be evaluated, so the answer is UNKNOWN; if
+    it were `pass`, an unbounded purchase would satisfy the customer's period cap
+    silently."""
+    mandate = make_mandate(hard_rules=[HardRule(
+        field="authorization.billing_amount_chf", operator="<=", value=300,
+        currency="CHF", scope="period")])
+    rule = mandate.hard_rules[0]
+    event = make_event(mandate=mandate, amount=9999.0, billing_amount_chf=9999.0)
+    facts = build_purchase_facts(event, merchant_familiar=None, session_integrity_risk=False,
+                                 session_integrity_reasons=(), duplicate_of=None, duplicate_reason=None)
+    assert evaluate_rule(rule, facts, EMPTY_CTX).outcome == "unknown"
