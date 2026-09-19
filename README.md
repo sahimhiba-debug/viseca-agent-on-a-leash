@@ -167,6 +167,7 @@ behind every one of the 45 decisions.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
 - [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
+- [docs/FINAL_PRE_FABLE_AUDIT.md](docs/FINAL_PRE_FABLE_AUDIT.md) -- the freeze audit: attacked as a hostile judge, including the ten questions a senior reviewer could ask and the truthful answers
 - [docs/FINAL_INTENT_FIDELITY_AUDIT.md](docs/FINAL_INTENT_FIDELITY_AUDIT.md) -- does the wallet enforce what the customer asked for, or what the compiler heard? Six defects, including a weekly budget silently compiled as a per-order ceiling
 - [docs/FINAL_DEEP_RND_REPORT.md](docs/FINAL_DEEP_RND_REPORT.md) -- the deep R&D campaign: two security defects found and fixed, the one candidate mechanism built and killed by its own attacks, and why the architecture is saturated under current protocol constraints
 - [docs/MULTI_DAY_RESEARCH_PROGRAM.md](docs/MULTI_DAY_RESEARCH_PROGRAM.md) -- the final research report: what an outside researcher would attack, what happened when we attacked it ourselves, and what is still risky
