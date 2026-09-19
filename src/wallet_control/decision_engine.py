@@ -91,9 +91,35 @@ def _platform_status_evaluations(auth: dict[str, Any]) -> list[RuleEvaluation]:
     return out
 
 
+_MANDATE_STATUS_ABSENT = "<not reported>"
+
+
+def _reported_mandate_status(event: dict[str, Any]) -> Any:
+    """The mandate status the platform reports on THIS event, or
+    `_MANDATE_STATUS_ABSENT` when the event does not carry one.
+
+    `mandate` and `mandate.status` are both REQUIRED by
+    authorization_event.schema.json, and nothing in this service validates an
+    incoming event against that schema. So absence is a MALFORMED event, not an
+    event politely declining to comment -- and it must not be the quiet way to
+    switch a status check off. Returning None here (the previous behaviour of an
+    inline `(event.get("mandate") or {}).get("status")`) made the live-status
+    branch below skip itself: drop the block and a revoked mandate was ALLOWed.
+
+    The two sibling status fields already got this right -- `authority_status` and
+    `card_status_at_attempt` both route an unrecognised value, None included, to
+    `unknown`. Three platform status fields, and this was the one that read a
+    missing required field as consent.
+    """
+    block = event.get("mandate")
+    if not isinstance(block, dict):
+        return _MANDATE_STATUS_ABSENT
+    return block.get("status", _MANDATE_STATUS_ABSENT)
+
+
 def _run_binding_failures(
     auth: dict[str, Any], mandate: MandateSnapshot, state: RunState,
-    reported_mandate_status: str | None = None,
+    reported_mandate_status: Any,
 ) -> list[RuleEvaluation]:
     """Whether this event belongs to the run evaluating it.
 
@@ -144,10 +170,12 @@ def _run_binding_failures(
     # The platform is documented to reject revoked or expired mandates before queueing
     # a request, so this may never fire. That is an argument for it being cheap, not
     # for leaving one of three status checks inert.
-    if reported_mandate_status is not None and reported_mandate_status != mandate.status.value:
+    if reported_mandate_status != mandate.status.value:
         if reported_mandate_status == MandateStatus.ACTIVE.value:
             pass                      # the snapshot is already checked above
-        elif reported_mandate_status in {s.value for s in MandateStatus}:
+        # list, not set: an event may carry an unhashable value here (the schema is
+        # not enforced), and `[] in {...}` raises rather than answering False.
+        elif reported_mandate_status in [s.value for s in MandateStatus]:
             failures.append(
                 RuleEvaluation(
                     rule=_MANDATE_STATUS_RULE,
@@ -162,8 +190,13 @@ def _run_binding_failures(
                 RuleEvaluation(
                     rule=_MANDATE_STATUS_RULE,
                     outcome="unknown",
-                    detail=f"the platform reports mandate status {reported_mandate_status!r}, "
-                           f"which this engine version does not recognize",
+                    detail=(
+                        "the platform did not report a mandate status on this event, "
+                        "and the schema requires one"
+                        if reported_mandate_status is _MANDATE_STATUS_ABSENT
+                        else f"the platform reports mandate status {reported_mandate_status!r}, "
+                             f"which this engine version does not recognize"
+                    ),
                     source="safety",
                 )
             )
@@ -382,7 +415,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # answer. See docs/DEEP_SECURITY_RESEARCH.md (V5).
         binding_failures = _run_binding_failures(
             auth, mandate, state,
-            reported_mandate_status=(event.get("mandate") or {}).get("status"),
+            reported_mandate_status=_reported_mandate_status(event),
         )
         if binding_failures:
             return EngineDecision(
