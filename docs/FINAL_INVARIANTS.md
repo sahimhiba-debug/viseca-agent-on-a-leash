@@ -44,6 +44,7 @@ fail.
 | I19 | A run keeps its original snapshot for RULES | `live_worker` | `test_mandate_lifecycle` |
 | I20 | The platform's reported `mandate.status` is read **live** and may only narrow | `_run_binding_failures` | `test_a_mid_run_mandate_revocation_*` |
 | I21 | An event must belong to this run (`card_id`, `mandate_id`) | same | `test_run_binding` |
+| I36 | **Every rule field the engine recognises has a DECLARED meaning for absence of its subject**, and `pass` is never it — the field list is discovered from `rules.py` by AST, so a new field with no decision fails the suite | `rules.py` (checked, not enforced) | `test_every_recognised_rule_field_has_a_declared_absence_case` |
 | I35 | **An event's claim about itself is cross-checked wherever we hold an independent source** — velocity joins amount, parts and identity; `max`, so it can only raise risk | `state.observed_attempts_within` + `decision_engine` | `test_under_reporting_recent_attempts_no_longer_suppresses_session_risk` |
 | I34 | **A rule evaluated over an empty collection is UNCHECKABLE, never satisfied** — emptying the basket must not buy a better answer than filling it | `decision_engine` basket check + `rules.py` item guard | `test_emptying_the_basket_is_never_more_permissive_than_filling_it` |
 | I33 | **Deleting a required field never buys a more permissive decision than its strictest legal value** — a check must not be switchable off by omitting what it guards | `_reported_mandate_status`, `_platform_status_evaluations` | `test_omission_is_no_weaker_than_the_strictest_legal_value` |
