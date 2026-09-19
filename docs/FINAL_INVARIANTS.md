@@ -44,6 +44,7 @@ fail.
 | I19 | A run keeps its original snapshot for RULES | `live_worker` | `test_mandate_lifecycle` |
 | I20 | The platform's reported `mandate.status` is read **live** and may only narrow | `_run_binding_failures` | `test_a_mid_run_mandate_revocation_*` |
 | I21 | An event must belong to this run (`card_id`, `mandate_id`) | same | `test_run_binding` |
+| I33 | **Deleting a required field never buys a more permissive decision than its strictest legal value** — a check must not be switchable off by omitting what it guards | `_reported_mandate_status`, `_platform_status_evaluations` | `test_omission_is_no_weaker_than_the_strictest_legal_value` |
 
 ## Execution scope
 

@@ -7,14 +7,14 @@ this repository, start here.
 | --- | --- |
 | commit | see `git log -1` on `rnd/productization` |
 | `main` | `1aa3bac`, untouched — all work is on the R&D branch |
-| tests | 664 |
+| tests | 689 (5 skipped, all reported) |
 | official replay | **45 events — 19 allow / 2 review / 24 block**, unchanged across every pass |
-| runtime | 5,037 lines / 19 modules · research apparatus separated into `research/` |
+| runtime | 5,086 lines / 19 modules · research apparatus separated into `research/` |
 | dependencies | 4 runtime (fastapi, uvicorn, httpx, pydantic), 3 dev |
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
-python3 -m pytest -q                      # 664
+python3 -m pytest -q                      # 689
 python3 scripts/run_replay.py             # 45 / 19 / 2 / 24
 python3 scripts/run_red_team_corpus.py    # 133/133
 python3 scripts/run_red_team.py           # 17/17
@@ -39,9 +39,17 @@ Ranked by where I think you are most likely to find something:
 4. **The peak-window computation.** `state.peak_window_spend_chf` is the newest
    security-critical code. Multiple overlapping period rules of different lengths are
    now exercised: a 3,000-run campaign with three nested caps (CHF 200/1d, 300/7d, 1000/30d), randomized amounts and timestamps over 35 days and ~45% of purchases forced into step-ups resolved in random order found **0 breaches**, with the windows filling to 199.99 / 299.95 / 956.28 -- tight, not over-conservative.
-5. **The step-up channel.** No authentication, no `resolved_by`. Anyone who can reach
+5. **Fields you can DELETE rather than forge.** Nothing here validates an incoming
+   event against `authorization_event.schema.json`, and the engine reads it field by
+   field. A check written `if value is not None and value != expected` is switched off
+   by removing the field it guards. That was live: deleting `mandate.status`, or the
+   whole `mandate` block, made a **revoked** mandate ALLOW, mint an authority and
+   charge. Fixed, and the property is now asserted over the schema's own enums rather
+   than for the one field that broke -- *find a required field I have not covered.*
+   `test_omission_is_no_weaker_than_the_strictest_legal_value`.
+6. **The step-up channel.** No authentication, no `resolved_by`. Anyone who can reach
    the demo port can answer a customer's question.
-6. **Evidence semantics.** I audited 13 absent/inapplicable/conflicting cases and fixed
+7. **Evidence semantics.** I audited 13 absent/inapplicable/conflicting cases and fixed
    two. A rule field added later would default to the wrong side; only the monotonicity
    fuzz would catch it.
 
@@ -54,6 +62,9 @@ Ranked by where I think you are most likely to find something:
 | Merchant text can only narrow | find text that widens a rule or raises a ceiling |
 | Revocation reaches a pending step-up | find a path that mints authority after `_revoked_at` |
 | The decision path is atomic in one process | widen a different race window than the one I widened |
+| Deleting a required field never helps an attacker | find a required field whose omission is more permissive than its strictest legal value |
+| Every invariant in `FINAL_INVARIANTS.md` cites a real test | `test_every_test_the_register_cites_exists` — the register is machine-checked, so attack the MAPPING instead: find an invariant whose cited test does not actually exercise it |
+| The 8s deadline is never at risk | measured, not assumed: quadratic in a run's approved purchases, crossing 8,000 ms at n ≈ 11,000 against an official max of 12. Find a workload where n is large or the cost is worse than quadratic (`tests/test_scale_limits.py`) |
 | Official replay unchanged | `python3 scripts/run_replay.py` |
 
 ## Protocol assumptions I depend on
