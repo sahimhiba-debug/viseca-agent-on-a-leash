@@ -20,7 +20,7 @@ mandate status checks -- rather than generated over every operator in the tree.
 It cannot tell you about a mechanism nobody thought to mutate. It can tell you
 that the ones listed here are genuinely held.
 
-RESULT AT THE TIME OF WRITING: 25 mutants, 25 killed, 0 survived.
+RESULT AT THE TIME OF WRITING: 26 mutants, 26 killed, 0 survived.
 
 One survivor was found when this probe was first run: widening the rolling window's
 start from `end - window < ts` to `end - window <= ts` passed the entire suite.
@@ -85,6 +85,9 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     ("policy_compiler.py", "    open_questions.extend(_coverage_questions(text, rules))", "    pass",
      "restrictive language with no rule is dropped in silence again"),
 
+    ("policy_compiler.py", '    text = re.sub(r"\\s+", " ", instruction).strip()',
+     "    text = instruction.strip()",
+     "whitespace is significant again, losing the ceiling on a double space"),
     ("policy_compiler.py", "        if v not in period_amount_values and v not in total_amounts",
      "        if v not in period_amount_values",
      "an overall total becomes a per-order ceiling again"),

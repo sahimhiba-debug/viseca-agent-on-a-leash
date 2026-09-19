@@ -367,7 +367,17 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     recognizable phrase as silent permission -- unparsed intent becomes an
     `open_question` shown to the customer before they confirm the mandate.
     """
-    text = instruction.strip()
+    # Whitespace is not semantic here, but every pattern below is written with literal
+    # spaces, so it WAS: doubling the spaces in the five official instructions lost the
+    # per-order ceiling in all five, the merchant-familiarity rule in two, the
+    # session-integrity rule in one, and flipped SCEN0001's operator from <= to <
+    # (because "at or  below" no longer matched the negative lookbehind). A customer
+    # typing into a text box produces double spaces, tabs and newlines constantly.
+    #
+    # Collapsing runs of whitespace before matching is the fix that does not require
+    # touching a dozen patterns individually, and it cannot change meaning. Only the
+    # matching text is normalised; nothing the customer wrote is rewritten for them.
+    text = re.sub(r"\s+", " ", instruction).strip()
     rules: list[HardRule] = []
     guidance: list[str] = []
     open_questions: list[str] = []
