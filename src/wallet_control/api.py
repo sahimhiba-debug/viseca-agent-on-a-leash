@@ -289,12 +289,53 @@ def _stored_decision_summary(event: dict[str, Any], stored) -> dict[str, Any]:
         "basket": _basket_lines(auth),
         "decision": stored.decision,
         "wallet_decision": "review" if stored.was_reviewed else stored.decision,
+        # Which authority stopped this: the customer's own rule, or the wallet's
+        # integrity check. Derived from the recorded reason codes, which carry the
+        # rule field -- `safety` sources are the control-layer checks the customer
+        # never opted into.
+        **_verdict_split(stored.reason_codes),
         "resolved_by_customer": bool(stored.was_reviewed and stored.resolved_at),
         "reason_codes": list(stored.reason_codes),
         "customer_message": _recorded_message(stored, auth),
         "evidence": [], "policy_evidence": [], "safety_evidence": [],
         "payment_authority": None,
     }
+
+
+_SAFETY_FIELDS = {
+    "authorization.amount_integrity",
+    "authorization.authority_status",
+    "authorization.card_status_at_attempt",
+    "authorization.mandate_status",
+    "authorization.card_id_binding",
+    "authorization.mandate_id_binding",
+    "order.duplicate_suspected",
+}
+
+
+def _verdict_split(reason_codes: tuple[str, ...]) -> dict[str, Any]:
+    """Split a recorded decision into the customer's verdict and the wallet's.
+
+    A single-verdict engine cannot say "your policy allowed this and I stopped it
+    anyway". Ours can, because every check carries the authority it came from. This
+    reconstructs that split for a decision read back from the ledger; the fresh
+    evaluation path reports it directly from the rule evaluations.
+    """
+    policy = security = "allow"
+    for code in reason_codes:
+        marker, _, field = code.partition(":")
+        if not field:
+            continue
+        verdict = "block" if marker == "hard_rule_failed" else "review"
+        if field in _SAFETY_FIELDS:
+            security = "block" if verdict == "block" else max(security, verdict, key=_severity)
+        else:
+            policy = "block" if verdict == "block" else max(policy, verdict, key=_severity)
+    return {"policy_verdict": policy, "security_verdict": security}
+
+
+def _severity(verdict: str) -> int:
+    return {"allow": 0, "review": 1, "block": 2}[verdict]
 
 
 def _basket_lines(auth: dict[str, Any]) -> list[dict[str, Any]]:
