@@ -55,6 +55,7 @@ BasketKey = tuple[BasketLineKey, ...]
 DEFAULT_AUTHORITY_TTL = timedelta(minutes=15)
 
 _DUPLICATE_WINDOW = timedelta(minutes=60)
+_VELOCITY_WINDOW = timedelta(minutes=10)   # matches the event's `recent_attempt_count_10m`
 
 
 class HistoryIndex:
@@ -547,6 +548,23 @@ class RunState:
         timestamp: datetime,
     ) -> None:
         self._recent_attempts.append(_RecentAttempt(authorization_id, merchant_id, basket_key, billing_amount_chf, timestamp))
+
+    def observed_attempts_within(self, as_of: datetime, window: timedelta = _VELOCITY_WINDOW) -> int:
+        """How many attempts THIS RUN has already seen in the window ending at `as_of`.
+
+        The event carries the platform's own `recent_attempt_count_10m`, and that is
+        the authoritative figure -- the platform sees attempts this run never will.
+        But it is a claim ABOUT this purchase carried BY this purchase, and the engine
+        already refuses to let an event answer questions about itself when an
+        independent source exists: `billing_amount_chf` is recomputed from
+        `amount x fx_rates`, `items_subtotal + delivery_fee` is checked against
+        `amount`, and `card_id`/`mandate_id` are checked against the run. Velocity was
+        the one such claim taken on trust, and we hold our own attempt log.
+
+        The current purchase is deliberately not counted: `remember_attempt` runs after
+        evaluation, so this returns OTHER attempts, matching what the field means.
+        """
+        return sum(1 for a in self._recent_attempts if as_of - window < a.timestamp <= as_of)
 
     # --- session integrity heuristic -------------------------------------------------
     def session_signals(self, device_id: str, recent_attempt_count_10m: int, merchant_familiar: bool | None) -> tuple[bool, tuple[str, ...]]:

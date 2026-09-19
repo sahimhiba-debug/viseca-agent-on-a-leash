@@ -166,3 +166,18 @@ Consequence: the deadline crossing is **n ≈ 13,600**, not 11,000. The error wa
 **O** one-shot fulfilment × cancellation: a second purchase naming a `cancelled` prior is still `already_fulfilled` — cancellation does not re-open a one-shot job.
 **Q** fulfilment × merchant substitution: the job is recognised across a different merchant.
 **Decision:** no change. Recorded because negative results on a mandated phase are still results.
+
+### R28 · The vacuity sweep, and the claim the engine forgot to cross-check
+**Question:** R19 (a deleted required field) and R26 (an emptied required array) are the same defect class — *absent evidence read as satisfaction*. Two instances is a coincidence; three is a pattern. So instead of waiting for the next one, sweep every rule field: make its input absent or empty and ask whether the rule answers `pass`.
+**Result:** ten fields swept, **one vacuous pass left**: `session.integrity_risk`. Its input `recent_attempt_count_10m` is a claim the event carries *about itself*, and it was the one event claim this engine did not cross-check — while `billing_amount_chf` is recomputed from `amount × fx_rates`, `items_subtotal + delivery_fee` is checked against `amount`, and `card_id`/`mandate_id` are checked against the run.
+
+**The attack needs one integer.** Four attempts inside one minute with a device change halfway:
+
+| reported `recent_attempt_count_10m` | decisions |
+| --- | --- |
+| honest `0,1,2,3` | allow, allow, **block**, **block** |
+| tampered `0,0,0,0` | allow, allow, allow, allow |
+
+Two blocks became approvals because the purchase was asked how suspicious it was, and believed — while this run's own attempt log, the one duplicate detection already relies on, held all four.
+
+**Decision:** cross-check against our own log, `max(reported, observed)`. `max` rather than replacement because the platform legitimately sees attempts we cannot: on the official corpus one event reports 3 where we observe 2, and taking our own count would *discard* real evidence. Monotone, so it can only raise risk. Measured before implementing: across all 45 official events `observed − reported` is **never positive**, so the replay cannot move — asserted as a test rather than hoped. Slow legitimate traffic (attempts 30 minutes apart) is not penalised. Probe 20 → 21. → this commit

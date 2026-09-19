@@ -507,7 +507,26 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         timestamp = datetime.fromisoformat(auth["timestamp"].replace("Z", "+00:00"))
 
         merchant_familiar = state.history.is_familiar(card_id, merchant_id)
-        session_risk, session_reasons = state.session_signals(device_id, auth["recent_attempt_count_10m"], merchant_familiar)
+        # The event's own velocity claim, cross-checked against what this run has
+        # actually seen. An event that under-reports its neighbours suppresses the
+        # session-integrity rule entirely: four attempts inside one minute with a
+        # device change, every event reporting 0, turned two BLOCKs into ALLOWs while
+        # our own log held all four. `max` rather than a replacement, because the
+        # platform legitimately sees attempts we cannot (measured on the official
+        # corpus: reported exceeds observed once, observed NEVER exceeds reported, so
+        # this cannot move the replay) -- and because it is monotone, it can only ever
+        # raise risk, never lower it.
+        reported_attempts = auth["recent_attempt_count_10m"]
+        observed_attempts = state.observed_attempts_within(timestamp)
+        session_risk, session_reasons = state.session_signals(
+            device_id, max(reported_attempts, observed_attempts), merchant_familiar
+        )
+        if observed_attempts > reported_attempts:
+            session_reasons = (
+                *session_reasons,
+                f"this purchase reports {reported_attempts} other recent attempts; "
+                f"this session has seen {observed_attempts}",
+            )
         duplicate = state.find_similar_recent(
             authorization_id=authorization_id,
             merchant_id=merchant_id,
