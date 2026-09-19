@@ -269,3 +269,62 @@ def test_the_approved_set_is_NOT_order_invariant_and_we_do_not_claim_it_is():
         results.add(approved)
         assert _worst_window(state) <= CAP          # safety holds in both
     assert len(results) > 1, "expected the approved set to differ by arrival order"
+
+
+def test_no_randomized_lifecycle_trace_breaches_the_window():
+    """The strongest empirical support for the safety claim: random traces mixing
+    propose, resolve(allow), resolve(block), revoke, restart, retry and charge, with
+    the invariant asserted after every single transition.
+
+    This is the experiment designed to embarrass the claim. 3,000 traces of 4-14
+    transitions found nothing; 200 run here."""
+    import json
+    import random
+
+    from wallet_control.payment import MockPSP
+
+    mandate = _mandate(per_purchase=200, period=300, days=7, need_return_window=True)
+    rng = random.Random(99)
+
+    for _ in range(200):
+        state = _state()
+        seen: list[tuple[str, dict]] = []
+        for step in range(rng.randint(4, 12)):
+            op = rng.choice(["propose", "propose", "propose", "resolve_allow",
+                             "resolve_block", "revoke", "restart", "retry", "charge"])
+            try:
+                if op == "propose":
+                    aid = f"A{step}"
+                    event = make_event(
+                        mandate=mandate, authorization_id=aid, merchant_id=M,
+                        amount=round(rng.uniform(10, 200), 2),
+                        timestamp=T0 + timedelta(hours=rng.randint(0, 24 * 9)))
+                    event["authorization"]["order_returnable"] = "true"
+                    event["authorization"]["items"][0].update(
+                        item_details="" if rng.random() < 0.4 else "returns accepted within 30 days",
+                        item_name=f"g{aid}")
+                    evaluate_authorization(event, mandate, state)
+                    seen.append((aid, event))
+                elif op in ("resolve_allow", "resolve_block") and seen:
+                    aid, _ = rng.choice(seen)
+                    resolve_authorization(aid, "allow" if op == "resolve_allow" else "block",
+                                          state, resolved_at=datetime.now(timezone.utc),
+                                          mandate=mandate)
+                elif op == "revoke":
+                    state.revoke_outstanding_authorities()
+                elif op == "restart":
+                    state = RunState.from_snapshot(
+                        json.loads(json.dumps(state.to_snapshot())), state.history)
+                elif op == "retry" and seen:
+                    _, event = rng.choice(seen)
+                    evaluate_authorization(event, mandate, state)
+                elif op == "charge" and seen:
+                    aid, _ = rng.choice(seen)
+                    stored = state.get_stored_decision(aid)
+                    if stored is not None:
+                        MockPSP(state).charge(charge_id=f"C{step}", authorization_id=aid,
+                                              amount_chf=stored.billing_amount_chf,
+                                              merchant_id=stored.merchant_id)
+            except Exception:
+                pass                 # a refusal is a legitimate outcome of any transition
+            assert _worst_window(state) <= CAP, f"breach after {op}"

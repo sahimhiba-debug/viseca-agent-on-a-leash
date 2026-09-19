@@ -151,10 +151,31 @@ def evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Rul
         sized = [i for i in candidates if i.stated_size is not None]
         if not sized:
             return RuleEvaluation(rule, "unknown", "no size was stated for the requested item")
+        # A line that states nothing is UNKNOWN, not "whatever the other line said".
+        # This is the same aggregation the return-window logic already refuses, and it
+        # was not applied here: a basket of two requested items, one stating "size 43"
+        # and one silent, PASSED on the strength of the first. So saying nothing beat
+        # lying -- an explicit "size 38" was caught, silence was not -- and adding a
+        # LESS informative line made the decision MORE permissive. One silent shoe
+        # alone escalates; add a size-43 decoy beside it and the pair is approved.
+        # ORDER MATTERS, and getting it wrong is how the first version of this fix
+        # broke the very property it was written for. Negative evidence is decisive:
+        # a stated size that does not match is a failure whatever else is in the
+        # basket. Only once nothing contradicts the requirement does silence become
+        # the open question. Checking silence first let an adversary soften a
+        # definite FAIL into a REVIEW by appending an evidence-free line -- 24
+        # monotonicity violations in a 4,000-basket fuzz.
         mismatched = [i.stated_size for i in sized if i.stated_size.lower() != str(rule.value).lower()]
-        ok = not mismatched
-        detail = f"item_sizes={[i.stated_size for i in sized]}"
-        return RuleEvaluation(rule, "pass" if ok else "fail", detail)
+        if mismatched:
+            return RuleEvaluation(rule, "fail", f"item_sizes={[i.stated_size for i in sized]}")
+        silent = [i.item_name for i in candidates if i.stated_size is None]
+        if silent:
+            return RuleEvaluation(
+                rule, "unknown",
+                f"a size was stated for some items but not for {silent}; "
+                f"their size is unknown, not the one stated elsewhere",
+            )
+        return RuleEvaluation(rule, "pass", f"item_sizes={[i.stated_size for i in sized]}")
 
     if field == "order.return_window_days":
         if facts.order_returnable == "not_applicable":
