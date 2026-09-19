@@ -88,7 +88,7 @@ _AMOUNT_RE = re.compile(
     r"""
     (?:
         (?:no\ more\ than|not\ more\ than|up\ to|at\ most|pay\ no\ more\ than|
-           under|a\ maximum\ of|maximum\ of|max\ of)\s*
+           under|below|less\ than|a\ maximum\ of|maximum\ of|max\ of)\s*
         CHF\s*(?P<v1>[\d.,]+)
         | CHF\s*(?P<v2>[\d.,]+)\s*(?:or\ less|or\ below|maximum|max\b)
         | at\ or\ below\s*CHF\s*(?P<v3>[\d.,]+)
@@ -122,6 +122,21 @@ _ROLLING_RE = re.compile(
 # The mapping is not a guess: week/fortnight/month/year have one ordinary meaning in
 # days. Where the customer writes an explicit day count we use theirs.
 _PERIOD_WORD_DAYS = {"day": 1, "week": 7, "fortnight": 14, "month": 30, "year": 365}
+
+# "at or below CHF 120" means <=, and it contains the word "below". A first version of
+# this pattern did not exclude it and silently flipped SCEN0001's per-order rule from
+# <= to <. The official replay did not move, because no official purchase is exactly
+# CHF 120.00 -- so the only thing that caught it was reading the compiled rules. The
+# test that was supposed to guard this compared value and scope but not the OPERATOR.
+_STRICT_LIMIT_RE = re.compile(
+    r"(?<!at\ or\ )\b(?:under|below|less\s+than)\s*CHF\s*[\d.,]+",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_TOTAL_AMOUNT_RE = re.compile(
+    r"CHF\s*(?P<amount>[\d.,]+)\s*(?:in\s+total|total|overall|altogether|in\s+all)\b",
+    re.IGNORECASE,
+)
 
 _AMOUNT_THEN_PERIOD_RE = re.compile(
     r"""
@@ -282,6 +297,25 @@ _COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
         "NOT enforced. Please rephrase it, for example \"do not add anything I did not ask for\".",
     ),
     (
+        "overall total",
+        re.compile(r"CHF\s*[\d.,]+\s*(?:in\s+total|total|overall|altogether|in\s+all)\b", re.IGNORECASE),
+        "",
+        "You set an OVERALL TOTAL. The rule format cannot express one -- it has only a per-order "
+        "ceiling and a rolling-window ceiling -- so that total is NOT enforced. The closest available "
+        "control is a rolling limit, which paces spending without capping it. Revoke the mandate when "
+        "the job is done.",
+    ),
+    (
+        "end date",
+        re.compile(r"\b(?:stop|end|finish|expire|until|after|by)\s+"
+                   r"(?:on\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+                   r"tomorrow|tonight|today|next\s+\w+|the\s+\d{1,2}(?:st|nd|rd|th)?)\b",
+                   re.IGNORECASE | re.VERBOSE),
+        "",
+        "You set an end date or deadline. The rule format has no way to express one, so the mandate "
+        "does NOT expire on its own. Revoke it yourself when that time comes.",
+    ),
+    (
         "return window",
         re.compile(r"\breturn(?:ed|able|s)?\b", re.IGNORECASE),
         "order.return_window_days",
@@ -357,14 +391,30 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
         period_amounts.append((_parse_amount(m.group("amount")), days))
     period_amount_values = {a for a, _ in period_amounts}
 
+    # "no more than CHF 50 IN TOTAL" is the same inversion as "per week", pointing at
+    # the one scope this vocabulary has no way to express at all. Reading it as a
+    # per-order ceiling told the customer "your CHF 50 limit applies to each individual
+    # purchase" -- contradicting the word they wrote -- and then explained that a total
+    # cannot be set. The honest handling is to create NO amount rule from that phrase
+    # and say so, rather than to quietly substitute a weaker scope for the one they asked for.
+    total_amounts = {
+        _parse_amount(m.group("amount"))
+        for m in _TOTAL_AMOUNT_RE.finditer(text)
+    }
+
     amount_matches = [
         v for v in (
             _parse_amount(m.group("v1") or m.group("v2") or m.group("v3") or m.group("v4") or m.group("v5"))
             for m in _AMOUNT_RE.finditer(text)
         )
-        if v not in period_amount_values
+        if v not in period_amount_values and v not in total_amounts
     ]
     per_order_amount: float | None = min(amount_matches) if amount_matches else None
+    # "under CHF 50" and "below CHF 50" exclude 50; "CHF 50 or less" includes it. The
+    # compiler emitted `<=` for all of them, so a customer who wrote "under CHF 50" had
+    # an order of exactly CHF 50.00 approved. One rappen of over-permissiveness, but it
+    # is the customer's word being overridden, which is the whole subject of this audit.
+    per_order_operator = "<" if _STRICT_LIMIT_RE.search(text) else "<="
     if len(amount_matches) > 1 and len(set(amount_matches)) > 1:
         open_questions.append(
             f"The instruction mentions more than one per-order amount ({sorted(set(amount_matches))}); "
@@ -386,7 +436,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
         rules.append(
             HardRule(
                 field="authorization.billing_amount_chf",
-                operator="<=",
+                operator=per_order_operator,
                 value=per_order_amount,
                 currency="CHF",
                 scope="purchase",

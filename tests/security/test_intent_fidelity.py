@@ -59,8 +59,17 @@ def _questions(instruction: str) -> str:
 
 
 def _amount_rules(instruction: str):
+    """(value, scope, period_days). Operator-free, for the scope assertions below."""
     return [
         (float(r.value), r.scope, r.period_days)
+        for r in compile_instruction(instruction).hard_rules
+        if r.field == "authorization.billing_amount_chf"
+    ]
+
+
+def _amount_rules_with_operator(instruction: str):
+    return [
+        (r.operator, float(r.value), r.scope, r.period_days)
         for r in compile_instruction(instruction).hard_rules
         if r.field == "authorization.billing_amount_chf"
     ]
@@ -159,6 +168,37 @@ def test_the_five_official_mandates_compile_exactly_as_before():
     }
     for scenario_id, scenario in load_scenario_catalogue().items():
         assert sorted(_amount_rules(scenario["cardholder_instruction"])) == sorted(expected[scenario_id]), scenario_id
+
+
+def test_the_five_official_mandates_keep_their_exact_operators():
+    """The OPERATOR is part of the rule and this test did not check it.
+
+    Adding strict-inequality support for "under CHF 50" flipped SCEN0001's per-order
+    rule from <= to <, because "at or below CHF 120" contains the word "below". The
+    replay did not move -- no official purchase is exactly CHF 120.00 -- so nothing
+    failed. A boundary that only bites on one exact value needs an assertion, not a
+    replay."""
+    expected = {
+        "SCEN0000": [("<=", 20.0, "purchase", None)],
+        "SCEN0001": [("<=", 120.0, "purchase", None), ("<=", 300.0, "period", 7)],
+        "SCEN0002": [("<=", 200.0, "purchase", None)],
+        "SCEN0003": [("<=", 250.0, "purchase", None)],
+        "SCEN0004": [("<=", 400.0, "purchase", None)],
+    }
+    for scenario_id, scenario in load_scenario_catalogue().items():
+        got = sorted(_amount_rules_with_operator(scenario["cardholder_instruction"]))
+        assert got == sorted(expected[scenario_id]), f"{scenario_id}: {got}"
+
+
+@pytest.mark.parametrize(
+    "phrase,operator",
+    [("for under CHF 50", "<"), ("for below CHF 50", "<"), ("for less than CHF 50", "<"),
+     ("for CHF 50 or less", "<="), ("at or below CHF 50", "<="), ("for no more than CHF 50", "<=")],
+)
+def test_strict_and_inclusive_limits_are_distinguished(phrase, operator):
+    """"under CHF 50" excludes 50; "CHF 50 or less" includes it. Both were <=."""
+    rules = _amount_rules_with_operator(f"Buy groceries {phrase}. Ask me when uncertain.")
+    assert rules and rules[0][0] == operator, f"{phrase!r} -> {rules}"
 
 
 def test_the_coverage_check_creates_no_rules():
