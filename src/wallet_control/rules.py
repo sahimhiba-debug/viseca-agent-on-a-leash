@@ -158,7 +158,31 @@ def evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Rul
 
     if field == "order.return_window_days":
         if facts.order_returnable == "not_applicable":
-            return RuleEvaluation(rule, "pass", "return window does not apply to this fulfilment type")
+            # This used to PASS unconditionally, and that was the one place in this
+            # engine where a customer requirement could be satisfied by asserting that
+            # it did not apply. Three things were wrong with it:
+            #
+            #   * it required no evidence at all -- `not_applicable` was the only
+            #     value of `order_returnable` that neither blocked, escalated, nor
+            #     demanded a stated window;
+            #   * it was never cross-checked against `fulfillment_method`, so a
+            #     PHYSICAL delivery declared "not_applicable" passed;
+            #   * it was evaluated BEFORE the final-sale logic, so an order the
+            #     merchant itself marked "sold as final sale" satisfied a
+            #     "returnable within 14 days" requirement.
+            #
+            # A customer who says "only buy what I can return" is not served by
+            # silently approving something that cannot be returned. But neither is
+            # blocking right: for a genuinely digital good the concept really does not
+            # apply, and that is the customer's call, not ours. So this is UNKNOWN --
+            # the engine's own answer for "we cannot establish this fact" -- which
+            # escalates under `ask` and declines under `decline`, exactly as the
+            # customer chose.
+            return RuleEvaluation(
+                rule, "unknown",
+                "the seller says returns do not apply to this order, so your return "
+                "requirement cannot be satisfied or refuted",
+            )
         if facts.return_window_days is None:
             return RuleEvaluation(rule, "unknown", "return window was not stated for this order")
         ok = _compare(rule.operator, facts.return_window_days, int(rule.value))

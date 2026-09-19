@@ -274,11 +274,22 @@ def test_audit2_denial_of_fulfilment_is_a_known_limitation():
 
 
 def test_the_observer_is_not_wired_into_the_decision_path():
+    """Checked by parsing IMPORTS, not by grepping the source.
+
+    The substring form of this test failed the moment a comment in `rules.py`
+    mentioned `fulfillment_method` -- an unrelated field of the official event
+    schema. A test that cannot tell an import from a word in a comment will either
+    block honest documentation or, worse, be silenced."""
+    import ast
     import pathlib
 
     for module in ("decision_engine.py", "rules.py", "facts.py"):
-        source = pathlib.Path(f"src/wallet_control/{module}").read_text()
-        assert "fulfillment" not in source, f"{module} must not consult fulfilment"
+        tree = ast.parse(pathlib.Path(f"src/wallet_control/{module}").read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                assert "fulfillment" not in (node.module or ""), f"{module} imports fulfilment"
+            if isinstance(node, ast.Import):
+                assert not any("fulfillment" in a.name for a in node.names), f"{module} imports fulfilment"
 
 
 def test_the_strongest_recommendation_is_to_ask():

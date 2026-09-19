@@ -92,12 +92,38 @@ def test_return_window_unknown_vs_final_sale_vs_ok():
     assert evaluate_rule(rule, ok_facts, EMPTY_CTX).outcome == "pass"
 
 
-def test_return_window_not_applicable_always_passes():
+def test_return_window_not_applicable_escalates_rather_than_passing():
+    """This test asserted the opposite until the adversarial research pass.
+
+    `not_applicable` was the only value of `order_returnable` that neither blocked,
+    escalated, nor required a stated window -- it satisfied the customer's return
+    requirement unconditionally, was never cross-checked against
+    `fulfillment_method` (so a PHYSICAL delivery declared not-applicable passed), and
+    was evaluated before the final-sale logic (so an order the merchant itself marked
+    "sold as final sale" passed a "returnable within 14 days" requirement).
+
+    A customer who says "only buy what I can return" is not served by silently
+    approving something that cannot be returned. Blocking would be wrong too -- for a
+    genuinely digital good the concept really does not apply. So it is UNKNOWN, the
+    engine's own answer for a fact it cannot establish, which escalates under `ask`
+    and declines under `decline`, exactly as the customer chose."""
     mandate = make_mandate()
     rule = HardRule(field="order.return_window_days", operator=">=", value=14)
     event = make_event(mandate=mandate, order_returnable="not_applicable")
     facts = build_purchase_facts(event, merchant_familiar=None, session_integrity_risk=False, session_integrity_reasons=(), duplicate_of=None, duplicate_reason=None)
-    assert evaluate_rule(rule, facts, EMPTY_CTX).outcome == "pass"
+    assert evaluate_rule(rule, facts, EMPTY_CTX).outcome == "unknown"
+
+
+def test_a_final_sale_order_cannot_pass_a_return_requirement_by_claiming_it_does_not_apply():
+    """The sharpest form of the same defect: the merchant says both "returns do not
+    apply" and "sold as final sale", and that used to satisfy the customer's
+    requirement outright."""
+    mandate = make_mandate()
+    rule = HardRule(field="order.return_window_days", operator=">=", value=14)
+    event = make_event(mandate=mandate, order_returnable="not_applicable")
+    event["authorization"]["items"][0]["item_details"] = "clearance line, sold as final sale"
+    facts = build_purchase_facts(event, merchant_familiar=None, session_integrity_risk=False, session_integrity_reasons=(), duplicate_of=None, duplicate_reason=None)
+    assert evaluate_rule(rule, facts, EMPTY_CTX).outcome != "pass"
 
 
 def test_item_name_contains_case_insensitive():
