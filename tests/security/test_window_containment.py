@@ -170,3 +170,102 @@ def test_the_official_replay_is_unchanged(scenario_id):
                 "SCEN0003": {"allow": 5, "review": 0, "block": 6},
                 "SCEN0004": {"allow": 5, "review": 1, "block": 5}}
     assert replay_scenario(scenario_id).counts() == expected[scenario_id]
+
+
+# --- temporal-consistency audit: two counterexamples found and fixed --------------
+
+
+def test_an_idempotent_re_resolution_does_not_count_a_purchase_against_itself():
+    """COUNTEREXAMPLE 1, minimised.
+
+    A CHF 200 purchase under a CHF 300 cap is stepped up and the customer approves it.
+    Their client then retries the same answer -- a double-clicked button. The period
+    re-check added the purchase's own amount to `_approved_spend`, which already
+    contained it: 200 + 200 = 400 > 300. It decided to record a block, and
+    `record_resolution` raised a conflict against the 'allow' it had just recorded.
+
+    The existing idempotence test missed this because its mandate had no period rule.
+    """
+    mandate = make_mandate(instruction="Order groceries.", hard_rules=[
+        HardRule(field="authorization.billing_amount_chf", operator="<=", value=300,
+                 currency="CHF", scope="period", period_days=7),
+        HardRule(field="order.return_window_days", operator=">=", value=14)])
+    state = _state()
+    assert _buy(mandate, state, "Q1", 200.0, 0, details="").decision == "review"
+
+    for _ in range(4):
+        assert resolve_authorization("Q1", "allow", state,
+                                     resolved_at=datetime.now(timezone.utc),
+                                     mandate=mandate).decision == "allow"
+    assert state.total_approved_spend_chf() == Decimal("200")
+
+    from wallet_control.state import ResolutionError
+    with pytest.raises(ResolutionError):
+        resolve_authorization("Q1", "block", state,
+                              resolved_at=datetime.now(timezone.utc), mandate=mandate)
+
+
+def test_concurrent_proposals_cannot_both_spend_the_same_remaining_budget():
+    """COUNTEREXAMPLE 2.
+
+    The period check reads the window, the rules evaluate, then the decision is
+    recorded. With that gap widened to 20ms, two concurrent proposals both saw the
+    same remaining budget and both passed -- CHF 400 into a CHF 300 week in 40 of 40
+    trials. Reachable through api.py's threadpool, not through the single-threaded
+    worker.
+
+    The run's lock is now held across check-then-record, and is re-entrant because
+    `record_decision` takes it again underneath.
+    """
+    import threading
+    import time
+
+    mandate, state = _mandate(per_purchase=300), _state()
+    assert _buy(mandate, state, "C0", 200.0, 0).decision == "allow"
+
+    original = RunState.peak_window_spend_chf
+
+    def widened(self, as_of, amount, period_days):
+        value = original(self, as_of, amount, period_days)
+        time.sleep(0.02)
+        return value
+
+    RunState.peak_window_spend_chf = widened
+    try:
+        outcomes: list[str] = []
+        barrier = threading.Barrier(2)
+
+        def propose(aid: str) -> None:
+            barrier.wait()
+            outcomes.append(_buy(mandate, state, aid, 100.0, 2).decision)
+
+        threads = [threading.Thread(target=propose, args=(f"C{i}",)) for i in (1, 2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+        assert not any(t.is_alive() for t in threads), "deadlock"
+    finally:
+        RunState.peak_window_spend_chf = original
+
+    assert outcomes.count("allow") <= 1, f"both proposals spent the same budget: {outcomes}"
+    assert _worst_window(state) <= CAP
+
+
+def test_the_approved_set_is_NOT_order_invariant_and_we_do_not_claim_it_is():
+    """The property this project claimed after the previous pass was too strong.
+
+    Greedy admission is inherently order-dependent: whoever arrives first is funded.
+    Minimal counterexample -- A=B=C=100, D=150, cap 300: order (A,B,C,D) approves
+    three, order (A,D,B,C) approves two. What holds is SAFETY, not invariance of the
+    outcome, and this test exists so the stronger claim cannot quietly return."""
+    mandate = _mandate(per_purchase=200, period=300)
+    results = set()
+    for order in (["A", "B", "C", "D"], ["A", "D", "B", "C"]):
+        state = _state()
+        amounts = {"A": 100.0, "B": 100.0, "C": 100.0, "D": 150.0}
+        approved = tuple(aid for i, aid in enumerate(order)
+                         if _buy(mandate, state, aid, amounts[aid], i).decision == "allow")
+        results.add(approved)
+        assert _worst_window(state) <= CAP          # safety holds in both
+    assert len(results) > 1, "expected the approved set to differ by arrival order"

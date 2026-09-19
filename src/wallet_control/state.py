@@ -265,9 +265,25 @@ class RunState:
     # Holding the fact at the scope the bound belongs to (the run) makes "nothing
     # may be authorised after revocation" true for records not yet written.
     _revoked_at: datetime | None = None
-    # Guards the authority compare-and-set. Not serialized (to_snapshot lists its
-    # keys explicitly) and excluded from equality -- it is machinery, not state.
-    _consume_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+    # Guards every read-modify-write on this run: the authority compare-and-set, the
+    # consent transition, and -- since the temporal-consistency audit -- the whole
+    # decision path.
+    #
+    # RE-ENTRANT on purpose. `evaluate_authorization` holds it across "check the
+    # rolling window, then record the decision", and `record_decision` takes it again
+    # underneath. Without that span the period check is a read-modify-write with the
+    # entire rule evaluation inside it: with a widened window, two concurrent
+    # proposals both saw the same remaining budget and both passed, putting CHF 400
+    # into a CHF 300 week in 40 of 40 trials. Not reachable through the
+    # single-threaded LiveWorker; entirely reachable through api.py's threadpool.
+    #
+    # Not serialized (to_snapshot lists its keys explicitly) and excluded from
+    # equality -- it is machinery, not state.
+    _consume_lock: "threading.RLock" = field(default_factory=threading.RLock, repr=False, compare=False)
+
+    def decision_guard(self):
+        """Hold the run's lock across a check-then-record sequence."""
+        return self._consume_lock
 
     # --- idempotency: repeated delivery of the same authorization_id ---------------
     def get_stored_decision(self, authorization_id: str) -> StoredDecision | None:
@@ -565,18 +581,24 @@ class RunState:
         is never extended by asking again.
         """
         with self._consume_lock:
-            if self._revoked_at is not None:
-                raise AuthorityError(
-                    f"cannot issue a payment authority for {authorization_id}: the customer revoked "
-                    f"this mandate at {self._revoked_at.isoformat()}"
-                )
             stored = self._decisions.get(authorization_id)
             if stored is None or stored.decision != "allow":
                 raise AuthorityError(
                     f"cannot issue a payment authority for {authorization_id}: it is not an approved (allow) decision"
                 )
+            # Idempotence comes FIRST. Asking again for an authority that already
+            # exists must return it -- revoked or not, the projection reports that --
+            # and only MINTING a new one after revocation is forbidden. Checking
+            # revocation first made a second, harmless request raise instead, which
+            # the stateful model found the moment the resolution path started asking
+            # again on an already-resolved purchase.
             if stored.execution_expires_at is not None:
                 return PaymentAuthority.project(stored)
+            if self._revoked_at is not None:
+                raise AuthorityError(
+                    f"cannot issue a payment authority for {authorization_id}: the customer revoked "
+                    f"this mandate at {self._revoked_at.isoformat()}"
+                )
             issued_at = now or datetime.now(timezone.utc)
             self._decisions[authorization_id] = replace(
                 stored,

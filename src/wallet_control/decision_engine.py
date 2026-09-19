@@ -324,264 +324,267 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
     shows a different merchant, basket, or amount than the first delivery, that is
     not a legitimate retry; see the `authorization_id_conflict` branch below.
     """
-    auth = event["authorization"]
-    authorization_id = auth["authorization_id"]
-    merchant_id = auth["merchant"]["merchant_id"]
-    basket_key = _basket_key(auth["items"])
-    billing_amount_chf = to_decimal(auth["billing_amount_chf"])
+    # One run, one decision at a time. The window check and the record it is based
+    # on must not be separated by another thread's decision -- see RunState's lock.
+    with state.decision_guard():
+        auth = event["authorization"]
+        authorization_id = auth["authorization_id"]
+        merchant_id = auth["merchant"]["merchant_id"]
+        basket_key = _basket_key(auth["items"])
+        billing_amount_chf = to_decimal(auth["billing_amount_chf"])
 
-    # "Is this event even ours?" is answered BEFORE "have we seen this purchase?".
-    # Ordering matters: the repeat-delivery fingerprint covers merchant, basket and
-    # amount but not identity, so a re-delivery carrying a different card_id or
-    # mandate_id would otherwise match the fingerprint and be answered with the
-    # stored decision -- returning a real answer to an event that was never ours to
-    # answer. See docs/DEEP_SECURITY_RESEARCH.md (V5).
-    binding_failures = _run_binding_failures(auth, mandate, state)
-    if binding_failures:
-        return EngineDecision(
-            authorization_id=authorization_id,
-            decision="block",
-            reason_codes=tuple(f"hard_rule_failed:{e.rule.field}" for e in binding_failures),
-            customer_message=(
-                "This purchase could not be authorized: it does not belong to this wallet session, "
-                "or the mandate behind it is no longer in force. Nothing was approved."
-            ),
-            evidence=tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in binding_failures),
-            rule_evaluations=tuple(binding_failures),
-            intervention=_TERMINAL_INTERVENTION["block"],
-            facts=None,
-            security_verdict="block",
-        )
-
-    # The platform's status fields are read BEFORE the repeat-delivery branch, and
-    # a dead status revokes this run's outstanding authority even when the delivery
-    # is a routine replay.
-    #
-    # The two halves of that are deliberately different, because the correct answer
-    # differs. The DECISION must still be the stored one: the platform already has
-    # our answer for this authorization_id and re-sending a different one is not
-    # something the official contract permits (technical_details.md step 6). But
-    # money that has not moved yet is ours to stop, and a platform telling us the
-    # authority is revoked or the card is blocked is the most authoritative reason
-    # there is to stop it. Found by the mutation fuzzer in
-    # tests/security/test_authority_mutation_fuzzer.py, which is exactly the kind
-    # of composition (status change + replay) a per-field test does not reach.
-    platform_status = _platform_status_evaluations(auth)
-    if any(e.outcome == "fail" for e in platform_status):
-        state.revoke_authority(authorization_id)
-
-    stored = state.get_stored_decision(authorization_id)
-    if stored is not None:
-        if not state.check_repeat_fingerprint(
-            authorization_id, merchant_id=merchant_id, basket_key=basket_key, billing_amount_chf=billing_amount_chf
-        ):
-            # Same authorization_id, different purchase. Neither trust the old
-            # decision (it was made on different facts) nor silently re-evaluate
-            # and re-submit a new one (the platform already has a decision for this
-            # ID). Fail closed and flag it loudly; the ORIGINAL stored decision is
-            # left untouched, so the payment boundary still enforces the amount
-            # that was actually approved, not whatever this mutated event claims.
-            conflict_drift = compute_drift(
-                reference_authorization_id=authorization_id,
-                prior_merchant_id=stored.merchant_id,
-                prior_basket_key=stored.basket_key,
-                prior_amount_chf=stored.billing_amount_chf,
-                current_merchant_id=merchant_id,
-                current_basket_key=basket_key,
-                current_amount_chf=billing_amount_chf,
-            )
+        # "Is this event even ours?" is answered BEFORE "have we seen this purchase?".
+        # Ordering matters: the repeat-delivery fingerprint covers merchant, basket and
+        # amount but not identity, so a re-delivery carrying a different card_id or
+        # mandate_id would otherwise match the fingerprint and be answered with the
+        # stored decision -- returning a real answer to an event that was never ours to
+        # answer. See docs/DEEP_SECURITY_RESEARCH.md (V5).
+        binding_failures = _run_binding_failures(auth, mandate, state)
+        if binding_failures:
             return EngineDecision(
                 authorization_id=authorization_id,
                 decision="block",
-                reason_codes=("authorization_id_conflict",),
+                reason_codes=tuple(f"hard_rule_failed:{e.rule.field}" for e in binding_failures),
                 customer_message=(
-                    "This purchase could not be verified: the same authorization was received twice "
-                    "with different details. The original decision was left unchanged."
+                    "This purchase could not be authorized: it does not belong to this wallet session, "
+                    "or the mandate behind it is no longer in force. Nothing was approved."
                 ),
-                evidence=(
-                    f"original: merchant={stored.merchant_id} amount={stored.billing_amount_chf} basket={stored.basket_key}",
-                    f"received: merchant={merchant_id} amount={billing_amount_chf} basket={basket_key}",
-                ),
-                rule_evaluations=(),
+                evidence=tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in binding_failures),
+                rule_evaluations=tuple(binding_failures),
                 intervention=_TERMINAL_INTERVENTION["block"],
                 facts=None,
-                idempotent_replay=False,
-                authorization_id_conflict=True,
-                drift=conflict_drift,
+                security_verdict="block",
             )
+
+        # The platform's status fields are read BEFORE the repeat-delivery branch, and
+        # a dead status revokes this run's outstanding authority even when the delivery
+        # is a routine replay.
+        #
+        # The two halves of that are deliberately different, because the correct answer
+        # differs. The DECISION must still be the stored one: the platform already has
+        # our answer for this authorization_id and re-sending a different one is not
+        # something the official contract permits (technical_details.md step 6). But
+        # money that has not moved yet is ours to stop, and a platform telling us the
+        # authority is revoked or the card is blocked is the most authoritative reason
+        # there is to stop it. Found by the mutation fuzzer in
+        # tests/security/test_authority_mutation_fuzzer.py, which is exactly the kind
+        # of composition (status change + replay) a per-field test does not reach.
+        platform_status = _platform_status_evaluations(auth)
+        if any(e.outcome == "fail" for e in platform_status):
+            state.revoke_authority(authorization_id)
+
+        stored = state.get_stored_decision(authorization_id)
+        if stored is not None:
+            if not state.check_repeat_fingerprint(
+                authorization_id, merchant_id=merchant_id, basket_key=basket_key, billing_amount_chf=billing_amount_chf
+            ):
+                # Same authorization_id, different purchase. Neither trust the old
+                # decision (it was made on different facts) nor silently re-evaluate
+                # and re-submit a new one (the platform already has a decision for this
+                # ID). Fail closed and flag it loudly; the ORIGINAL stored decision is
+                # left untouched, so the payment boundary still enforces the amount
+                # that was actually approved, not whatever this mutated event claims.
+                conflict_drift = compute_drift(
+                    reference_authorization_id=authorization_id,
+                    prior_merchant_id=stored.merchant_id,
+                    prior_basket_key=stored.basket_key,
+                    prior_amount_chf=stored.billing_amount_chf,
+                    current_merchant_id=merchant_id,
+                    current_basket_key=basket_key,
+                    current_amount_chf=billing_amount_chf,
+                )
+                return EngineDecision(
+                    authorization_id=authorization_id,
+                    decision="block",
+                    reason_codes=("authorization_id_conflict",),
+                    customer_message=(
+                        "This purchase could not be verified: the same authorization was received twice "
+                        "with different details. The original decision was left unchanged."
+                    ),
+                    evidence=(
+                        f"original: merchant={stored.merchant_id} amount={stored.billing_amount_chf} basket={stored.basket_key}",
+                        f"received: merchant={merchant_id} amount={billing_amount_chf} basket={basket_key}",
+                    ),
+                    rule_evaluations=(),
+                    intervention=_TERMINAL_INTERVENTION["block"],
+                    facts=None,
+                    idempotent_replay=False,
+                    authorization_id_conflict=True,
+                    drift=conflict_drift,
+                )
+            return EngineDecision(
+                authorization_id=authorization_id,
+                decision=stored.decision,
+                reason_codes=("repeated_delivery",),
+                customer_message="This purchase was already decided; returning the recorded result unchanged.",
+                evidence=(f"original decision recorded at {stored.timestamp.isoformat()} for CHF {stored.billing_amount_chf}",),
+                rule_evaluations=(),
+                intervention=_TERMINAL_INTERVENTION[stored.decision],
+                facts=None,
+                idempotent_replay=True,
+            )
+
+        card_id = auth["card_id"]
+        device_id = auth["customer_device_id"]
+        timestamp = datetime.fromisoformat(auth["timestamp"].replace("Z", "+00:00"))
+
+        merchant_familiar = state.history.is_familiar(card_id, merchant_id)
+        session_risk, session_reasons = state.session_signals(device_id, auth["recent_attempt_count_10m"], merchant_familiar)
+        duplicate = state.find_similar_recent(
+            authorization_id=authorization_id,
+            merchant_id=merchant_id,
+            basket_key=basket_key,
+            billing_amount_chf=billing_amount_chf,
+            timestamp=timestamp,
+        )
+        duplicate_of, duplicate_reason = duplicate if duplicate else (None, None)
+
+        facts = build_purchase_facts(
+            event,
+            merchant_familiar=merchant_familiar,
+            session_integrity_risk=session_risk,
+            session_integrity_reasons=session_reasons,
+            duplicate_of=duplicate_of,
+            duplicate_reason=duplicate_reason,
+        )
+
+        ctx = RuleContext(
+            requested_item_categories=_requested_categories(mandate),
+            projected_period_spend_chf=_projected_period_spend(mandate, state, facts.timestamp, facts.billing_amount_chf),
+        )
+        evaluations = [evaluate_rule(rule, facts, ctx) for rule in mandate.hard_rules]
+
+        # Always-on safety checks, independent of what the customer's mandate says --
+        # these are control-layer integrity concerns, not policy the customer opted into.
+        # The official schema requires amount/billing_amount_chf > 0 (exclusiveMinimum
+        # 0), but a malformed or tampered event must not be trusted to have honored
+        # that -- a non-positive amount is rejected here regardless of schema validation
+        # upstream.
+        if billing_amount_chf <= 0:
+            evaluations.append(
+                RuleEvaluation(rule=_AMOUNT_INTEGRITY_RULE, outcome="fail", detail=f"billing_amount_chf={billing_amount_chf} is not positive", source="safety")
+            )
+        # `amount` is documented as the total INCLUDING delivery, with `items_subtotal`
+        # and `delivery_fee` as its components. Nothing checked that they agreed, so an
+        # event could claim a CHF 100 total whose parts summed to CHF 600 and be approved
+        # against a CHF 400 ceiling. All 45 official rows agree exactly, so a mismatch is
+        # an internally inconsistent event, not a rounding artefact.
+        #
+        # This is the same guard as the FX check below, on the other half of the same
+        # arithmetic -- not a new mechanism.
+        parts = to_decimal(auth["items_subtotal"]) + to_decimal(auth["delivery_fee"])
+        if abs(parts - to_decimal(auth["amount"])) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
+            evaluations.append(
+                RuleEvaluation(
+                    rule=_AMOUNT_INTEGRITY_RULE,
+                    outcome="fail",
+                    detail=f"items_subtotal + delivery_fee = {parts} does not match amount={auth['amount']}",
+                    source="safety",
+                )
+            )
+        expected_chf = to_chf(to_decimal(auth["amount"]), auth["currency"])
+        if abs(expected_chf - billing_amount_chf) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
+            evaluations.append(
+                RuleEvaluation(
+                    rule=_AMOUNT_INTEGRITY_RULE,
+                    outcome="fail",
+                    detail=f"billing_amount_chf={billing_amount_chf} does not match amount*fx_rate={expected_chf}",
+                    source="safety",
+                )
+            )
+        # The platform's own statement about whether this purchase may proceed at all.
+        # `authority_status` and `card_status_at_attempt` are REQUIRED fields of the
+        # official event schema and are the most authoritative signals in the whole
+        # event: they are the platform saying the authority behind this purchase has
+        # been revoked or has expired, or that the card is blocked. Ignoring them --
+        # which this engine did until the deep-security pass -- meant a revoked
+        # authority still produced ALLOW and still charged. All 45 official rows carry
+        # "active"/"active", which is exactly why no fixture ever exercised it.
+        #
+        # A recognised negative is a hard failure, NOT uncertainty: the customer
+        # revoking their authority is not a question to put back to the customer, and
+        # an `approve`-on-uncertainty policy must not be able to soften it. Anything
+        # unrecognised (a new enum value, an empty string, a case variant, a missing
+        # field) is genuinely missing information and goes through uncertainty_policy.
+        evaluations.extend(platform_status)
+
+        if duplicate_of is not None:
+            evaluations.append(RuleEvaluation(rule=_DUPLICATE_RULE, outcome="unknown", detail=duplicate_reason or "", source="safety"))
+        if not mandate.hard_rules:
+            # A confirmed mandate with zero executable rules has nothing to check a
+            # purchase against. Treating that as "everything passes" would make an
+            # empty or unparseable customer instruction into unlimited spending
+            # authority -- exactly the "blank cheque" the challenge exists to prevent.
+            # Route it through uncertainty_policy like any other missing information
+            # instead (ASK by default: every purchase needs the customer; DECLINE:
+            # nothing is spent; APPROVE: only if the customer explicitly, visibly chose
+            # that -- see the compiler's own open_question for this exact condition).
+            evaluations.append(
+                RuleEvaluation(rule=_NO_RULES_RULE, outcome="unknown", detail="this mandate has no spending controls to check against", source="safety")
+            )
+
+        decision, reason_codes = _decide(evaluations, mandate.uncertainty_policy)
+
+        state.remember_attempt(
+            authorization_id=authorization_id,
+            merchant_id=merchant_id,
+            basket_key=basket_key,
+            billing_amount_chf=billing_amount_chf,
+            timestamp=timestamp,
+        )
+        state.record_decision(
+            authorization_id, decision, facts.billing_amount_chf, facts.timestamp,
+            merchant_id=merchant_id, basket_key=basket_key, reason_codes=reason_codes,
+        )
+
+        # R&D Track D: if this purchase names a related prior authorization this run
+        # already decided (e.g. a re-quote after a decline), compute what actually
+        # changed between them -- purely explanatory evidence, never a gate; `rules.py`
+        # already decided this purchase on its own facts above.
+        related_drift: AuthorizationDrift | None = None
+        related_id = facts.related_authorization_id
+        if related_id is not None:
+            related_stored = state.get_stored_decision(related_id)
+            if related_stored is not None:
+                related_drift = compute_drift(
+                    reference_authorization_id=related_id,
+                    prior_merchant_id=related_stored.merchant_id,
+                    prior_basket_key=related_stored.basket_key,
+                    prior_amount_chf=related_stored.billing_amount_chf,
+                    current_merchant_id=merchant_id,
+                    current_basket_key=basket_key,
+                    current_amount_chf=billing_amount_chf,
+                )
+
+        # R&D Track E: the same evaluations, scoped to what the customer's own policy
+        # says vs. what the wallet's own safety checks say -- see `_scoped_verdict`.
+        policy_verdict = _scoped_verdict(evaluations, "customer", mandate.uncertainty_policy)
+        security_verdict = _scoped_verdict(evaluations, "safety", mandate.uncertainty_policy)
+
+        # R&D Track A: ALLOW issues a narrow, expiring, inspectable payment authority --
+        # never constructed anywhere else in this codebase.
+        payment_authority: PaymentAuthority | None = None
+        if decision == "allow":
+            payment_authority = state.issue_authority(
+                authorization_id, mandate_id=mandate.mandate_id, policy_version=mandate_policy_version(mandate)
+            )
+
+        evidence = tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in evaluations)
         return EngineDecision(
             authorization_id=authorization_id,
-            decision=stored.decision,
-            reason_codes=("repeated_delivery",),
-            customer_message="This purchase was already decided; returning the recorded result unchanged.",
-            evidence=(f"original decision recorded at {stored.timestamp.isoformat()} for CHF {stored.billing_amount_chf}",),
-            rule_evaluations=(),
-            intervention=_TERMINAL_INTERVENTION[stored.decision],
-            facts=None,
-            idempotent_replay=True,
+            decision=decision,
+            reason_codes=reason_codes,
+            customer_message=_customer_message(decision, evaluations, facts),
+            evidence=evidence,
+            rule_evaluations=tuple(evaluations),
+            intervention=classify_intervention(decision, tuple(evaluations)),
+            facts=facts,
+            idempotent_replay=False,
+            policy_verdict=policy_verdict,
+            security_verdict=security_verdict,
+            drift=related_drift,
+            payment_authority=payment_authority,
         )
-
-    card_id = auth["card_id"]
-    device_id = auth["customer_device_id"]
-    timestamp = datetime.fromisoformat(auth["timestamp"].replace("Z", "+00:00"))
-
-    merchant_familiar = state.history.is_familiar(card_id, merchant_id)
-    session_risk, session_reasons = state.session_signals(device_id, auth["recent_attempt_count_10m"], merchant_familiar)
-    duplicate = state.find_similar_recent(
-        authorization_id=authorization_id,
-        merchant_id=merchant_id,
-        basket_key=basket_key,
-        billing_amount_chf=billing_amount_chf,
-        timestamp=timestamp,
-    )
-    duplicate_of, duplicate_reason = duplicate if duplicate else (None, None)
-
-    facts = build_purchase_facts(
-        event,
-        merchant_familiar=merchant_familiar,
-        session_integrity_risk=session_risk,
-        session_integrity_reasons=session_reasons,
-        duplicate_of=duplicate_of,
-        duplicate_reason=duplicate_reason,
-    )
-
-    ctx = RuleContext(
-        requested_item_categories=_requested_categories(mandate),
-        projected_period_spend_chf=_projected_period_spend(mandate, state, facts.timestamp, facts.billing_amount_chf),
-    )
-    evaluations = [evaluate_rule(rule, facts, ctx) for rule in mandate.hard_rules]
-
-    # Always-on safety checks, independent of what the customer's mandate says --
-    # these are control-layer integrity concerns, not policy the customer opted into.
-    # The official schema requires amount/billing_amount_chf > 0 (exclusiveMinimum
-    # 0), but a malformed or tampered event must not be trusted to have honored
-    # that -- a non-positive amount is rejected here regardless of schema validation
-    # upstream.
-    if billing_amount_chf <= 0:
-        evaluations.append(
-            RuleEvaluation(rule=_AMOUNT_INTEGRITY_RULE, outcome="fail", detail=f"billing_amount_chf={billing_amount_chf} is not positive", source="safety")
-        )
-    # `amount` is documented as the total INCLUDING delivery, with `items_subtotal`
-    # and `delivery_fee` as its components. Nothing checked that they agreed, so an
-    # event could claim a CHF 100 total whose parts summed to CHF 600 and be approved
-    # against a CHF 400 ceiling. All 45 official rows agree exactly, so a mismatch is
-    # an internally inconsistent event, not a rounding artefact.
-    #
-    # This is the same guard as the FX check below, on the other half of the same
-    # arithmetic -- not a new mechanism.
-    parts = to_decimal(auth["items_subtotal"]) + to_decimal(auth["delivery_fee"])
-    if abs(parts - to_decimal(auth["amount"])) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
-        evaluations.append(
-            RuleEvaluation(
-                rule=_AMOUNT_INTEGRITY_RULE,
-                outcome="fail",
-                detail=f"items_subtotal + delivery_fee = {parts} does not match amount={auth['amount']}",
-                source="safety",
-            )
-        )
-    expected_chf = to_chf(to_decimal(auth["amount"]), auth["currency"])
-    if abs(expected_chf - billing_amount_chf) > _AMOUNT_INTEGRITY_TOLERANCE_CHF:
-        evaluations.append(
-            RuleEvaluation(
-                rule=_AMOUNT_INTEGRITY_RULE,
-                outcome="fail",
-                detail=f"billing_amount_chf={billing_amount_chf} does not match amount*fx_rate={expected_chf}",
-                source="safety",
-            )
-        )
-    # The platform's own statement about whether this purchase may proceed at all.
-    # `authority_status` and `card_status_at_attempt` are REQUIRED fields of the
-    # official event schema and are the most authoritative signals in the whole
-    # event: they are the platform saying the authority behind this purchase has
-    # been revoked or has expired, or that the card is blocked. Ignoring them --
-    # which this engine did until the deep-security pass -- meant a revoked
-    # authority still produced ALLOW and still charged. All 45 official rows carry
-    # "active"/"active", which is exactly why no fixture ever exercised it.
-    #
-    # A recognised negative is a hard failure, NOT uncertainty: the customer
-    # revoking their authority is not a question to put back to the customer, and
-    # an `approve`-on-uncertainty policy must not be able to soften it. Anything
-    # unrecognised (a new enum value, an empty string, a case variant, a missing
-    # field) is genuinely missing information and goes through uncertainty_policy.
-    evaluations.extend(platform_status)
-
-    if duplicate_of is not None:
-        evaluations.append(RuleEvaluation(rule=_DUPLICATE_RULE, outcome="unknown", detail=duplicate_reason or "", source="safety"))
-    if not mandate.hard_rules:
-        # A confirmed mandate with zero executable rules has nothing to check a
-        # purchase against. Treating that as "everything passes" would make an
-        # empty or unparseable customer instruction into unlimited spending
-        # authority -- exactly the "blank cheque" the challenge exists to prevent.
-        # Route it through uncertainty_policy like any other missing information
-        # instead (ASK by default: every purchase needs the customer; DECLINE:
-        # nothing is spent; APPROVE: only if the customer explicitly, visibly chose
-        # that -- see the compiler's own open_question for this exact condition).
-        evaluations.append(
-            RuleEvaluation(rule=_NO_RULES_RULE, outcome="unknown", detail="this mandate has no spending controls to check against", source="safety")
-        )
-
-    decision, reason_codes = _decide(evaluations, mandate.uncertainty_policy)
-
-    state.remember_attempt(
-        authorization_id=authorization_id,
-        merchant_id=merchant_id,
-        basket_key=basket_key,
-        billing_amount_chf=billing_amount_chf,
-        timestamp=timestamp,
-    )
-    state.record_decision(
-        authorization_id, decision, facts.billing_amount_chf, facts.timestamp,
-        merchant_id=merchant_id, basket_key=basket_key, reason_codes=reason_codes,
-    )
-
-    # R&D Track D: if this purchase names a related prior authorization this run
-    # already decided (e.g. a re-quote after a decline), compute what actually
-    # changed between them -- purely explanatory evidence, never a gate; `rules.py`
-    # already decided this purchase on its own facts above.
-    related_drift: AuthorizationDrift | None = None
-    related_id = facts.related_authorization_id
-    if related_id is not None:
-        related_stored = state.get_stored_decision(related_id)
-        if related_stored is not None:
-            related_drift = compute_drift(
-                reference_authorization_id=related_id,
-                prior_merchant_id=related_stored.merchant_id,
-                prior_basket_key=related_stored.basket_key,
-                prior_amount_chf=related_stored.billing_amount_chf,
-                current_merchant_id=merchant_id,
-                current_basket_key=basket_key,
-                current_amount_chf=billing_amount_chf,
-            )
-
-    # R&D Track E: the same evaluations, scoped to what the customer's own policy
-    # says vs. what the wallet's own safety checks say -- see `_scoped_verdict`.
-    policy_verdict = _scoped_verdict(evaluations, "customer", mandate.uncertainty_policy)
-    security_verdict = _scoped_verdict(evaluations, "safety", mandate.uncertainty_policy)
-
-    # R&D Track A: ALLOW issues a narrow, expiring, inspectable payment authority --
-    # never constructed anywhere else in this codebase.
-    payment_authority: PaymentAuthority | None = None
-    if decision == "allow":
-        payment_authority = state.issue_authority(
-            authorization_id, mandate_id=mandate.mandate_id, policy_version=mandate_policy_version(mandate)
-        )
-
-    evidence = tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in evaluations)
-    return EngineDecision(
-        authorization_id=authorization_id,
-        decision=decision,
-        reason_codes=reason_codes,
-        customer_message=_customer_message(decision, evaluations, facts),
-        evidence=evidence,
-        rule_evaluations=tuple(evaluations),
-        intervention=classify_intervention(decision, tuple(evaluations)),
-        facts=facts,
-        idempotent_replay=False,
-        policy_verdict=policy_verdict,
-        security_verdict=security_verdict,
-        drift=related_drift,
-        payment_authority=payment_authority,
-    )
 
 
 def _period_rules_breached_now(
@@ -635,70 +638,87 @@ def resolve_authorization(
     step-up-then-approved purchase is just as payable, under the same bounded
     authority model, as an automatically-approved one.
     """
-    if human_decision == "review":
-        raise ValueError("a human resolution must be 'allow' or 'block', not 'review'")
+    # Same span as evaluate_authorization: a late human answer is re-checked
+    # against the window and then recorded, and nothing may land between.
+    with state.decision_guard():
+        if human_decision == "review":
+            raise ValueError("a human resolution must be 'allow' or 'block', not 'review'")
 
-    # Two things can have changed between the wallet asking and the customer
-    # answering, and BOTH used to be ignored. An independent security audit named the
-    # shape exactly: this function was the one unguarded escape hatch, checking a
-    # single flag set minutes or hours earlier and re-deriving nothing from
-    # authoritative state.
-    #
-    # A customer's "yes" is an answer to a question, not an override of their own
-    # later instructions, so where the two conflict the safe one wins and we record
-    # WHY rather than silently downgrading.
-    override_reason: str | None = None
+        # Two things can have changed between the wallet asking and the customer
+        # answering, and BOTH used to be ignored. An independent security audit named the
+        # shape exactly: this function was the one unguarded escape hatch, checking a
+        # single flag set minutes or hours earlier and re-deriving nothing from
+        # authoritative state.
+        #
+        # A customer's "yes" is an answer to a question, not an override of their own
+        # later instructions, so where the two conflict the safe one wins and we record
+        # WHY rather than silently downgrading.
+        override_reason: str | None = None
 
-    if human_decision == "allow":
-        # (1) The customer revoked the mandate while this purchase was waiting. The
-        # revocation is the later and stronger instruction.
-        if state.is_revoked:
-            override_reason = "mandate_revoked_before_resolution"
-        else:
-            # (2) A rolling-period ceiling that was satisfied when we asked may not be
-            # satisfied now -- and a compromised agent chooses what gets asked, so it
-            # could force purchases into the queue and have them approved one at a
-            # time, each individually reasonable, together far over the customer's own
-            # weekly cap. Measured at CHF 2,400 against a CHF 500 / 7-day cap before
-            # this check existed.
-            breached = _period_rules_breached_now(mandate, state, authorization_id)
-            if breached is not None:
-                override_reason = f"period_limit_exceeded:{breached}"
+        # Only a purchase still WAITING for an answer may be overridden. Once it has been
+        # resolved, `record_resolution` owns the outcome: an identical re-submission is an
+        # idempotent success and a conflicting one is refused.
+        #
+        # Skipping this guard was a real defect. The period re-check below adds the
+        # purchase's own amount to `_approved_spend` -- which, after a first resolution,
+        # already contains it. A CHF 200 purchase under a CHF 300 cap therefore scored
+        # 200 + 200 = 400, the re-check decided to record a block, and `record_resolution`
+        # raised a conflict against the 'allow' it had just recorded. A double-clicked
+        # button crashed. Found by the temporal-consistency audit; the existing idempotence
+        # test missed it because its mandate had no period rule.
+        pending = state.get_stored_decision(authorization_id)
+        already_resolved = pending is not None and pending.decision != "review"
 
-    if override_reason is not None:
-        stored = state.record_resolution(authorization_id, "block", resolved_at)
+        if human_decision == "allow" and not already_resolved:
+            # (1) The customer revoked the mandate while this purchase was waiting. The
+            # revocation is the later and stronger instruction.
+            if state.is_revoked:
+                override_reason = "mandate_revoked_before_resolution"
+            else:
+                # (2) A rolling-period ceiling that was satisfied when we asked may not be
+                # satisfied now -- and a compromised agent chooses what gets asked, so it
+                # could force purchases into the queue and have them approved one at a
+                # time, each individually reasonable, together far over the customer's own
+                # weekly cap. Measured at CHF 2,400 against a CHF 500 / 7-day cap before
+                # this check existed.
+                breached = _period_rules_breached_now(mandate, state, authorization_id)
+                if breached is not None:
+                    override_reason = f"period_limit_exceeded:{breached}"
+
+        if override_reason is not None:
+            stored = state.record_resolution(authorization_id, "block", resolved_at)
+            return EngineDecision(
+                authorization_id=authorization_id,
+                decision=stored.decision,
+                reason_codes=("customer_resolution", override_reason),
+                customer_message=(
+                    "Your approval arrived after you revoked this mandate, so the purchase was declined."
+                    if override_reason.startswith("mandate_revoked")
+                    else "Approving this purchase would now exceed the spending limit you set, so it was declined."
+                ),
+                evidence=(f"resolved by the customer at {resolved_at.isoformat()}", override_reason),
+                rule_evaluations=(),
+                intervention=_TERMINAL_INTERVENTION[stored.decision],
+                facts=None,
+                idempotent_replay=False,
+                payment_authority=None,
+            )
+
+        stored = state.record_resolution(authorization_id, human_decision, resolved_at)
+        payment_authority: PaymentAuthority | None = None
+        if stored.decision == "allow" and mandate is not None:
+            payment_authority = state.issue_authority(
+                authorization_id, mandate_id=mandate.mandate_id, policy_version=mandate_policy_version(mandate), now=resolved_at
+            )
         return EngineDecision(
             authorization_id=authorization_id,
             decision=stored.decision,
-            reason_codes=("customer_resolution", override_reason),
-            customer_message=(
-                "Your approval arrived after you revoked this mandate, so the purchase was declined."
-                if override_reason.startswith("mandate_revoked")
-                else "Approving this purchase would now exceed the spending limit you set, so it was declined."
-            ),
-            evidence=(f"resolved by the customer at {resolved_at.isoformat()}", override_reason),
+            reason_codes=("customer_resolution",),
+            customer_message="The customer's answer has been recorded for this purchase only.",
+            evidence=(f"resolved by the customer at {resolved_at.isoformat()}",),
             rule_evaluations=(),
             intervention=_TERMINAL_INTERVENTION[stored.decision],
             facts=None,
             idempotent_replay=False,
-            payment_authority=None,
+            payment_authority=payment_authority,
         )
-
-    stored = state.record_resolution(authorization_id, human_decision, resolved_at)
-    payment_authority: PaymentAuthority | None = None
-    if stored.decision == "allow" and mandate is not None:
-        payment_authority = state.issue_authority(
-            authorization_id, mandate_id=mandate.mandate_id, policy_version=mandate_policy_version(mandate), now=resolved_at
-        )
-    return EngineDecision(
-        authorization_id=authorization_id,
-        decision=stored.decision,
-        reason_codes=("customer_resolution",),
-        customer_message="The customer's answer has been recorded for this purchase only.",
-        evidence=(f"resolved by the customer at {resolved_at.isoformat()}",),
-        rule_evaluations=(),
-        intervention=_TERMINAL_INTERVENTION[stored.decision],
-        facts=None,
-        idempotent_replay=False,
-        payment_authority=payment_authority,
-    )
