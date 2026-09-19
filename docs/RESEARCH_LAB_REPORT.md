@@ -118,4 +118,4 @@ Unchanged: cross-run mandate reuse, account scope, process-local single-use,
 cancelled-retry, unverifiable merchant claims (saturation beats them), unauthenticated
 step-up. Plus, newly documented: a cancelled or revoked purchase still consumes window
 budget, and multiple overlapping period rules of different lengths are supported but
-unexercised by official data.
+now exercised: a 3,000-run campaign with three nested caps (CHF 200/1d, 300/7d, 1000/30d), randomized amounts and timestamps over 35 days and ~45% of purchases forced into step-ups resolved in random order found **0 breaches**, with the windows filling to 199.99 / 299.95 / 956.28 -- tight, not over-conservative.

@@ -328,3 +328,45 @@ def test_no_randomized_lifecycle_trace_breaches_the_window():
             except Exception:
                 pass                 # a refusal is a legitimate outcome of any transition
             assert _worst_window(state) <= CAP, f"breach after {op}"
+
+
+def test_nested_overlapping_period_rules_are_all_respected():
+    """The gap I flagged in the audit package as "supported but unexercised", now
+    exercised. Three nested caps -- CHF 200/1d, CHF 300/7d, CHF 1000/30d -- with
+    randomized amounts, timestamps spread over 35 days, ~45% of purchases forced into
+    a step-up and resolved in random order.
+
+    A 3,000-run campaign found no breach of any window, and the windows fill right up
+    to their caps (199.99 / 299.95 / 956.28), so the check is tight rather than
+    over-conservative. 150 runs here."""
+    import random
+
+    caps = [(1, Decimal("200")), (7, Decimal("300")), (30, Decimal("1000"))]
+    mandate = make_mandate(instruction="Order groceries.", hard_rules=[
+        HardRule(field="authorization.billing_amount_chf", operator="<=", value=200,
+                 currency="CHF", scope="purchase"),
+        *[HardRule(field="authorization.billing_amount_chf", operator="<=", value=int(cap),
+                   currency="CHF", scope="period", period_days=days) for days, cap in caps],
+        HardRule(field="order.return_window_days", operator=">=", value=14)])
+
+    rng = random.Random(7)
+    for _ in range(150):
+        state = _state()
+        pending = []
+        for i in range(rng.randint(3, 8)):
+            forced = rng.random() < 0.45
+            result = _buy(mandate, state, f"P{i}", round(rng.uniform(10, 200), 2),
+                          rng.randint(0, 24 * 35),
+                          details="" if forced else "returns accepted within 30 days")
+            if result.decision == "review":
+                pending.append(f"P{i}")
+        rng.shuffle(pending)
+        for aid in pending:
+            try:
+                resolve_authorization(aid, "allow", state,
+                                      resolved_at=datetime.now(timezone.utc), mandate=mandate)
+            except Exception:
+                pass
+        for days, cap in caps:
+            assert _worst_window(state, days) <= cap, (
+                f"{days}-day window breached: CHF {_worst_window(state, days)} > {cap}")

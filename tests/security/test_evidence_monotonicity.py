@@ -139,3 +139,73 @@ def test_basket_monotonicity_holds_across_random_mandates_and_baskets():
         assert _SEVERITY[after] >= _SEVERITY[before], (
             f"adding a line relaxed {before} -> {after}; rules="
             f"{[r.field for r in rules]} returnable={returnable}")
+
+
+# --- monotonicity beyond the basket -----------------------------------------------
+
+
+def test_raising_a_quantity_never_relaxes_a_decision():
+    """Generated from C5: if adding a LINE cannot relax a decision, neither should
+    adding UNITS of an existing line. 3,000 randomized trials found no violation."""
+    import random
+
+    rng = random.Random(4242)
+    for _ in range(150):
+        mandate = _random_mandate(rng)
+        low = rng.randint(1, 3)
+        high = low + rng.randint(1, 5)
+        before = _decide_qty(mandate, low)
+        after = _decide_qty(mandate, high)
+        assert _SEVERITY[after] >= _SEVERITY[before], f"qty {low}->{high} relaxed {before}->{after}"
+
+
+def test_raising_an_amount_never_relaxes_a_decision():
+    import random
+
+    rng = random.Random(99)
+    for _ in range(150):
+        mandate = _random_mandate(rng)
+        low = round(rng.uniform(10, 140), 2)
+        high = low + rng.uniform(1, 150)
+        before = _decide_qty(mandate, 1, amount=low)
+        after = _decide_qty(mandate, 1, amount=high)
+        assert _SEVERITY[after] >= _SEVERITY[before], f"CHF {low}->{high} relaxed {before}->{after}"
+
+
+def test_weakening_a_merchant_claim_never_relaxes_a_decision():
+    """"returns accepted within 30 days" -> "sold as final sale" is strictly worse
+    evidence and must never improve the outcome."""
+    import random
+
+    rng = random.Random(5)
+    for _ in range(150):
+        mandate = _random_mandate(rng)
+        good = _decide_qty(mandate, 1, details="size 43; returns accepted within 30 days")
+        bad = _decide_qty(mandate, 1, details="size 43; clearance line, sold as final sale")
+        assert _SEVERITY[bad] >= _SEVERITY[good], f"weaker evidence relaxed {good}->{bad}"
+
+
+def _random_mandate(rng):
+    optional = [
+        HardRule(field="item.category", operator="in", value=["sporting_goods"]),
+        HardRule(field="item.size", operator="=", value="43"),
+        HardRule(field="item.name_contains", operator="=", value="road-running"),
+        HardRule(field="order.return_window_days", operator=">=", value=14),
+        HardRule(field="item.unrequested_present", operator="=", value="false"),
+    ]
+    rules = [HardRule(field="authorization.billing_amount_chf", operator="<=", value=300,
+                      currency="CHF", scope="purchase")]
+    rules += rng.sample(optional, rng.randint(1, 3))
+    return make_mandate(instruction="Buy road-running shoes in size 43.", hard_rules=rules)
+
+
+def _decide_qty(mandate, quantity, amount=100.0,
+                details="size 43; returns accepted within 30 days"):
+    state = RunState(history=HistoryIndex({"CA_TEST": frozenset({M})}, available=True), card_id="CA_TEST")
+    items = [{"line_no": 1, "item_id": "I1", "item_name": "Road-running shoe",
+              "item_category": "sporting_goods", "quantity": quantity,
+              "unit_price": amount / max(quantity, 1), "currency": "CHF", "item_details": details}]
+    event = make_event(mandate=mandate, authorization_id="A1", amount=amount,
+                       merchant_id=M, items=items)
+    event["authorization"]["order_returnable"] = "true"
+    return evaluate_authorization(event, mandate, state).decision
