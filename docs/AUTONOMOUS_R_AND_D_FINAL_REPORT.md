@@ -196,13 +196,13 @@ The memorable sentence: **"Being careful created the hole. The pause is what bro
 | new modules / state / endpoints / dependencies | **0 / 0 / 0 / 0** |
 | new tests | ~8 |
 | UI | one clearer block reason |
-| cost | O(n²) per decision over approved purchases in a run (n ≤ 45 officially); trivially reducible if ever needed |
+| cost | O(n²) per decision over a run's APPROVED purchases. Measured, not assumed: ms/n² settles at ~66e-6 and the doubling ratio converges to 4.00, so the 8s deadline is crossed at n ≈ 11,000. The largest official scenario has 12 purchase attempts. Reducible to O(n log n) by sorting once and sweeping; not done, because the margin is ~900x in n. See `tests/test_scale_limits.py`. |
 
 ## 25. Risks
 
 1. **It changes behaviour** — by design, in exactly the case that was wrong. The official replay is unchanged, but a hypothetical run *could* now see a block where it previously saw an allow. That is the point, and it must be stated.
 2. **The fix is textbook once known** (sliding-window log). Our contribution is finding that the protocol induces the bug, not inventing the algorithm.
-3. **O(n²)** is fine at run scale and would not be at ledger scale.
+3. **O(n²)** is fine at run scale and would not be at ledger scale. Now measured rather than asserted: 43 ms at 809 approved purchases, 8,000 ms at roughly 11,000, against a largest-official-scenario n of 12. The quadratic that would bite FIRST is not this one — `live_worker._save_checkpoint` re-serializes the whole run on every event, which is O(n²) bytes of disk I/O over a run (1.3 MiB per event at 2,000 decisions).
 4. **It does not fix the account scope**, which remains unenforceable.
 5. **Refusing a purchase because of a *pending* step-up** is deliberately *not* done — that would let a pause block unrelated spending. Only resolution is re-checked.
 
