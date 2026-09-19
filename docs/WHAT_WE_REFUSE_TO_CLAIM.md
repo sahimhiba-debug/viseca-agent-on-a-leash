@@ -17,4 +17,11 @@ Kept deliberately short and blunt. If a claim is not on the proven list in
 | **Novelty for one-shot mandates** | SEPA one-off mandates, card-on-file and Google AP2 Intent Mandates are prior art. |
 | **That our adversarial suites are exhaustive** | 133 corpus cases, 17 matrix attacks and 8 demonstrations are a sample, not a proof. |
 | **That the replay counts are a score** | 19/2/24 is a regression boundary. There are no official expected-decision labels. |
+| **Order independence** | The approved *set* depends on arrival order. Greedy first-come-first-served admission: 300 orderings of SCEN0001 produce 14 distinct approved sets. Safety is unaffected; allocation is not guaranteed. |
+| **Fairness** | No allocation policy is enforced, deliberately. The customer stated a bound, not a preference between competing purchases. |
+| **Cross-run period enforcement** | The rolling cap is enforced per RUN. One mandate across ten runs authorizes ten times the cap. |
+| **Formal proof of temporal safety** | Established empirically — 12,000 monotonicity baskets, 3,000 lifecycle traces, 4,000 optimizer strategies, exhaustive small permutations. No proof was constructed. |
+| **A complete evidence audit** | Thirteen absent/inapplicable/conflicting cases across the rules that exist today. A new rule field could reintroduce the same inversion. |
+| **Protection against merchant lies** | `order.return_window_days` and `item.size` have no input other than merchant free text. A plausible claim ("returns accepted within 90 days") beats every realistic threshold with zero knowledge of the policy. |
+| **Schema re-validation** | We rely on the platform to deliver schema-valid events (`minItems: 1`, `quantity >= 1`). Several findings are "unreachable" only because of that. |
 | **Production readiness** | In-memory state, one process, no auth on the demo API, no multi-tenancy. |
