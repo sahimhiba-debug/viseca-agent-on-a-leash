@@ -440,7 +440,7 @@ const RULE_TEXT = {
   'authorization.mandate_status':'This mandate is no longer active',
 };
 function decCard(d){
-  const cancelled = REVOKED && d.decision==='allow';
+  const cancelled = REVOKED && (d.decision==='allow' || d.decision==='review');
   const label = cancelled ? 'Cancelled' : d.decision==='review' ? 'Needs you' : d.decision==='allow' ? 'Allowed' : 'Blocked';
   const cls = cancelled ? 'cancelled' : d.decision;
   const stepped = d.wallet_decision==='review' && d.decision!=='review';
@@ -452,13 +452,17 @@ function decCard(d){
       <div class="dec-mer">${esc(d.merchant_name)}</div>
       ${basketHtml(d)}
     </div>
-    ${cancelled ? '<div class="why block"><div class="h">Cancelled by you</div>You revoked this mandate before the money moved.</div>' : whyHtml(d)}
-    ${d.decision==='review' ? `<div class="ask-scope"><b>You are approving this one purchase only</b> —
+    ${cancelled ? `<div class="why block"><div class="h">Cancelled by you</div>${
+        d.decision==='review' ? 'You revoked this mandate while this purchase was still waiting for your answer.'
+                              : 'You revoked this mandate before the money moved.'}</div>` : whyHtml(d)}
+    ${d.decision==='review' && !REVOKED ? `<div class="ask-scope"><b>You are approving this one purchase only</b> —
         ${chf(d.amount_chf)} at ${esc(d.merchant_name)}. Not a standing exception.</div>
       <div class="dec-actions"><div class="row2">
         <button class="act b-allow" onclick="resolve('${d.authorization_id}','allow')">Approve once</button>
         <button class="act b-block" onclick="resolve('${d.authorization_id}','block')">Decline</button>
       </div></div>` : ''}
+    ${d.decision==='review' && REVOKED ? `<div class="ask-scope">You revoked this mandate, so this
+        question is closed. Answering it now would be recorded as a decline.</div>` : ''}
     <details><summary>Technical evidence</summary>
       ${(d.policy_evidence||[]).length?`<div class="ev">${esc(d.policy_evidence.join('\n'))}</div>`:''}
       ${(d.safety_evidence||[]).length?`<div class="ev">${esc(d.safety_evidence.join('\n'))}</div>`:''}
