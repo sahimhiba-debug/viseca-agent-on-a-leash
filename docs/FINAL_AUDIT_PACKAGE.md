@@ -50,7 +50,14 @@ Ranked by where I think you are most likely to find something:
    `test_omission_is_no_weaker_than_the_strictest_legal_value`.
 6. **The step-up channel.** No authentication, no `resolved_by`. Anyone who can reach
    the demo port can answer a customer's question.
-7. **Evidence semantics.** I audited 13 absent/inapplicable/conflicting cases and fixed
+7. **The policy compiler, but only where it can reach.** `policy_compiler.py` is
+   phrase patterns. It is **not in the live decision path** -- `from_event_mandate`
+   takes `hard_rules` from the platform verbatim -- so it cannot mis-decide a live
+   purchase. It does decide (a) what a customer is shown before they confirm a
+   mandate, and (b) the rules used by the offline replay, which means **19/2/24 is
+   conditional on our own reading of five English sentences.** Attack the parse:
+   find an instruction whose compiled rules a reasonable customer would reject.
+8. **Evidence semantics.** I audited 13 absent/inapplicable/conflicting cases and fixed
    two. A rule field added later would default to the wrong side; only the monotonicity
    fuzz would catch it.
 

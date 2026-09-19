@@ -93,6 +93,23 @@ documents: `authorization_id`, `decision`, and the optional `reason_codes`,
   than have the CLI script guess them, `LiveWorker` auto-registers a run from the
   `mandate` block embedded in that run's first event
   (`mandate.MandateSnapshot.from_event_mandate`).
+- **Our policy compiler is NOT in the live decision path**, and this is the single
+  most useful thing to know before auditing it. On event day the rules come from the
+  platform: `from_event_mandate` reads `event["mandate"]["hard_rules"]` verbatim, so
+  `policy_compiler.py` -- which is phrase patterns, not a model -- decides nothing
+  about any live purchase. It is used in exactly two places:
+    1. **Creating a mandate** (`POST /api/mandates/compile`), where the customer is
+       shown the compiled rules and the `open_questions` *before* confirming. A
+       mis-parse is visible to the person it affects, before it has any authority.
+    2. **The offline replay**, which has no platform to supply rules and so compiles
+       each scenario's `cardholder_instruction` itself.
+  The consequence for (2) is worth stating plainly rather than leaving for a reader
+  to discover: **the 45-event replay's 19/2/24 is conditional on our own reading of
+  five English sentences.** It is a regression boundary for this pipeline, not a
+  measurement of correctness against the challenge -- the official pack ships no
+  expected decisions (`contains_expected_decisions: false`). If our compiler reads
+  "at or below CHF 120" differently from the way Viseca's own compiler does, the live
+  path is unaffected and the offline numbers move.
 - **The bearer key is never logged.** See SECURITY.md.
 - **A same-`authorization_id` delivery with different facts is never resubmitted
   either.** If the fingerprint check (Finding 4) detects a mismatch, the worker
