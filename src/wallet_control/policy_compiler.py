@@ -107,6 +107,32 @@ _ROLLING_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# The other direction: an amount stated FIRST and qualified by a period AFTER it --
+# "up to CHF 250 per week", "no more than CHF 100 a week", "CHF 300 in any 7 days".
+#
+# This was the most damaging defect the intent-fidelity audit found, and it was an
+# INVERSION rather than a loss. "CHF 250 per week" compiled to
+# `billing_amount_chf <= 250 scope=purchase`: a weekly budget silently became a
+# per-order ceiling, so the agent could spend CHF 250 every order, forever, against a
+# customer who had written a weekly cap. Worse, the guidance then told the customer
+# "Each order must total CHF 250 or less" -- asserting a scope they never wrote -- and
+# the open question advised them to "consider adding a rolling weekly limit", which is
+# the thing they had just written. 2,400 generated instructions hit this.
+#
+# The mapping is not a guess: week/fortnight/month/year have one ordinary meaning in
+# days. Where the customer writes an explicit day count we use theirs.
+_PERIOD_WORD_DAYS = {"day": 1, "week": 7, "fortnight": 14, "month": 30, "year": 365}
+
+_AMOUNT_THEN_PERIOD_RE = re.compile(
+    r"""
+    CHF\s*(?P<amount>[\d.,]+)
+    [^.;]{0,30}?                                   # same clause only -- never across a full stop
+    \b(?:per|a|each|every|in\ any|over\ any|across\ any|within\ any|in|over)\s+
+    (?:(?P<days>\d+)\s*days?|(?P<word>day|week|fortnight|month|year)s?)\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 _WORDS_TO_NUM = {"seven": 7, "fourteen": 14, "thirty": 30}
 
 _PER_ORDER_LABEL_RE = re.compile(
@@ -118,10 +144,17 @@ _FAMILIARITY_RE = re.compile(
     (?:shop|shops|seller|sellers|merchant|merchants|retailer)\s+
     (?:i\s+(?:use|have\ used|'ve\ used|have\ bought\ from|'ve\ bought\ from)|
        i\ use\ regularly|i\ have\ used\ before|i've\ used\ before|
-       i\ have\ bought\ from\ before|i've\ bought\ from\ before)
+       i\ have\ bought\ from\ before|i've\ bought\ from\ before|
+       (?:that\ )?is\ one\ i\ have\ used|(?:that\ )?is\ one\ i've\ used)
     (?:\s+(?:regularly|before))?
     """,
     re.IGNORECASE | re.VERBOSE,
+)
+
+# "a familiar shop" states the same requirement without naming the customer.
+_FAMILIARITY_PLAIN_RE = re.compile(
+    r"\b(?:familiar|previously[- ]used|known)\s+(?:shop|shops|seller|sellers|merchant|merchants|retailer)\b",
+    re.IGNORECASE,
 )
 
 _RETAILER_TYPE_RE = re.compile(
@@ -134,9 +167,17 @@ _RETURN_WINDOW_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Five of eight ordinary paraphrases of this one requirement produced NO rule before
+# the audit -- including "Only add things I asked for" and "Buy only requested items",
+# which are the brief's own examples. Each addition below is an exact synonym of the
+# original, verified by reading, not a broadening of what the requirement means.
 _NO_ADDONS_RE = re.compile(
-    r"(?:do\s+not\s+add|don't\s+add|nothing\s+(?:i|you)\s+did\s+not\s+ask\s+for|"
-    r"no\s+unrequested|only\s+what\s+i\s+asked\s+for)",
+    r"(?:do\s+not\s+add|don't\s+add|never\s+add|do\s+not\s+buy\s+unrequested|"
+    r"nothing\s+(?:i|you)\s+did\s+not\s+ask\s+for|"
+    r"no\s+unrequested|only\s+what\s+i\s+asked\s+for|"
+    r"only\s+add\s+(?:things|items)\s+i\s+asked\s+for|"
+    r"(?:buy|order)\s+only\s+requested\s+items|"
+    r"no\s+extras|nothing\s+else)",
     re.IGNORECASE,
 )
 
@@ -186,6 +227,93 @@ _UNCERTAINTY_DECLINE_RE = re.compile(rf"(?:decline|reject)(?:\s+it)?\s+{_UNCERTA
 _UNCERTAINTY_APPROVE_RE = re.compile(rf"(?:approve|allow)(?:\s+(?:it|anything))?\s+{_UNCERTAIN_TRIGGER}", re.IGNORECASE)
 
 
+# --- intent coverage: what the customer wrote that no rule represents ---------------
+#
+# This module's docstring has always claimed that it "never treats absence of a
+# recognizable phrase as silent permission -- unparsed intent becomes an
+# `open_question`". The intent-fidelity audit found that claim was FALSE, three ways:
+# a quantity word ("buy ONE grocery item") produced nothing at all, five of eight
+# ordinary paraphrases of the no-add-ons requirement produced nothing, and two of
+# eight familiarity paraphrases produced nothing -- none of them mentioned to the
+# customer. An optimiser over generated instructions found 4,032 silent quantity
+# losses, 2,400 temporal, 960 familiarity.
+#
+# Broadening the patterns fixes the paraphrases we happened to think of, and nothing
+# else; there are indefinitely many ways to write a restriction. So the patterns
+# below are not another attempt to UNDERSTAND the phrase. They detect that the
+# customer used restrictive language of a given KIND, and then check whether any rule
+# of that kind exists. If not, the phrase is named back to the customer before they
+# confirm. The check never creates a rule and never changes a decision -- it converts
+# a silent loss into a visible question, which is the weakest honest thing to do and
+# the only one that does not require guessing what they meant.
+_COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
+    (
+        "quantity",
+        # Anchored on the VERB, not on a list of nouns. An earlier version matched a
+        # quantity word followed by one of a dozen product nouns, and so missed
+        # "Buy one groceries" -- 2,112 generated instructions -- while a bare \bone\b
+        # would fire on "a shop that is one I have used before". Anchoring on
+        # "buy/order/purchase/get + quantifier" is narrow enough to avoid that and
+        # general enough not to need a noun vocabulary.
+        re.compile(r"\b(?:buy|order|purchase|get)\s+"
+                   r"(?:exactly\s+|at\ most\s+|up\ to\s+|a\ single\s+|no\ more\ than\s+)?"
+                   r"(?:one|two|three|four|five|ten|twenty|a\ single|\d+)\b",
+                   re.IGNORECASE | re.VERBOSE),
+        "",                       # no rule field can express it -- see the message
+        "You asked for a specific number of items. The rule format has no way to express a quantity "
+        "or a total number of purchases -- it can only limit the amount of each order and the amount "
+        "across a rolling window -- so this part of your instruction is NOT enforced. Revoke the "
+        "mandate once you have what you asked for.",
+    ),
+    (
+        "familiarity",
+        re.compile(r"\b(?:familiar|used\ before|use\ regularly|bought\ from\ before|"
+                   r"previously[- ]used|known\ (?:shop|seller|merchant))\b", re.IGNORECASE | re.VERBOSE),
+        "merchant.familiar",
+        "You appear to require a shop you have used before, but that was not recognised as a rule. "
+        "It is NOT enforced. Please rephrase it, for example \"from a shop I have used before\".",
+    ),
+    (
+        "no add-ons",
+        re.compile(r"(?:do\ not\ add|don't\ add|never\ add|no\ extras|nothing\ else|"
+                   r"only\ .{0,20}?(?:asked\ for|requested)|unrequested)", re.IGNORECASE | re.VERBOSE),
+        "item.unrequested_present",
+        "You appear to be forbidding unrequested items, but that was not recognised as a rule. It is "
+        "NOT enforced. Please rephrase it, for example \"do not add anything I did not ask for\".",
+    ),
+    (
+        "return window",
+        re.compile(r"\breturn(?:ed|able|s)?\b", re.IGNORECASE),
+        "order.return_window_days",
+        "You mention returns, but no return-window rule was created, so returnability is NOT checked. "
+        "Please state a number of days, for example \"returnable within 14 days or more\".",
+    ),
+    (
+        "session integrity",
+        re.compile(r"(?:someone\ other\ than\ me|not\ me|hijack|taken\ over|"
+                   r"driving\ the\ session)", re.IGNORECASE | re.VERBOSE),
+        "session.integrity_risk",
+        "You appear to be asking us to pause when the session looks like it is not you, but that was "
+        "not recognised as a rule. It is NOT enforced.",
+    ),
+)
+
+
+def _coverage_questions(text: str, rules: list[HardRule]) -> list[str]:
+    """Restrictive language the customer wrote that no rule of that kind represents."""
+    present = {r.field for r in rules}
+    out: list[str] = []
+    for _kind, pattern, required_field, message in _COVERAGE_MARKERS:
+        if not pattern.search(text):
+            continue
+        # An empty `required_field` means no rule of that kind CAN exist -- quantity is
+        # not expressible in this vocabulary at all -- so the question always fires.
+        if required_field and required_field in present:
+            continue
+        out.append(message)
+    return out
+
+
 def _parse_amount(raw: str) -> float:
     return float(raw.replace(",", ""))
 
@@ -217,9 +345,24 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     # ignore a later, possibly-corrective figure. The safe default when an
     # instruction is ambiguous about its own ceiling is the MORE restrictive
     # figure, and the ambiguity itself is surfaced so the customer can clarify.
+    # Amounts the customer qualified with a PERIOD ("CHF 250 per week") are budgets,
+    # not per-order ceilings, and must not be counted as either the per-order figure
+    # or part of the "more than one per-order amount" ambiguity check below.
+    period_amounts: list[tuple[float, int]] = []
+    for m in _AMOUNT_THEN_PERIOD_RE.finditer(text):
+        if m.group("days"):
+            days = int(m.group("days"))
+        else:
+            days = _PERIOD_WORD_DAYS[m.group("word").lower()]
+        period_amounts.append((_parse_amount(m.group("amount")), days))
+    period_amount_values = {a for a, _ in period_amounts}
+
     amount_matches = [
-        _parse_amount(m.group("v1") or m.group("v2") or m.group("v3") or m.group("v4") or m.group("v5"))
-        for m in _AMOUNT_RE.finditer(text)
+        v for v in (
+            _parse_amount(m.group("v1") or m.group("v2") or m.group("v3") or m.group("v4") or m.group("v5"))
+            for m in _AMOUNT_RE.finditer(text)
+        )
+        if v not in period_amount_values
     ]
     per_order_amount: float | None = min(amount_matches) if amount_matches else None
     if len(amount_matches) > 1 and len(set(amount_matches)) > 1:
@@ -256,6 +399,29 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
             "Purchases will not be limited by amount unless a rolling limit below applies."
         )
 
+    # A period stated after the amount ("CHF 250 per week"). Emitted in addition to
+    # any "across any N days" form, deduplicated on (amount, days).
+    emitted_periods: set[tuple[float, int]] = set()
+    if rolling_amount is not None and rolling_days is not None:
+        emitted_periods.add((rolling_amount, rolling_days))
+    for amount, days in period_amounts:
+        if (amount, days) in emitted_periods:
+            continue
+        emitted_periods.add((amount, days))
+        rules.append(
+            HardRule(
+                field="authorization.billing_amount_chf",
+                operator="<=",
+                value=amount,
+                currency="CHF",
+                scope="period",
+                period_days=days,
+            )
+        )
+        guidance.append(
+            f"The total across any rolling {days}-day window must stay at or below CHF {amount:g}."
+        )
+
     if rolling_amount is not None and rolling_days is not None:
         rules.append(
             HardRule(
@@ -272,7 +438,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
         )
 
     # --- merchant familiarity -------------------------------------------------------
-    if _FAMILIARITY_RE.search(text):
+    if _FAMILIARITY_RE.search(text) or _FAMILIARITY_PLAIN_RE.search(text):
         rules.append(HardRule(field="merchant.familiar", operator="=", value="true"))
         guidance.append(
             "The seller must be one this card has purchased from before "
@@ -445,6 +611,10 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
             f"slow that down but would still not set a total -- there is no way to state one. Revoke "
             f"the mandate when the job is done."
         )
+
+    # Named back to the customer LAST, so it sees the final rule set rather than a
+    # partially-built one.
+    open_questions.extend(_coverage_questions(text, rules))
 
     return CompiledPolicy(
         hard_rules=rules,

@@ -20,7 +20,7 @@ mandate status checks -- rather than generated over every operator in the tree.
 It cannot tell you about a mechanism nobody thought to mutate. It can tell you
 that the ones listed here are genuinely held.
 
-RESULT AT THE TIME OF WRITING: 21 mutants, 21 killed, 0 survived.
+RESULT AT THE TIME OF WRITING: 23 mutants, 23 killed, 0 survived.
 
 One survivor was found when this probe was first run: widening the rolling window's
 start from `end - window < ts` to `end - window <= ts` passed the entire suite.
@@ -78,6 +78,12 @@ MUTANTS: list[tuple[str, str, str, str]] = [
      "a decline policy escalates instead of blocking"),
     ("decision_engine.py", '        return "review", reason_codes', '        return "allow", reason_codes',
      "an ask policy approves instead of asking"),
+
+    # --- intent fidelity: I37, I38 -------------------------------------------
+    ("policy_compiler.py", "        if v not in period_amount_values", "        if True",
+     "a period-qualified amount becomes a per-order ceiling again"),
+    ("policy_compiler.py", "    open_questions.extend(_coverage_questions(text, rules))", "    pass",
+     "restrictive language with no rule is dropped in silence again"),
 
     # --- velocity cross-check: I35 -------------------------------------------
     ("decision_engine.py", "            device_id, max(reported_attempts, observed_attempts), merchant_familiar",
