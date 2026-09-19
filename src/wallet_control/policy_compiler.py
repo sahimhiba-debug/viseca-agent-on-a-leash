@@ -416,6 +416,27 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
             f"overall total or an end date, so if that figure is more than you intend to delegate, "
             f"revoke or tighten this mandate when the job is done."
         )
+        # The second half of the truth, and the half a customer is least likely to
+        # guess. `technical_details.md` scopes the platform's own spend context to
+        # the run -- "context | Spend and recent authorization information from this
+        # run" -- so the window is counted per shopping session, and a session
+        # started again begins at zero. Measured on SCEN0001: CHF 387.50 per run, so
+        # ten runs put CHF 3,875 through a stated CHF 300 / 7-day cap.
+        #
+        # We do NOT enforce this across sessions, and the reason is a protocol
+        # limit rather than a preference: no documented endpoint returns a mandate's
+        # accumulated spend, so any cross-session total would be our own unverifiable
+        # record. A prototype of one was built and attacked (research/
+        # mandate_ledger_prototype.py): two concurrent sessions both approved against
+        # the same remaining budget and the losing write vanished, and a ledger file
+        # that goes missing is indistinguishable from a mandate that has never spent.
+        # Claiming a bound we cannot hold would be worse than naming the one we do.
+        open_questions.append(
+            f"That {period_rule.period_days}-day window is counted per shopping session. If the agent "
+            f"is started again, it begins from zero, so several sessions in the same "
+            f"{period_rule.period_days} days can each spend up to CHF {float(period_rule.value):g}. "
+            f"Start a new session only when you mean to grant the limit again."
+        )
     elif per_purchase is not None:
         open_questions.append(
             f"Your CHF {float(per_purchase.value):g} limit applies to each individual purchase, not to "

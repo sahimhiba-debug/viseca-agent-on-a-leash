@@ -14,7 +14,7 @@ disagreed with the code, the code won and the document was corrected.
 
 | suite | command | result |
 | --- | --- | --- |
-| tests | `python3 -m pytest -q` | **699 pass, 5 reported skips** (704 collected) |
+| tests | `python3 -m pytest -q` | **701 pass, 5 reported skips** (706 collected) |
 | official replay | `python3 scripts/run_replay.py` | **45 events — 19 allow / 2 review / 24 block** |
 | adversarial corpus | `python3 scripts/run_red_team_corpus.py` | **133/133** across 10 categories |
 | attack matrix | `python3 scripts/run_red_team.py` | **17/17** |

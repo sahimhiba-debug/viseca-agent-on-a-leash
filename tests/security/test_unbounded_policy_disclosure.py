@@ -99,3 +99,42 @@ def test_every_official_instruction_still_compiles_the_same_rules():
         assert compiled.hard_rules, scenario["scenario_id"]
         # a warning is advisory text, never a rule
         assert all(isinstance(q, str) for q in compiled.open_questions)
+
+
+def test_a_rolling_window_is_disclosed_as_per_session_not_global():
+    """The half of the truth a customer is least likely to guess.
+
+    `technical_details.md` scopes the platform's own spend context to the run --
+    "context | Spend and recent authorization information from this run" -- so our
+    window is counted per shopping session and a session started again begins at
+    zero. Measured on SCEN0001: CHF 387.50 approved per run, so ten runs put
+    CHF 3,875 through a stated CHF 300 / 7-day cap, 12.9x the customer's sentence.
+
+    A customer reading only "your CHF 300 limit applies to each rolling 7-day
+    window" would reasonably assume that is global. It is not, and the gap is large
+    enough that saying nothing is a misrepresentation.
+
+    We disclose rather than enforce, and that choice is forced rather than preferred:
+    no documented endpoint returns a mandate's accumulated spend, so a cross-session
+    total would be our own unverifiable record. `research/mandate_ledger_prototype.py`
+    is that record, built and attacked -- two concurrent sessions both approved
+    against the same remaining budget (and the losing write vanished, so the ledger
+    was wrong as well as the decision), and a missing ledger file is indistinguishable
+    from a mandate that has never spent. See docs/WHAT_WE_REFUSE_TO_CLAIM.md.
+    """
+    text = _questions(
+        "Order our household groceries for delivery. Keep each order at or below CHF 120 "
+        "including delivery, and keep the total across any seven days at or below CHF 300. "
+        "Ask me when uncertain."
+    )
+    assert "session" in text, text
+    assert "begins from zero" in text or "zero" in text, text
+
+
+def test_the_per_session_disclosure_still_creates_no_rule():
+    """Disclosure only. If this ever became a rule it would change the replay."""
+    compiled = compile_instruction(
+        "Order groceries. Keep the total across any seven days at or below CHF 300. Ask me when uncertain."
+    )
+    assert not any("session" in str(r.field) for r in compiled.hard_rules)
+    assert any(r.scope == "period" for r in compiled.hard_rules)
