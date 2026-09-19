@@ -34,7 +34,6 @@ REGISTER = ROOT / "docs" / "FINAL_INVARIANTS.md"
 # other than a named test, and saying so explicitly is the point.
 _NOT_TEST_IDENTIFIERS = {
     "mutation-killed",   # I14: reverting the mechanism kills existing tests; no dedicated test
-    "Campaign Q",        # I31: a research campaign, recorded in docs/RESEARCH_LOG.md
 }
 
 

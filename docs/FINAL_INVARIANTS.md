@@ -64,7 +64,7 @@ fail.
 | I28 | An identical re-submission is idempotent and does not double-count | same | `test_an_idempotent_re_resolution_*` |
 | I29 | Concurrent answers cannot both be accepted | run lock | `test_F3_concurrent_*` |
 | I30 | Revocation reaches a purchase still awaiting an answer | `_revoked_at` | `test_F1*` (3) |
-| I31 | The customer's answer binds to the purchase they were shown | stored decision | Campaign Q |
+| I31 | The customer's answer binds to the purchase they were shown | repeat fingerprint + stored decision | `test_the_answer_binds_to_the_purchase_the_customer_was_shown` |
 
 ## Concurrency
 
