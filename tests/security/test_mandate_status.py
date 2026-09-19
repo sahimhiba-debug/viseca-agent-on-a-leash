@@ -20,6 +20,7 @@ endpoint, never for one the platform told us about.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -116,3 +117,72 @@ def test_the_mandate_status_check_is_wallet_safety_not_customer_policy():
     result = evaluate_authorization(make_event(mandate=mandate, authorization_id="AU1", amount=400.0, merchant_id=MERCHANT_ID), mandate, _state())
     status_evals = [e for e in result.rule_evaluations if "mandate_status" in e.rule.field]
     assert status_evals and all(e.source == "safety" for e in status_evals)
+
+
+# --- external-auditor pass: three status fields, one was inert --------------------
+
+
+def _live_mandate_event(status, aid, hours):
+    from datetime import datetime, timedelta, timezone
+
+    from tests.helpers import make_event, make_mandate
+    from wallet_control.mandate import HardRule
+
+    mandate = make_mandate(instruction="Buy groceries.", hard_rules=[HardRule(
+        field="authorization.billing_amount_chf", operator="<=", value=500,
+        currency="CHF", scope="purchase")])
+    event = make_event(mandate=mandate, authorization_id=aid, amount=100.0,
+                       merchant_id="ME_KNOWN",
+                       timestamp=datetime(2026, 8, 12, 9, 0, tzinfo=timezone.utc) + timedelta(hours=hours))
+    event["authorization"]["items"][0]["item_name"] = f"g{aid}"
+    event["mandate"]["status"] = status
+    return mandate, event
+
+
+def test_a_mid_run_mandate_revocation_reported_by_the_platform_is_honoured():
+    """The run's snapshot is frozen -- correctly, so a mid-run tightening cannot apply
+    retroactively to the RULES. But `live_worker` builds that snapshot from a run's
+    FIRST event and reuses it, so `mandate.status` could never change, while
+    `authority_status` and `card_status_at_attempt` were read live from every event.
+
+    Three platform status fields, two live and one frozen. The check existed and was
+    wired to a source that could not move."""
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.state import HistoryIndex, RunState
+
+    mandate, first = _live_mandate_event("active", "E1", 0)
+    state = RunState(history=HistoryIndex({"CA_TEST": frozenset({"ME_KNOWN"})}, available=True),
+                     card_id="CA_TEST")
+    assert evaluate_authorization(first, mandate, state).decision == "allow"
+
+    _, later = _live_mandate_event("revoked", "E2", 2)
+    later["mandate"]["mandate_id"] = mandate.mandate_id
+    result = evaluate_authorization(later, mandate, state)
+    assert result.decision == "block", "a platform-reported revocation was ignored"
+    assert any("mandate_status" in c for c in result.reason_codes), result.reason_codes
+
+
+def test_an_unrecognised_reported_mandate_status_escalates_rather_than_passing():
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.state import HistoryIndex, RunState
+
+    mandate, event = _live_mandate_event("quantum-superposed", "E3", 0)
+    event["mandate"]["mandate_id"] = mandate.mandate_id
+    state = RunState(history=HistoryIndex({"CA_TEST": frozenset({"ME_KNOWN"})}, available=True),
+                     card_id="CA_TEST")
+    assert evaluate_authorization(event, mandate, state).decision != "allow"
+
+
+def test_an_active_report_does_not_override_a_dead_snapshot():
+    """The live report may only ever narrow. A platform saying "active" must not
+    resurrect a run whose own snapshot is revoked."""
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.mandate import MandateStatus
+    from wallet_control.state import HistoryIndex, RunState
+
+    mandate, event = _live_mandate_event("active", "E4", 0)
+    event["mandate"]["mandate_id"] = mandate.mandate_id
+    dead = replace(mandate, status=MandateStatus.REVOKED)
+    state = RunState(history=HistoryIndex({"CA_TEST": frozenset({"ME_KNOWN"})}, available=True),
+                     card_id="CA_TEST")
+    assert evaluate_authorization(event, dead, state).decision == "block"

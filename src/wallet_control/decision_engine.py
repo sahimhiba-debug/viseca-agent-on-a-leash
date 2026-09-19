@@ -91,7 +91,10 @@ def _platform_status_evaluations(auth: dict[str, Any]) -> list[RuleEvaluation]:
     return out
 
 
-def _run_binding_failures(auth: dict[str, Any], mandate: MandateSnapshot, state: RunState) -> list[RuleEvaluation]:
+def _run_binding_failures(
+    auth: dict[str, Any], mandate: MandateSnapshot, state: RunState,
+    reported_mandate_status: str | None = None,
+) -> list[RuleEvaluation]:
     """Whether this event belongs to the run evaluating it.
 
     `card_id` is what the merchant-familiarity lookup is keyed on, so an event
@@ -126,6 +129,44 @@ def _run_binding_failures(auth: dict[str, Any], mandate: MandateSnapshot, state:
                 source="safety",
             )
         )
+
+    # The status the platform reports on THIS event, which is not the same thing as
+    # the status on the run's snapshot.
+    #
+    # `technical_details.md` says an existing run keeps its original snapshot, and
+    # that is right for the RULES -- a mid-run tightening must not apply retroactively.
+    # It is wrong for the STATUS. `live_worker` builds the snapshot from a run's FIRST
+    # event and reuses it, so `mandate.status` above could never change, while
+    # `authority_status` and `card_status_at_attempt` were read live from every event.
+    # Three platform status fields, two live and one frozen: the check existed and was
+    # wired to a source that could not move.
+    #
+    # The platform is documented to reject revoked or expired mandates before queueing
+    # a request, so this may never fire. That is an argument for it being cheap, not
+    # for leaving one of three status checks inert.
+    if reported_mandate_status is not None and reported_mandate_status != mandate.status.value:
+        if reported_mandate_status == MandateStatus.ACTIVE.value:
+            pass                      # the snapshot is already checked above
+        elif reported_mandate_status in {s.value for s in MandateStatus}:
+            failures.append(
+                RuleEvaluation(
+                    rule=_MANDATE_STATUS_RULE,
+                    outcome="fail",
+                    detail=f"the platform now reports this mandate as {reported_mandate_status!r}, "
+                           f"not active; it cannot authorize a purchase",
+                    source="safety",
+                )
+            )
+        else:
+            failures.append(
+                RuleEvaluation(
+                    rule=_MANDATE_STATUS_RULE,
+                    outcome="unknown",
+                    detail=f"the platform reports mandate status {reported_mandate_status!r}, "
+                           f"which this engine version does not recognize",
+                    source="safety",
+                )
+            )
 
     # The customer revoked this run's mandate through our own endpoint. The event's
     # `mandate.status` may still say "active" -- the platform has its own view and may
@@ -339,7 +380,10 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # mandate_id would otherwise match the fingerprint and be answered with the
         # stored decision -- returning a real answer to an event that was never ours to
         # answer. See docs/DEEP_SECURITY_RESEARCH.md (V5).
-        binding_failures = _run_binding_failures(auth, mandate, state)
+        binding_failures = _run_binding_failures(
+            auth, mandate, state,
+            reported_mandate_status=(event.get("mandate") or {}).get("status"),
+        )
         if binding_failures:
             return EngineDecision(
                 authorization_id=authorization_id,
