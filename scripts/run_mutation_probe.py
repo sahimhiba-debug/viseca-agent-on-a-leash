@@ -20,7 +20,7 @@ mandate status checks -- rather than generated over every operator in the tree.
 It cannot tell you about a mechanism nobody thought to mutate. It can tell you
 that the ones listed here are genuinely held.
 
-RESULT AT THE TIME OF WRITING: 18 mutants, 18 killed, 0 survived.
+RESULT AT THE TIME OF WRITING: 20 mutants, 20 killed, 0 survived.
 
 One survivor was found when this probe was first run: widening the rolling window's
 start from `end - window < ts` to `end - window <= ts` passed the entire suite.
@@ -78,6 +78,12 @@ MUTANTS: list[tuple[str, str, str, str]] = [
      "a decline policy escalates instead of blocking"),
     ("decision_engine.py", '        return "review", reason_codes', '        return "allow", reason_codes',
      "an ask policy approves instead of asking"),
+
+    # --- empty-collection vacuity: I34 ---------------------------------------
+    ("decision_engine.py", "        if not facts.items:", "        if False:",
+     "an empty basket is no longer a structural failure"),
+    ("rules.py", '    if field.startswith("item.") and not facts.items:', "    if False:",
+     "item rules are vacuously satisfied by an empty basket again"),
 
     # --- run binding and mandate status: I20, I21, I33 -----------------------
     ("decision_engine.py", '    if auth.get("card_id") != state.card_id:', '    if False:',

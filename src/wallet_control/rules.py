@@ -94,6 +94,19 @@ def _candidate_items(facts: PurchaseFacts, ctx: RuleContext) -> list:
 def evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> RuleEvaluation:
     field = rule.field
 
+    # An item rule evaluated over an empty basket is not satisfied, it is UNCHECKABLE.
+    # Every `item.*` branch below reasons over a list, and each of them reads an empty
+    # list as agreement: nothing is outside the requested category, no name fails to
+    # match, nothing unrequested is present. That is the vacuous-truth bug, and it let a
+    # CHF 400 purchase carrying no items pass four item restrictions at once.
+    #
+    # `decision_engine` rejects an empty basket outright as a structural failure, so in
+    # practice this branch is the second line rather than the first. It exists because
+    # the vacuity lives HERE -- delete the engine's check and this file would go back to
+    # answering "pass" to questions it cannot see the subject of.
+    if field.startswith("item.") and not facts.items:
+        return RuleEvaluation(rule, "unknown", "this purchase lists no items, so this rule has nothing to check")
+
     if field == "authorization.billing_amount_chf" and rule.scope != "period":
         actual = facts.billing_amount_chf
         ok = _compare(rule.operator, actual, _as_decimal(rule.value))

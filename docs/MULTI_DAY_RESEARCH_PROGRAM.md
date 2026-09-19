@@ -92,11 +92,11 @@ python3 -m pytest -q                      # 700 collected, 5 reported skips
 python3 scripts/run_replay.py             # 45 events — 19 allow / 2 review / 24 block
 python3 scripts/run_red_team_corpus.py    # 133/133
 python3 scripts/run_red_team.py           # 17/17
-python3 scripts/run_mutation_probe.py     # 18 mutants, 18 killed, 0 survived
+python3 scripts/run_mutation_probe.py     # 20 mutants, 20 killed, 0 survived
 ```
 
 The last one is the answer to "your tests could be theatre". It deliberately breaks
-18 security mechanisms in `src/wallet_control/`, one at a time, and checks the suite
+20 security mechanisms in `src/wallet_control/`, one at a time, and checks the suite
 notices. It earned its place by finding a real gap on its first run.
 
 Three claims are now machine-checked rather than asserted:
@@ -201,7 +201,7 @@ R25, rather than quietly overwritten.
 ## 8. What this program did not do
 
 * **No formal proof.** Everything here is empirical — 12,000 monotonicity baskets,
-  3,000 lifecycle traces, 3,000 nested-window runs, 18 mutants. No proof was
+  3,000 lifecycle traces, 3,000 nested-window runs, 20 mutants. No proof was
   constructed and none is claimed.
 * **No new features.** The only behaviour change is the omission fix, and it makes
   the engine strictly more conservative.

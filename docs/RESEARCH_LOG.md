@@ -118,7 +118,7 @@ Each entry: question → setup → result → decision → commit.
 
 ### R23 · Phase 32 — is the suite theatre?
 **Setup:** 18 one-line edits to `src/wallet_control/`, each removing one protection, applied individually against the full suite.
-**Result:** **18 killed, 0 survived** — after the first run found **1 survivor**: widening the rolling window's start (`<` → `<=`) passed the entire suite. Not a safety hole (a wider window only blocks more), but nothing pinned which window the engine means.
+**Result:** **18 killed, 0 survived** (the probe has since grown to 20 — see R26) — after the first run found **1 survivor**: widening the rolling window's start (`<` → `<=`) passed the entire suite. Not a safety hole (a wider window only blocks more), but nothing pinned which window the engine means.
 **Decision:** the half-open boundary `(t−N, t]` is now a test. The probe ships as `scripts/run_mutation_probe.py` so an auditor can run it rather than believe it. → `7c792e9`
 
 ### R24 · Four points are not a trend — correcting R20
@@ -153,3 +153,16 @@ Consequence: the deadline crossing is **n ≈ 13,600**, not 11,000. The error wa
 **Consequence — R24's published number was the wrong one to quote.** 13,600 came from a 30-day window at one purchase per hour: a single, *more favourable* configuration. The worst case is the non-saturating one, flat at ~63.5e-6, giving **n ≈ 11,200**. R20's original 11,000 was accidentally close to right, for the wrong reason.
 
 **Decision:** publish **n ≈ 11,200 (worst case)**, with 13,600 named as the 30-day regime. Three passes at one number, two of them wrong, and both wrong ones are now documented in `tests/test_scale_limits.py` rather than quietly replaced — the failure mode was reading a trend off too few points, twice. → this commit
+
+### R26 · Cross-invariant attack Y — a rule with nothing to check
+**Setup:** Phase 3 pairing Y, decision ledger × malformed platform event. Three malformed events fed to a healthy run: a non-numeric amount, a garbage timestamp, and `items: []`.
+**Result:** the first two raise and record nothing (fail-closed). **The empty basket was ALLOWED and recorded.** Pushed on it: against a mandate carrying four item restrictions, a CHF 400 purchase with no items satisfied three of them *vacuously* — nothing is outside the requested category, no name fails to match, nothing unrequested is present — and with no `item.size` rule it was **ALLOW under every uncertainty policy, `decline` included.** The strictest setting a customer can choose was not stricter.
+**Class:** identical to the `mandate.status` omission (R19). A check switched off by deleting what it guards, needing no forgery — there a required field, here a required array. `minItems: 1` makes it malformed, and nothing here validates the schema.
+**Decision:** fixed in two layers. `decision_engine` refuses an empty basket as a `source="safety"` hard failure (structural, not uncertain — which is why it overrides `uncertainty_policy`); `rules.py` answers `unknown` for any `item.*` rule with no items, so the vacuity is fixed where it lives and survives deletion of the engine check. Both are now mutants in the probe (18 → 20). All 45 official events carry items, so the replay cannot move. → this commit
+
+### R27 · Cross-invariant pairings V, W, O, Q — all held
+**V** authority expiry × retry: re-issuing an authority for an already-decided purchase returns the original expiry; a retry cannot extend the window.
+**W** authority expiry × concurrent execution: 8 threads charging one authority → exactly 1 succeeded, 7 refused.
+**O** one-shot fulfilment × cancellation: a second purchase naming a `cancelled` prior is still `already_fulfilled` — cancellation does not re-open a one-shot job.
+**Q** fulfilment × merchant substitution: the job is recognised across a different merchant.
+**Decision:** no change. Recorded because negative results on a mandated phase are still results.

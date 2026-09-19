@@ -46,6 +46,7 @@ from .viseca_mapping import Decision
 _DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", value="false")
 _NO_RULES_RULE = HardRule(field="mandate.has_no_rules", operator="=", value="false")
 _AMOUNT_INTEGRITY_RULE = HardRule(field="authorization.amount_integrity", operator="=", value="true")
+_BASKET_PRESENT_RULE = HardRule(field="authorization.basket_present", operator="=", value="true")
 _AMOUNT_INTEGRITY_TOLERANCE_CHF = Decimal("0.02")  # allows for independent double-rounding, nothing more
 
 _AUTHORITY_STATUS_RULE = HardRule(field="authorization.authority_status", operator="=", value="active")
@@ -540,6 +541,33 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         if billing_amount_chf <= 0:
             evaluations.append(
                 RuleEvaluation(rule=_AMOUNT_INTEGRITY_RULE, outcome="fail", detail=f"billing_amount_chf={billing_amount_chf} is not positive", source="safety")
+            )
+        # A purchase with NO line items passes every item rule vacuously. `item.category
+        # in [electronics]` is satisfied because no item is outside the set;
+        # `item.name_contains` because no name fails to match;
+        # `item.unrequested_present=false` because there is nothing unrequested. Measured
+        # before this check existed: a CHF 400 purchase with an empty basket was ALLOWED
+        # against a mandate carrying four item restrictions -- under EVERY uncertainty
+        # policy, `decline` included. The strictest setting the customer can choose was
+        # not stricter, which is the tell that this is structural rather than uncertain.
+        #
+        # This is the same class as the `mandate.status` omission: a check switched off by
+        # deleting what it guards, needing no forgery. There the attacker removed a field;
+        # here they empty an array.
+        #
+        # `minItems: 1` in authorization_event.schema.json makes an empty basket malformed,
+        # and all 45 official events carry items, so this cannot move the replay. It is a
+        # hard failure rather than an unknown because `uncertainty_policy` governs
+        # uncertainty about a real purchase's facts -- not whether a purchase has any
+        # contents at all.
+        if not facts.items:
+            evaluations.append(
+                RuleEvaluation(
+                    rule=_BASKET_PRESENT_RULE,
+                    outcome="fail",
+                    detail="this purchase lists no items, so none of the customer's item rules can be checked against it",
+                    source="safety",
+                )
             )
         # `amount` is documented as the total INCLUDING delivery, with `items_subtotal`
         # and `delivery_fee` as its components. Nothing checked that they agreed, so an
