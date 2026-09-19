@@ -525,7 +525,8 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         timestamp=timestamp,
     )
     state.record_decision(
-        authorization_id, decision, facts.billing_amount_chf, facts.timestamp, merchant_id=merchant_id, basket_key=basket_key
+        authorization_id, decision, facts.billing_amount_chf, facts.timestamp,
+        merchant_id=merchant_id, basket_key=basket_key, reason_codes=reason_codes,
     )
 
     # R&D Track D: if this purchase names a related prior authorization this run

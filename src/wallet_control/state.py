@@ -322,7 +322,12 @@ class RunState:
         *,
         merchant_id: str,
         basket_key: BasketKey,
+        reason_codes: tuple[str, ...] = (),
     ) -> StoredDecision:
+        # The ledger records WHY, not just what. `StoredDecision.reason_codes` existed
+        # but was never populated, so anything reading the record back -- the audit
+        # timeline, and the UI after a step-up was answered -- lost every explanation
+        # and could only report the bare decision. Found at the final gate.
         if authorization_id in self._decisions:
             return self._decisions[authorization_id]  # never overwrite; first outcome for an ID is final here
         counted = decision == "allow"
@@ -337,6 +342,7 @@ class RunState:
             merchant_id=merchant_id,
             basket_key=basket_key,
             was_reviewed=(decision == "review"),
+            reason_codes=reason_codes,
         )
         self._decisions[authorization_id] = stored
         return stored
@@ -396,6 +402,9 @@ class RunState:
             basket_key=existing.basket_key,
             was_reviewed=True,
             resolved_at=resolved_at,
+            # Keep what the wallet originally said, and add the customer's answer.
+            # The reason a purchase was escalated is not erased by the answer to it.
+            reason_codes=existing.reason_codes + ("customer_resolution",),
         )
         self._decisions[authorization_id] = stored
         return stored

@@ -398,9 +398,8 @@ function basketHtml(d){
     return `<li class="${bad?'flag':''}"><span class="q">${b.quantity}×</span><span>${esc(b.name)}</span></li>`;
   }).join('') + '</ul>';
 }
-function whyHtml(d){
-  const codes = (d.reason_codes||[]).filter(c=>c!=='all_hard_rules_satisfied');
-  const plain = codes.map(c=>{
+function plainReasons(codes){
+  return (codes||[]).filter(c=>c!=='all_hard_rules_satisfied').map(c=>{
     if(c.startsWith('hard_rule_failed:')) return RULE_TEXT[c.split(':')[1]] || c.split(':')[1].replace(/[._]/g,' ');
     if(c.startsWith('uncertain:')) return UNSURE_TEXT[c.split(':')[1]] ||
       'The wallet could not establish: ' + c.split(':')[1].replace(/[._]/g,' ');
@@ -409,6 +408,9 @@ function whyHtml(d){
     if(c.startsWith('period_limit_exceeded')) return 'It would now exceed the spending limit you set.';
     return c.replace(/[._:]/g,' ');
   });
+}
+function whyHtml(d){
+  const plain = plainReasons(d.reason_codes);
   if(d.decision==='block') return `<div class="why block"><div class="h">Why this was stopped</div>
     <ul>${plain.map(p=>`<li>${esc(p)}</li>`).join('')||'<li>a check failed</li>'}</ul></div>`;
   if(d.decision==='review') return `<div class="why review"><div class="h">Why the wallet is asking</div>
@@ -430,8 +432,8 @@ const RULE_TEXT = {
   'item.unrequested_present':'The basket contains something you did not ask for',
   'merchant.familiar':'You have never paid this seller before',
   'merchant.category':'This is not the kind of shop you allowed',
-  'order.return_window_days':'The return window',
-  'item.size':'The size',
+  'order.return_window_days':'The return window is shorter than you asked for',
+  'item.size':'The size is not the one you asked for',
   'session.integrity_risk':'Something about this session looks wrong',
   'order.duplicate_suspected':'This looks like the same order again',
   'authorization.amount_integrity':'The stated CHF amount does not match the currency conversion',
@@ -534,7 +536,9 @@ async function loadAudit(){
   $('#tl').innerHTML = `<div class="card"><div class="tl">` + r.timeline.map(e=>`
       <div class="tl-e ${icon(e)}">
         <div class="t">${esc(e.event)}${e.decision?` — ${esc(e.decision==='review'?'asked you':e.decision)}`:''}</div>
-        <div class="d">${esc(e.detail)}</div>
+        <div class="d">${esc(e.event==='Wallet decision'
+            ? (plainReasons(e.detail.split(', ')).join(' · ') || 'Every rule you set was satisfied')
+            : e.detail)}</div>
         <div class="tiny">${e.timestamp?esc(e.timestamp.replace('T',' ').slice(0,19))+(e.clock?' · '+esc(e.clock)+' clock':''):'no time on record'}${
           e.authorization_id?' · '+esc(e.authorization_id):''}</div>
       </div>`).join('') + `</div></div>`;

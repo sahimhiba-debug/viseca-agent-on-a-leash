@@ -200,3 +200,51 @@ def test_demo_reset_clears_runs_without_touching_official_data(client):
     assert client.post("/api/demo/reset").json()["cleared_runs"] >= 1
     assert client.get("/api/health").json()["active_runs"] == 0
     assert replay_all().total_counts() == {"allow": 19, "review": 2, "block": 24}
+
+
+# --- the ledger records WHY, not only what ----------------------------------------
+
+
+def test_the_stored_decision_carries_its_reason_codes():
+    """`StoredDecision.reason_codes` existed but was never populated. Everything that
+    read the record back -- the audit timeline, and the UI re-rendering after a
+    step-up was answered -- lost every explanation and could only show the bare
+    decision. Found at the final gate by comparing a fresh evaluation against a
+    refetch of the same run."""
+    mandate, state = _run_scenario("SCEN0004")
+    stored = state.all_decisions()
+    assert stored
+    assert all(d.reason_codes for d in stored), "a decision was recorded with no reason"
+
+
+def test_a_refetched_run_explains_itself_exactly_like_a_fresh_one(client):
+    run = client.post("/api/scenarios/SCEN0004/run").json()
+    fresh = {d["authorization_id"]: d["reason_codes"] for d in run["decisions"]}
+    refetched = {d["authorization_id"]: d["reason_codes"]
+                 for d in client.get(f"/api/runs/{run['run_id']}").json()["decisions"]}
+    assert fresh == refetched
+
+
+def test_a_human_answer_does_not_erase_why_the_wallet_asked(client):
+    """The reason a purchase was escalated is not erased by the answer to it -- an
+    auditor needs both."""
+    run = client.post("/api/scenarios/SCEN0004/run").json()
+    run_id = run["run_id"]
+    aid = next(d["authorization_id"] for d in run["decisions"] if d["decision"] == "review")
+    client.post(f"/api/runs/{run_id}/authorizations/{aid}/resolve", json={"decision": "allow"})
+
+    after = next(d for d in client.get(f"/api/runs/{run_id}").json()["decisions"]
+                 if d["authorization_id"] == aid)
+    assert after["decision"] == "allow"
+    assert after["wallet_decision"] == "review"
+    assert any("uncertain" in c for c in after["reason_codes"]), after["reason_codes"]
+    assert "customer_resolution" in after["reason_codes"]
+
+
+def test_the_audit_timeline_states_why_each_decision_was_made(client):
+    run_id = client.post("/api/scenarios/SCEN0004/run").json()["run_id"]
+    decisions = [e for e in client.get(f"/api/runs/{run_id}/audit").json()["timeline"]
+                 if e["event"] == "Wallet decision"]
+    assert decisions
+    assert all(e["detail"] and e["detail"] != e["decision"] for e in decisions), (
+        "the audit repeated the decision instead of explaining it")
