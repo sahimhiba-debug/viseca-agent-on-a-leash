@@ -34,8 +34,8 @@ def peak_window_spend_chf(self, as_of, amount, period_days):
 
 Each approved purchase (and this one) is a candidate window end; a window that contains
 a purchase but ends at no purchase holds no more than one that does, so the maxima
-coincide. O(n²) in the run's approved purchases — 2.2 ms at 201, 43 ms at 809, and the 8s
-deadline at roughly 11,000; the largest official scenario has 12 purchase attempts
+coincide. O(n²) in the run's approved purchases — 2.6 ms at 203, 40.5 ms at 809, and the 8s
+deadline at roughly 11,200 in the worst case; the largest official scenario has 12 purchase attempts
 (`tests/test_scale_limits.py`).
 
 ## The same correction on the resolution path

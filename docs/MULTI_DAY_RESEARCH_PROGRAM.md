@@ -115,8 +115,8 @@ Three claims are now machine-checked rather than asserted:
 
 | | |
 | --- | --- |
-| shape of `peak_window_spend_chf` | quadratic — ms/n² settles at ~66e-6, doubling ratios 3.85 / 3.94 / **4.00** |
-| 8-second deadline crossed at | **n ≈ 11,000** approved purchases in one run |
+| shape of `peak_window_spend_chf` | **exactly quadratic** — with window saturation removed, ms/n² is flat at ~63e-6 across n=203→1,612 (drift 0.98×) |
+| 8-second deadline crossed at | **n ≈ 11,200** approved purchases in one run, worst case over window configurations (13,600 with a 30-day window at 1 purchase/hour — see §7) |
 | largest official scenario | **12** purchase attempts |
 | baskets | linear — 20,000 item lines is 54 ms |
 | pending step-ups | do not enter the window scan; 2,000 unresolved still decide in 0.15 ms |
@@ -156,7 +156,49 @@ same list as `docs/FINAL_AUDIT_PACKAGE.md`, which is the document to read next.
 
 ---
 
-## 7. What this program did not do
+## 7. A correction this program made to itself, twice
+
+The performance section did not survive its own campaign, and how it failed is
+worth more than the number it produced.
+
+**Pass 1.** Four points (n = 100…809): the constant `ms/n²` looked flat at ~66e-6
+and the doubling ratios landed on 3.85 / 3.93 / **4.00**. Published: *the constant
+settles, the ratios converge to 4.00, the deadline is crossed at n ≈ 11,000.* Into
+a commit message, three documents, a research-log entry and a test docstring.
+
+**Pass 2.** A longer run reaching **n = 6,418** contradicted it: the constant
+*declines*, 66.6e-6 → 43.2e-6, and the ratios fall to ~3.5. Corrected to **13,600**.
+Four points cannot establish convergence — the fourth ratio simply landed on 4.00
+with nothing after it to disagree.
+
+**Pass 3.** That correction was also wrong, and more dangerously, because it was
+optimistic. Varying the window length while holding everything else fixed isolated
+the cause: the decline is **window saturation**. At one purchase per simulated hour
+a 30-day window holds ~720, so past n ≈ 720 the expensive in-window `Decimal`
+additions stop growing while the cheap timestamp comparisons continue. Remove
+saturation — a window nothing ever falls out of — and the constant is **flat at
+~63e-6 (drift 0.98× across n = 203…1,612)**.
+
+So the algorithm is **exactly quadratic**, which is what pass 1 said about the
+*shape*, and the worst case over window configurations is **n ≈ 11,200**. Pass 2's
+13,600 measured one favourable regime and quoted it as the bound.
+
+What this cost and what it is worth:
+
+* **Pass 1 was conservative; pass 2 was not.** Replacing a right-for-the-wrong-reason
+  number with a wrong-and-optimistic one is the worse error, and it happened while
+  "correcting" for rigour.
+* **The failure was identical both times: reading a trend off too few points.** The
+  word "settles" in pass 1 and the single configuration in pass 2 were each doing
+  work the data could not support.
+* **What finally settled it was varying one thing on purpose**, not measuring the
+  same thing harder. Two runs of the same experiment disagreed; a third experiment
+  designed to falsify a *mechanism* resolved it.
+
+Both wrong passes are documented in `tests/test_scale_limits.py` and as R20, R24 and
+R25, rather than quietly overwritten.
+
+## 8. What this program did not do
 
 * **No formal proof.** Everything here is empirical — 12,000 monotonicity baskets,
   3,000 lifecycle traces, 3,000 nested-window runs, 18 mutants. No proof was

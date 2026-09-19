@@ -4,19 +4,51 @@
 "O(n^2), which is fine at run scale and would not be at ledger scale". That was an
 unverified claim about the newest security-critical code, so it is measured here.
 
-MEASURED (this machine, CPython 3.13):
+MEASURED (this machine, CPython 3.13, single-threaded).
 
-    n approved   ms/decision   ms / n^2
-           100          0.71   71.4e-6
-           203          2.73   66.2e-6
-           406         10.76   65.3e-6
-           809         43.03   65.8e-6      doubling ratios 3.85 / 3.94 / 4.00
+The algorithm is EXACTLY quadratic. The clean way to see it is a window large
+enough that no purchase ever falls out of it -- then every purchase is inside every
+window and nothing saturates:
 
-The constant `ms / n^2` settles, so the shape is quadratic, exactly as documented.
-Extrapolating the fit, one run crosses 8,000 ms at roughly **11,000 approved
-purchases**. The official corpus's largest scenario has **12** purchase attempts.
-That is a factor of ~900 in n and ~800,000 in time -- so the quadratic is real,
-and it is nowhere near binding on the workload this system is built for.
+    10-year window, one purchase per simulated hour   ms/n^2 x1e6
+                                       n =   203            62.9
+                                       n =   406            64.1
+                                       n =   809            62.8
+                                       n = 1,612            64.0     flat (0.98x)
+
+A flat `ms/n^2` is the definition of quadratic. At ~63.5e-6, **one run crosses the
+8,000 ms deadline at n ~= 11,200 approved purchases.** That is the WORST CASE over
+window configurations, and it is the number to hold onto.
+
+A REAL window is more favourable, and this is where two earlier versions of this
+docstring went wrong. With a 30-day window at one purchase per hour the window
+holds ~720, so past n ~= 720 the expensive in-window `Decimal` additions stop
+growing while the cheap timestamp comparisons continue:
+
+    n            100    203    406    809   1,612   3,215   6,418
+    ms/decision 0.67   2.56  10.30  40.54  143.55  495.68 1780.31
+    ms/n^2 x1e6 66.6   62.2   62.5   61.9    55.2    48.0    43.2
+    ratio         --   3.85   4.02   3.93    3.54    3.45    3.59
+
+Flat at ~62e-6 below the saturation point, declining only above it -- exactly where
+predicted. A 1-day window (saturating at n ~= 24) is already down at 38.7e-6 by
+n = 203.
+
+THIS NUMBER TOOK THREE PASSES AND BOTH WRONG ONES ARE WORTH KNOWING ABOUT:
+
+  1. A four-point fit (n <= 809) read the constant as "settling at ~66e-6" and the
+     doubling ratios as "converging to 4.00", giving n ~= 11,000. Four points cannot
+     establish convergence; the fourth ratio simply landed on 4.00 with nothing
+     after it to disagree.
+  2. A seven-point run reaching n = 6,418 contradicted that -- the constant declines
+     to 43.2e-6 -- and the correction published n ~= 13,600. But that measured ONE
+     window configuration, and a more favourable one: quoting it as the bound
+     replaced a right-for-the-wrong-reason number with a wrong-and-optimistic one.
+  3. Varying the window while holding everything else fixed isolated the cause and
+     gave the worst case, ~11,200.
+
+The official corpus's largest scenario has 12 purchase attempts, so the margin is
+~900x in n whichever regime applies.
 
 WHY IT IS QUADRATIC, and why that is not an accident to be optimized away:
 `peak_window_spend_chf` evaluates every window that CONTAINS the candidate
@@ -29,8 +61,8 @@ arrival time), so a new purchase can land INSIDE an existing window and push a
 window that was previously compliant over the cap. Checking only the window ending
 at the candidate missed that: CHF 480 was approved against a CHF 300 cap, and 367
 of 400 orderings breached. The n-windows-by-n-purchases scan is what closed it.
-A faster structure is possible; correctness came first and the numbers above say
-nothing is owed yet.
+A faster structure is possible (sort once and sweep, O(n log n)); correctness came
+first and the numbers above say nothing is owed yet.
 
 TWO OTHER SCALING PATHS, both measured, neither quadratic in CPU:
 

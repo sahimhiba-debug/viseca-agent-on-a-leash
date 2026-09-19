@@ -103,9 +103,9 @@ Each entry: question → setup → result → decision → commit.
 
 ### R20 · Phase 23 — is the quadratic actually fine?
 **Question:** `docs/AUTONOMOUS_R_AND_D_FINAL_REPORT.md` claimed `peak_window_spend_chf` is "O(n²), fine at run scale, trivially reducible". Three unverified claims about the newest security-critical code.
-**Result:** quadratic confirmed — ms/n² settles at ~66e-6, doubling ratios 3.85 / 3.94 / **4.00**. The fit crosses the 8,000 ms deadline at **n ≈ 11,000** approved purchases in one run; the largest official scenario has **12** purchase attempts. Baskets are linear (20,000 lines = 54 ms). Pending step-ups never enter the window scan, which is what bounds the quadratic by approvals rather than by events.
+**Result:** super-linear and close to quadratic — doubling ratios 3.45–4.02 over n=100→6,418 — but the constant ms/n² **declines** (66.6e-6 → 43.2e-6) rather than settling. Crossing the 8,000 ms deadline at **n ≈ 13,600**; the largest official scenario has **12** purchase attempts. *(First reported as 11,000 from a four-point fit; corrected by a seven-point run — see R24.)* Baskets are linear (20,000 lines = 54 ms). Pending step-ups never enter the window scan, which is what bounds the quadratic by approvals rather than by events.
 **Found while measuring:** a SECOND quadratic that bites first — `live_worker._save_checkpoint` re-serializes the whole run on every event, so a 2,000-decision run writes 1.3 MiB per event. Disk, not CPU, is the binding constraint.
-**Decision:** no optimization; the margin is ~900× in n. Claims replaced with measurements. → `d16392d`
+**Decision:** no optimization; the margin is ~900× in n. Claims replaced with measurements. *(The crossing figure in this entry was revised twice — see R24 and R25.)* → `d16392d`
 
 ### R21 · Is the invariant register true?
 **Question:** the register maps every invariant to "the test that fails if you remove the mechanism". That column is the most load-bearing claim in the repository, and it was hand-maintained.
@@ -120,3 +120,36 @@ Each entry: question → setup → result → decision → commit.
 **Setup:** 18 one-line edits to `src/wallet_control/`, each removing one protection, applied individually against the full suite.
 **Result:** **18 killed, 0 survived** — after the first run found **1 survivor**: widening the rolling window's start (`<` → `<=`) passed the entire suite. Not a safety hole (a wider window only blocks more), but nothing pinned which window the engine means.
 **Decision:** the half-open boundary `(t−N, t]` is now a test. The probe ships as `scripts/run_mutation_probe.py` so an auditor can run it rather than believe it. → `7c792e9`
+
+### R24 · Four points are not a trend — correcting R20
+**Question:** R20's fit came from four measurements (n = 100…809). A seven-point run reaching n = 6,418 finished afterwards. Does it agree?
+**Result:** **no, and R20 was wrong in its central claim.**
+
+| n | 100 | 203 | 406 | 809 | 1,612 | 3,215 | 6,418 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| ms/decision | 0.67 | 2.56 | 10.30 | 40.54 | 143.55 | 495.68 | 1,780.31 |
+| ms/n² ×1e6 | 66.6 | 62.2 | 62.5 | 61.9 | 55.2 | 48.0 | 43.2 |
+| doubling ratio | — | 3.85 | 4.02 | 3.93 | 3.54 | 3.45 | 3.59 |
+
+R20 said the constant *"settles at ~66e-6"* and the ratios *"converge to 4.00"*. Neither is true. The constant **declines** — 66.6e-6 → 43.2e-6 — and the ratios fall from ~4.0 below n ≈ 800 to ~3.5 above it. The "convergence to 4.00" was an artifact of the fourth point's ratio happening to land on 4.00 with nothing after it.
+
+Consequence: the deadline crossing is **n ≈ 13,600**, not 11,000. The error was conservative rather than dangerous, but it was stated with a precision four points cannot support.
+
+**Decision at the time:** corrected in six places to "close to quadratic, constant declines, crossing at n ≈ 13,600". **That decision was itself wrong — see R25.**
+
+
+### R25 · Isolating the cause — and correcting R24's correction
+**Question:** R24 established that `ms/n²` declines but not WHY. Hypothesis: the decline is window saturation. At one purchase per simulated hour a 30-day window holds ~720, so past n ≈ 720 the expensive in-window `Decimal` additions stop growing while the cheap timestamp comparisons continue. **Prediction: a window large enough that nothing ever falls out should show a FLAT constant.**
+**Setup:** identical workload, three window lengths — 1 day (saturates at n ≈ 24), 30 days (n ≈ 720), 10 years (never saturates).
+
+| ms/n² ×1e6 | n=203 | n=406 | n=809 | n=1,612 | drift |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1-day window | 38.7 | 36.1 | 34.5 | 33.6 | 1.15× |
+| 30-day window | 63.3 | 64.0 | 62.1 | 55.9 | 1.13× |
+| **10-year window** | **62.9** | **64.1** | **62.8** | **64.0** | **0.98×** |
+
+**Result:** hypothesis confirmed, cleanly. With saturation removed the constant is **flat** — the algorithm is **exactly O(n²)**, which is what R20 originally said about the shape. The 30-day curve is flat (~63e-6) *below* its saturation point and declines only *above* it, exactly where predicted. The 1-day window, saturating at n ≈ 24, is already down at 38.7e-6 by n = 203.
+
+**Consequence — R24's published number was the wrong one to quote.** 13,600 came from a 30-day window at one purchase per hour: a single, *more favourable* configuration. The worst case is the non-saturating one, flat at ~63.5e-6, giving **n ≈ 11,200**. R20's original 11,000 was accidentally close to right, for the wrong reason.
+
+**Decision:** publish **n ≈ 11,200 (worst case)**, with 13,600 named as the 30-day regime. Three passes at one number, two of them wrong, and both wrong ones are now documented in `tests/test_scale_limits.py` rather than quietly replaced — the failure mode was reading a trend off too few points, twice. → this commit

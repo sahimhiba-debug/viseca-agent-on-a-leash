@@ -66,7 +66,7 @@ Ranked by where I think you are most likely to find something:
 | The test suite is not theatre | `python3 scripts/run_mutation_probe.py` breaks 18 security mechanisms one at a time and every one is caught. It is a targeted probe, not exhaustive — **find a mechanism I did not think to mutate.** It found one real gap on its first run (the rolling window's start boundary was unpinned) |
 | Deleting a required field never helps an attacker | find a required field whose omission is more permissive than its strictest legal value |
 | Every invariant in `FINAL_INVARIANTS.md` cites a real test | `test_every_test_the_register_cites_exists` — the register is machine-checked, so attack the MAPPING instead: find an invariant whose cited test does not actually exercise it |
-| The 8s deadline is never at risk | measured, not assumed: quadratic in a run's approved purchases, crossing 8,000 ms at n ≈ 11,000 against an official max of 12. Find a workload where n is large or the cost is worse than quadratic (`tests/test_scale_limits.py`) |
+| The 8s deadline is never at risk | measured, not assumed: EXACTLY quadratic in a run's approved purchases — ms/n² is flat at ~63e-6 once you remove window saturation — crossing 8,000 ms at **n ≈ 11,200 worst case**, against an official max of 12. This number took three passes and two of them were wrong (`tests/test_scale_limits.py` documents both). **Find a workload where n is large, or where the cost is worse than quadratic.** Find a workload where n is large or the cost is worse than quadratic (`tests/test_scale_limits.py`) |
 | Official replay unchanged | `python3 scripts/run_replay.py` |
 
 ## Protocol assumptions I depend on
