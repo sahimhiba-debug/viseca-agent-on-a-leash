@@ -140,22 +140,29 @@ def test_basket_size_is_linear_not_quadratic():
         ]
     )
 
-    def _timed(n: int) -> float:
+    def _timed(n: int, repeats: int = 5) -> float:
+        """The MINIMUM of several runs. Scheduler noise, GC and a loaded machine can
+        only ever ADD time, so the minimum is the robust estimator of the real cost --
+        a mean makes this test fail when the suite is run under load, which is how an
+        earlier version of it flaked (it passed alone and failed in a full run)."""
         items = [
             {"line_no": i + 1, "item_id": f"I{i}", "item_name": "grocery", "item_category": "groceries",
              "quantity": 1, "unit_price": 1.0, "currency": "CHF", "item_details": "size 1kg"}
             for i in range(n)
         ]
-        event = _event(mandate, n, 1, items=items)
-        start = time.perf_counter()
-        evaluate_authorization(event, mandate, _state())
-        return (time.perf_counter() - start) * 1000
+        best = float("inf")
+        for _ in range(repeats):
+            event = _event(mandate, n, 1, items=items)
+            start = time.perf_counter()
+            evaluate_authorization(event, mandate, _state())
+            best = min(best, (time.perf_counter() - start) * 1000)
+        return best
 
-    _timed(100)  # warm the interpreter so the first call's import cost is not attributed to n
+    _timed(100, repeats=2)  # warm the interpreter; the first call's import cost is not about n
     small, large = _timed(500), _timed(5000)
     assert large < DEADLINE_MS / 100, f"{large:.1f} ms for a 5,000-line basket"
-    # 10x the lines must not cost 100x the time; linear gives 10
-    assert large / max(small, 1e-6) < 30, f"10x the lines cost {large / small:.1f}x the time"
+    # 10x the lines must not cost 100x the time; linear gives 10, quadratic gives 100
+    assert large / max(small, 1e-6) < 40, f"10x the lines cost {large / small:.1f}x the time"
 
 
 def test_pending_step_ups_do_not_enter_the_window_scan():

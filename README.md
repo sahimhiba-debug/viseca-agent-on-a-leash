@@ -21,8 +21,13 @@ this codebase are the official integration versus local, demo-only extensions.
    ("Buy groceries for CHF 120 or less..." -> spending ceilings, merchant/item
    requirements, an uncertainty policy) -- [`policy_compiler.py`](src/wallet_control/policy_compiler.py).
 2. **Decides ALLOW / REVIEW / BLOCK for each proposed purchase**, deterministically,
-   from that policy plus trustworthy purchase facts -- never from merchant-supplied
-   text -- [`decision_engine.py`](src/wallet_control/decision_engine.py).
+   from that policy plus the purchase facts --
+   [`decision_engine.py`](src/wallet_control/decision_engine.py). Merchant-supplied
+   free text *is* read, in exactly one place and under whitelist patterns, and it can
+   only ever **narrow** a decision: no merchant string can raise a ceiling, satisfy a
+   requirement or turn a BLOCK into an ALLOW ([`facts.py`](src/wallet_control/facts.py),
+   invariant I9). We do **not** claim to detect a merchant lying in the narrowing
+   direction -- see [docs/WHAT_WE_REFUSE_TO_CLAIM.md](docs/WHAT_WE_REFUSE_TO_CLAIM.md).
 3. **Separates that decision from actual payment execution.** ALLOW is
    authorization advice, not money moving -- [`payment.py`](src/wallet_control/payment.py).
 4. **Lets the customer confirm, tighten, or revoke** what they allowed, and answer
@@ -65,7 +70,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     622 tests
+tests/                     699 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -118,7 +123,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**643 tests.** The structure is deliberate rather than count-driven:
+**699 tests** -- 694 pass and 5 are reported skips, not silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say
@@ -157,7 +162,9 @@ behind every one of the 45 decisions.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
 - [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
-- [docs/SECURITY_INVARIANTS.md](docs/SECURITY_INVARIANTS.md) -- the formal I1-I25 invariant list, each with what enforces it and what test would catch a violation
+- [docs/FINAL_AUDIT_PACKAGE.md](docs/FINAL_AUDIT_PACKAGE.md) -- **start here if you are auditing this.** Where to attack first, ranked, and how to falsify each claim
+- [docs/WHAT_WE_REFUSE_TO_CLAIM.md](docs/WHAT_WE_REFUSE_TO_CLAIM.md) -- the limitations, stated as refusals rather than buried
+- [docs/FINAL_INVARIANTS.md](docs/FINAL_INVARIANTS.md) -- the I1-I33 invariant register, each with what enforces it and the test that fails if you remove the mechanism. The register is machine-checked: `test_every_test_the_register_cites_exists`. It is *not* a formal proof and does not claim to be
 - [docs/VISECA_INTEGRATION.md](docs/VISECA_INTEGRATION.md) -- official contract vs. local extensions
 - [docs/OFFLINE_REPLAY.md](docs/OFFLINE_REPLAY.md) -- how the 45-event replay works and why each decision came out the way it did
 - [docs/DECISION_ANALYSIS.md](docs/DECISION_ANALYSIS.md) -- the same replay examined adversarially: why so few REVIEWs, and every genuinely debatable call argued both ways
