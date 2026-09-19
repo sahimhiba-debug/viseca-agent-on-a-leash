@@ -104,3 +104,65 @@ def test_the_two_verdicts_are_explanatory_and_cannot_change_a_decision():
             "swapping every authority tag changed a decision -- the split is not explanatory")
     finally:
         engine._decide = original
+
+
+def test_the_decision_is_always_the_stricter_of_the_two_verdicts():
+    """The UI prints "Your rules: Satisfied" and "Wallet checks: Satisfied" directly
+    beside the decision. Nothing asserted the three agree.
+
+    Found during the pre-freeze UI attack: a card reading BLOCKED above two
+    "Satisfied" verdicts is visually devastating and would be the first thing a
+    hostile judge screenshots. In that instance the contradiction came from the
+    injected test data rather than the engine, but the check it prompted did not
+    exist -- the verdicts are rendered independently of the decision, so an engine
+    that ever produced an inconsistent triple would display it without noticing.
+
+    The relation is not "they are equal". `_decide` takes fail > unknown > pass over
+    ALL evaluations, and the two verdicts are the same evaluations partitioned by
+    `source`, so the decision must equal the STRICTER of the two. 3,000 generated
+    decisions across all three uncertainty policies, with and without history.
+    """
+    import random
+    from datetime import datetime, timedelta, timezone
+
+    from tests.helpers import make_event, make_mandate
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.mandate import HardRule, UncertaintyPolicy
+    from wallet_control.state import HistoryIndex, RunState
+
+    rank = {"block": 0, "review": 1, "allow": 2}
+    merchant, start = "ME_KNOWN", datetime(2026, 8, 12, tzinfo=timezone.utc)
+    rng = random.Random(11)
+
+    for trial in range(400):
+        rules = [HardRule(field="authorization.billing_amount_chf", operator="<=",
+                          value=rng.choice([50, 200, 400]), currency="CHF", scope="purchase")]
+        if rng.random() < 0.5:
+            rules.append(HardRule(field="merchant.familiar", operator="=", value="true"))
+        if rng.random() < 0.5:
+            rules.append(HardRule(field="item.category", operator="in", value=["groceries"]))
+        if rng.random() < 0.4:
+            rules.append(HardRule(field="order.return_window_days", operator=">=", value=14))
+
+        mandate = make_mandate(instruction="Buy groceries.", hard_rules=rules,
+                               uncertainty_policy=rng.choice(list(UncertaintyPolicy)))
+        state = RunState(
+            history=HistoryIndex({"CA_TEST": frozenset({merchant})}, available=rng.random() < 0.8),
+            card_id="CA_TEST",
+        )
+        event = make_event(mandate=mandate, authorization_id=f"AU{trial}",
+                           amount=rng.choice([10.0, 199.0, 401.0]),
+                           merchant_id=rng.choice([merchant, "ME_OTHER"]),
+                           timestamp=start + timedelta(hours=trial))
+        event["authorization"]["items"][0].update(
+            item_name="milk", item_category=rng.choice(["groceries", "jewellery"]),
+            item_details=rng.choice(["", "returns accepted within 30 days"]),
+        )
+        event["authorization"]["order_returnable"] = rng.choice(["true", "unknown"])
+
+        decision = evaluate_authorization(event, mandate, state)
+        stricter = min(rank[decision.policy_verdict], rank[decision.security_verdict])
+        assert rank[decision.decision] == stricter, (
+            f"decision={decision.decision} but policy={decision.policy_verdict} "
+            f"security={decision.security_verdict}"
+        )

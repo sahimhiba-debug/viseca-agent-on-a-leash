@@ -70,7 +70,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     881 tests
+tests/                     882 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -123,7 +123,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**881 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**882 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say
@@ -135,8 +135,8 @@ pytest -q
 - `tests/security/test_state_machine.py` -- a stateful model over the whole lifecycle.
 
 The count is not the argument. `python3 scripts/run_mutation_probe.py` deliberately
-breaks 27 security mechanisms in `src/wallet_control/`, one at a time, and checks the
-suite notices: **27 killed, 0 survived.** Its first run found a real gap and the
+breaks 29 security mechanisms in `src/wallet_control/`, one at a time, and checks the
+suite notices: **29 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
 Official replay: **45 events, 19 allow / 2 review / 24 block** -- a regression

@@ -20,7 +20,7 @@ mandate status checks -- rather than generated over every operator in the tree.
 It cannot tell you about a mechanism nobody thought to mutate. It can tell you
 that the ones listed here are genuinely held.
 
-RESULT AT THE TIME OF WRITING: 27 mutants, 27 killed, 0 survived.
+RESULT AT THE TIME OF WRITING: 29 mutants, 29 killed, 0 survived.
 
 One survivor was found when this probe was first run: widening the rolling window's
 start from `end - window < ts` to `end - window <= ts` passed the entire suite.
@@ -78,6 +78,18 @@ MUTANTS: list[tuple[str, str, str, str]] = [
      "a decline policy escalates instead of blocking"),
     ("decision_engine.py", '        return "review", reason_codes', '        return "allow", reason_codes',
      "an ask policy approves instead of asking"),
+
+    # --- concurrency and human resolution ------------------------------------
+    # The brief's freeze audit named eight defect shapes to verify the SUITE against.
+    # Six were already mutants. These two -- the run lock and the already-resolved
+    # guard -- were security-critical and unmutated, which is exactly the gap a
+    # probe is for.
+    ("state.py", '        """Hold the run\'s lock across a check-then-record sequence."""\n        return self._consume_lock',
+     '        """Hold the run\'s lock across a check-then-record sequence."""\n        import contextlib\n\n        return contextlib.nullcontext()',
+     "the decision path is no longer atomic within one process"),
+    ("decision_engine.py", '        already_resolved = pending is not None and pending.decision != "review"',
+     "        already_resolved = False",
+     "an answered purchase can be answered again and overridden"),
 
     # --- customer-facing explanation: I39 ------------------------------------
     ("decision_engine.py", "    reasons = list(dict.fromkeys(_plain_reason(e) for e in problems))",

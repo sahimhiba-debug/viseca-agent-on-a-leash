@@ -117,3 +117,10 @@ Press **Revoke mandate**.
 - "The account's monthly limit protects the customer." → we do **not** enforce it.
 - "This secures Viseca's payment system." → the payment step here is **ours and simulated**;
   the official API has no payment step.
+- "The wallet enforces what the customer asked for." → it enforces the **compiled
+  policy**, and shows the customer that policy plus what it could not represent. The
+  compiler is phrase patterns, not understanding. An audit of it found six defects,
+  including a weekly budget compiled as a per-order ceiling.
+- "Anyone can answer a step-up." → true, and say it first: the demo step-up channel
+  has **no authentication and no `resolved_by`**. Anyone who can reach the port can
+  answer a customer's question.
