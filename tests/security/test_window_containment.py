@@ -1,0 +1,172 @@
+"""A rolling cap must hold for every window that CONTAINS a purchase, not the one
+that ends at it.
+
+The natural implementation -- sum the last N days and add this one -- is correct only
+when decisions are made in chronological order and none is deferred. The official
+protocol guarantees neither:
+
+  * nothing orders `/v1/decision-requests/next` by purchase time, and the agent
+    chooses what to propose when;
+  * `step_up` defers by design, and technical_details.md requires that a paused
+    purchase "does not enter approved spend until it is resolved" -- at which point it
+    enters at its ORIGINAL simulated timestamp, behind decisions already taken against
+    a window that could not see it.
+
+Following both requirements correctly is what produces the breach. Measured before the
+fix: CHF 480 against a CHF 300 seven-day cap with strictly chronological delivery, and
+367 of 400 random arrival orders breaching with reordering alone.
+"""
+
+from __future__ import annotations
+
+import random
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+
+import pytest
+
+from tests.helpers import make_event, make_mandate
+from wallet_control.csv_data import load_merchants, load_purchase_attempt_items
+from wallet_control.decision_engine import evaluate_authorization, resolve_authorization
+from wallet_control.mandate import HardRule
+from wallet_control.offline_replay import (
+    build_event, compile_and_confirm_mandate_for_scenario, history_csv_path, scenario_rows,
+)
+from wallet_control.state import HistoryIndex, RunState
+
+M, CARD = "ME_TEST_0001", "CA_TEST"
+T0 = datetime(2026, 8, 12, 9, 0, tzinfo=timezone.utc)
+CAP, DAYS = Decimal("300"), 7
+
+
+def _mandate(per_purchase=200, period=300, days=7, need_return_window=False):
+    rules = [
+        HardRule(field="authorization.billing_amount_chf", operator="<=", value=per_purchase,
+                 currency="CHF", scope="purchase"),
+        HardRule(field="authorization.billing_amount_chf", operator="<=", value=period,
+                 currency="CHF", scope="period", period_days=days),
+    ]
+    if need_return_window:
+        rules.append(HardRule(field="order.return_window_days", operator=">=", value=14))
+    return make_mandate(instruction="Order our household groceries.", hard_rules=rules)
+
+
+def _state():
+    return RunState(history=HistoryIndex({CARD: frozenset({M})}, available=True), card_id=CARD)
+
+
+def _buy(mandate, state, aid, amount, hours, details="returns accepted within 30 days"):
+    event = make_event(mandate=mandate, authorization_id=aid, amount=amount, merchant_id=M,
+                       timestamp=T0 + timedelta(hours=hours))
+    event["authorization"]["order_returnable"] = "true"
+    event["authorization"]["items"][0].update(item_details=details, item_name=f"groceries {aid}")
+    return evaluate_authorization(event, mandate, state)
+
+
+def _worst_window(state, days=DAYS):
+    spend = state._approved_spend
+    return max((sum((a for ts, a in spend if end - timedelta(days=days) < ts <= end), Decimal("0"))
+                for end, _ in spend), default=Decimal("0"))
+
+
+# --- the attack that motivated the fix --------------------------------------------
+
+
+def test_a_step_up_resolved_late_cannot_breach_the_customers_window():
+    """THE ATTACK, in strictly chronological order and with no reordering at all.
+
+    A purchase is paused for the customer -- the wallet being careful. Two more are
+    approved against a window that cannot see it. The customer then answers yes. Every
+    decision is locally correct; the week holds CHF 480 against a CHF 300 limit.
+
+    Being careful is what created the hole."""
+    mandate, state = _mandate(need_return_window=True), _state()
+
+    assert _buy(mandate, state, "AU1", 180.0, 0, details="").decision == "review"
+    assert _buy(mandate, state, "AU2", 150.0, 2).decision == "allow"
+    assert _buy(mandate, state, "AU3", 150.0, 4).decision == "allow"
+    assert state.total_approved_spend_chf() == Decimal("300")
+
+    resolved = resolve_authorization("AU1", "allow", state,
+                                     resolved_at=datetime.now(timezone.utc), mandate=mandate)
+    assert resolved.decision == "block"
+    assert any("period_limit_exceeded" in c for c in resolved.reason_codes), resolved.reason_codes
+    assert _worst_window(state) <= CAP
+
+
+def test_the_same_resolution_succeeds_when_it_actually_fits():
+    """The other half: the re-check must not turn every late answer into a decline."""
+    mandate, state = _mandate(need_return_window=True), _state()
+    assert _buy(mandate, state, "AU1", 100.0, 0, details="").decision == "review"
+    assert _buy(mandate, state, "AU2", 100.0, 2).decision == "allow"
+
+    resolved = resolve_authorization("AU1", "allow", state,
+                                     resolved_at=datetime.now(timezone.utc), mandate=mandate)
+    assert resolved.decision == "allow"
+    assert _worst_window(state) == Decimal("200")
+
+
+# --- order independence ------------------------------------------------------------
+
+
+def _run_official_order(order):
+    mandate = compile_and_confirm_mandate_for_scenario("SCEN0001").snapshot()
+    state = RunState(history=HistoryIndex.from_csv(history_csv_path()), card_id=mandate.card_id)
+    merchants, items = load_merchants(), load_purchase_attempt_items()
+    approved = 0
+    for row in order:
+        ctx = {"approved_spend_in_period_chf": float(state.total_approved_spend_chf()),
+               "recent_authorizations": state.recent_authorizations_context()}
+        result = evaluate_authorization(
+            build_event(row, items[row["authorization_id"]], merchants[row["merchant_id"]], mandate, ctx),
+            mandate, state)
+        approved += result.decision == "allow"
+    return approved, _worst_window(state)
+
+
+def test_no_arrival_order_can_breach_the_customers_window():
+    """Before the fix, 367 of 400 random orders breached a CHF 300 / 7-day cap, the
+    worst reaching CHF 389. The agent chooses the order it proposes in, so this was
+    entirely under its control."""
+    rows = scenario_rows("SCEN0001")
+    rng = random.Random(11)
+    for _ in range(60):
+        _, worst = _run_official_order(rng.sample(rows, len(rows)))
+        assert worst <= CAP, f"arrival order breached the cap: CHF {worst}"
+
+
+def test_the_number_of_approvals_does_not_depend_on_arrival_order():
+    """The stronger property the fix buys. Reordering used to fund two extra purchases
+    -- CHF 387.50 to CHF 477.00, starving nothing -- so the agent could choose how much
+    of the customer's week to spend simply by choosing what to propose first."""
+    rows = scenario_rows("SCEN0001")
+    rng = random.Random(7)
+    counts = {_run_official_order(rng.sample(rows, len(rows)))[0] for _ in range(40)}
+    assert len(counts) == 1, f"approval count varies with arrival order: {sorted(counts)}"
+
+
+# --- the invariant, and compatibility ----------------------------------------------
+
+
+def test_peak_window_equals_the_backward_window_when_nothing_is_out_of_order():
+    """Why the official replay is unchanged: for a chronological run with nothing
+    deferred, the peak containing window and the window ending at the purchase are the
+    same number. The fix only bites where the old check was wrong."""
+    state = _state()
+    for hours, amount in ((0, "50"), (24, "60"), (48, "70")):
+        ts = T0 + timedelta(hours=hours)
+        assert state.peak_window_spend_chf(ts, Decimal(amount), DAYS) == (
+            state.rolling_spend_chf(ts, DAYS) + Decimal(amount))
+        state._approved_spend.append((ts, Decimal(amount)))
+
+
+@pytest.mark.parametrize("scenario_id", ["SCEN0000", "SCEN0001", "SCEN0002", "SCEN0003", "SCEN0004"])
+def test_the_official_replay_is_unchanged(scenario_id):
+    from wallet_control.offline_replay import replay_scenario
+
+    expected = {"SCEN0000": {"allow": 1, "review": 0, "block": 0},
+                "SCEN0001": {"allow": 5, "review": 0, "block": 5},
+                "SCEN0002": {"allow": 3, "review": 1, "block": 8},
+                "SCEN0003": {"allow": 5, "review": 0, "block": 6},
+                "SCEN0004": {"allow": 5, "review": 1, "block": 5}}
+    assert replay_scenario(scenario_id).counts() == expected[scenario_id]

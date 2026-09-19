@@ -267,8 +267,13 @@ def _projected_period_spend(mandate: MandateSnapshot, state: RunState, as_of: da
     projected: dict[int, Decimal] = {}
     for rule in mandate.hard_rules:
         if rule.field == "authorization.billing_amount_chf" and rule.scope == "period" and rule.period_days:
-            prior = state.rolling_spend_chf(as_of, rule.period_days)
-            projected[rule.period_days] = prior + this_amount
+            # The peak of every window CONTAINING this purchase, not the window
+            # ending at it -- see `RunState.peak_window_spend_chf`. For a run whose
+            # decisions arrive in chronological order with nothing deferred the two
+            # agree exactly, which is why the official replay is unchanged.
+            projected[rule.period_days] = state.peak_window_spend_chf(
+                as_of, this_amount, rule.period_days
+            )
     return projected
 
 
@@ -596,11 +601,19 @@ def _period_rules_breached_now(
     for rule in mandate.hard_rules:
         if rule.field != "authorization.billing_amount_chf" or rule.scope != "period" or not rule.period_days:
             continue
-        prior = state.rolling_spend_chf(pending.timestamp, rule.period_days)
-        if prior + pending.billing_amount_chf > to_decimal(rule.value):
+        # Same correction as the evaluation path, and this is where it matters most:
+        # a resolution is BY DEFINITION out of order. The purchase was paused at its
+        # simulated time and the customer answers later, behind decisions already
+        # taken. A backward-looking window from the paused purchase cannot see them,
+        # which is how the first version of this check passed CHF 480 against a
+        # CHF 300 cap.
+        peak = state.peak_window_spend_chf(
+            pending.timestamp, pending.billing_amount_chf, rule.period_days
+        )
+        if peak > to_decimal(rule.value):
             return (
-                f"{rule.period_days}d spend would reach "
-                f"CHF {prior + pending.billing_amount_chf} against a CHF {rule.value} ceiling"
+                f"approving it would put CHF {peak} into a {rule.period_days}-day window "
+                f"against a CHF {rule.value} ceiling"
             )
     return None
 

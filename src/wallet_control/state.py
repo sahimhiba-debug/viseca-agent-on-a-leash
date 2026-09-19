@@ -414,6 +414,40 @@ class RunState:
         window_start = as_of - timedelta(days=period_days)
         return sum((amt for ts, amt in self._approved_spend if window_start < ts <= as_of), Decimal("0"))
 
+    def peak_window_spend_chf(self, as_of: datetime, amount: Decimal, period_days: int) -> Decimal:
+        """The largest rolling window of `period_days` that would contain anything,
+        if a purchase of `amount` at `as_of` were approved.
+
+        `rolling_spend_chf` answers a narrower question -- what is in the window that
+        ENDS at `as_of` -- and that is the right question only when decisions are made
+        in chronological order and none is deferred. The official protocol guarantees
+        neither:
+
+          * nothing in the contract orders `/v1/decision-requests/next` by purchase
+            time, and the agent chooses what to propose when;
+          * `step_up` defers a decision by design, and technical_details.md requires
+            that a paused purchase "does not enter approved spend until it is
+            resolved" -- at which point it enters at its ORIGINAL simulated timestamp,
+            behind decisions already taken against a window that could not see it.
+
+        Following both requirements correctly is exactly what produces the breach:
+        measured at CHF 480 against a CHF 300 seven-day cap, with strictly
+        chronological delivery and every individual decision locally correct.
+
+        So the bound must hold for EVERY window containing the purchase, not the one
+        ending at it. Each approved purchase (and this one) is a candidate window end;
+        a window that contains a purchase but ends at no purchase holds no more than
+        one that does, so the maxima coincide.
+
+        O(n^2) in the run's approved purchases. The official run is 45 events.
+        """
+        trial = [*self._approved_spend, (as_of, amount)]
+        window = timedelta(days=period_days)
+        return max(
+            sum((a for ts, a in trial if end - window < ts <= end), Decimal("0"))
+            for end, _ in trial
+        )
+
     def total_approved_spend_chf(self) -> Decimal:
         """Cumulative approved spend since the run started -- mirrors the platform's
         `context.approved_spend_in_period_chf`, which technical_details.md says is
