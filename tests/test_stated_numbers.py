@@ -49,7 +49,7 @@ def collected_count() -> int:
     "relative_path,pattern",
     [
         ("README.md", r"^tests/\s+(\d[\d,]*) tests$"),
-        ("README.md", r"\*\*(\d[\d,]*) tests\*\* --"),
+        ("README.md", r"\*\*(\d[\d,]*) tests\*\*, of which"),
         ("docs/FINAL_AUDIT_PACKAGE.md", r"\| tests \| (\d[\d,]*) collected"),
     ],
 )

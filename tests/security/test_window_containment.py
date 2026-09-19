@@ -370,3 +370,36 @@ def test_nested_overlapping_period_rules_are_all_respected():
         for days, cap in caps:
             assert _worst_window(state, days) <= cap, (
                 f"{days}-day window breached: CHF {_worst_window(state, days)} > {cap}")
+
+
+def test_the_rolling_window_is_half_open_exactly_N_days_ago_is_outside_it():
+    """`(t - N, t]` -- the boundary, pinned.
+
+    Found by mutation testing: changing `end - window < ts` to `end - window <= ts`
+    in `state.peak_window_spend_chf` survived the ENTIRE suite. It is not a safety
+    hole -- an inclusive start makes the window WIDER, so it can only ever block
+    more -- but nothing pinned which of the two the engine means, and an unpinned
+    boundary is how a "harmless" simplification later becomes a behaviour change
+    nobody chose.
+
+    Half-open is the right reading of "no more than CHF 300 across any seven days":
+    a purchase made exactly seven days ago is no longer within the last seven days.
+    The closed form would also make the window inconsistent with itself, since a
+    purchase on the boundary would be counted in two adjacent windows at once.
+    """
+    mandate = _mandate(per_purchase=200, period=300, days=7)
+
+    state = _state()
+    assert _buy(mandate, state, "AU_EDGE_1", 200.0, hours=0).decision == "allow"
+    # Exactly seven days later. The window (t-7d, t] opens AFTER the first purchase,
+    # so only this one is inside it: 200 <= 300.
+    assert _buy(mandate, state, "AU_EDGE_2", 200.0, hours=24 * 7).decision == "allow", (
+        "a purchase exactly 7 days old must fall OUTSIDE a 7-day window"
+    )
+
+    # An hour earlier it is still inside, and 200 + 200 > 300.
+    state_b = _state()
+    assert _buy(mandate, state_b, "AU_EDGE_3", 200.0, hours=0).decision == "allow"
+    assert _buy(mandate, state_b, "AU_EDGE_4", 200.0, hours=24 * 7 - 1).decision == "block", (
+        "an hour inside the window must still count"
+    )
