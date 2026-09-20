@@ -14,6 +14,7 @@ not a multi-tenant service.
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -65,6 +66,10 @@ class DemoRun:
     # recorded "Mandate confirmed" with no time -- because no such event had happened.
     # Either the gate is real and stamped, or the claim comes out. It is now real.
     confirmed_at: datetime | None = None
+    # The identifier the CUSTOMER view is served under. Minted here, never returned
+    # to the agent, and deliberately not the `session_id` the agent chose -- see
+    # `customer_session_view` for why that distinction is the whole point.
+    view_id: str = ""
 
 
 _RUNS: dict[str, DemoRun] = {}
@@ -156,7 +161,8 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
                         profile_id="PROFILE_AGENT_DEMO",
                         acknowledged_unsupported=compiled.unsupported_restrictions)
         session = DemoRun(req.session_id, mandate,
-                          RunState(history=_HISTORY, card_id="CA0001"), {}, [], datetime.now(timezone.utc))
+                          RunState(history=_HISTORY, card_id="CA0001"), {}, [],
+                          datetime.now(timezone.utc), view_id=secrets.token_urlsafe(9))
         _AGENT_SESSIONS[req.session_id] = session
 
     snapshot = session.mandate.snapshot()
@@ -237,19 +243,49 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
     return agent_view(result)
 
 
-@app.get("/api/agent/sessions/{session_id}")
-def agent_session_customer_view(session_id: str) -> dict[str, Any]:
+@app.get("/api/customer/sessions")
+def customer_sessions() -> dict[str, Any]:
+    """The customer's own surface: which sessions exist, by their VIEW id.
+
+    A real deployment authenticates this. The demo does not, and we say so rather
+    than implying otherwise -- see `docs/AGENT_VISIBLE_DATA.md`.
+    """
+    return {"sessions": [{"view_id": s.view_id, "started": s.confirmed_at.isoformat()
+                          if s.confirmed_at else None, "attempts": len(s.order)}
+                         for s in _AGENT_SESSIONS.values() if s.view_id]}
+
+
+@app.get("/api/customer/sessions/{view_id}")
+def customer_session_view(view_id: str) -> dict[str, Any]:
     """The SAME attempts, as the CUSTOMER sees them. Richer on purpose: this is the
-    other half of the audience separation, and the demo shows both side by side."""
-    session = _AGENT_SESSIONS.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail=f"unknown agent session {session_id!r}")
-    return {
-        "session_id": session_id,
-        "mandate": session.mandate.as_dict(),
-        "attempts": [_stored_decision_summary(session.events_by_authorization[a], session.state.get_stored_decision(a))
-                     for a in session.order],
-    }
+    other half of the audience separation.
+
+    This used to live at `GET /api/agent/sessions/{session_id}`, and an information-
+    boundary audit found that name was not a label -- it was an invitation. The path
+    sat in the agent's own namespace and was keyed on the `session_id` the AGENT
+    chooses and sends on every proposal. So an agent could read its own customer view
+    in one GET and receive `hard_rules[].value = 120`, every evidence string, and both
+    verdicts. The entire "twelve probes and CHF 531 to recover a ceiling" analysis was
+    bypassable by an agent that simply asked.
+
+    It is now keyed on a `view_id` minted server-side and never returned to the agent
+    on any agent-facing route, which `tests/security/test_agent_information_boundary.py`
+    checks by searching every agent response for it.
+
+    The demo API has no authentication, so this is NOT a claim that the agent cannot
+    reach this data -- it is the narrower, testable claim that nothing the agent is
+    GIVEN tells it where to look.
+    """
+    for session in _AGENT_SESSIONS.values():
+        if session.view_id == view_id:
+            return {
+                "view_id": view_id,
+                "mandate": session.mandate.as_dict(),
+                "attempts": [_stored_decision_summary(session.events_by_authorization[a],
+                                                      session.state.get_stored_decision(a))
+                             for a in session.order],
+            }
+    raise HTTPException(status_code=404, detail="unknown session view")
 
 
 @app.get("/api/attacks")
@@ -325,6 +361,10 @@ def start_scenario_run(scenario_id: str, req: RunRequest | None = None) -> dict[
         decisions.append(_decision_summary(event, result))
 
     confirmed_at: datetime | None = None
+    # The identifier the CUSTOMER view is served under. Minted here, never returned
+    # to the agent, and deliberately not the `session_id` the agent chose -- see
+    # `customer_session_view` for why that distinction is the whole point.
+    view_id: str = ""
     if req is not None and req.confirmed_at:
         try:
             confirmed_at = datetime.fromisoformat(req.confirmed_at.replace("Z", "+00:00"))
