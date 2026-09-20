@@ -442,6 +442,61 @@ def _plain_reason(evaluation: RuleEvaluation) -> str:
     return table.get(rule.field) or f"a check on {fallback} did not pass"
 
 
+# The constraint CLASSES an agent is allowed to learn about. A class names the KIND of
+# thing that failed, never its value: "amount" and not "CHF 120", "window" and not
+# "CHF 300 across 7 days, CHF 287 already spent".
+_AGENT_CONSTRAINT_CLASS = {
+    "authorization.billing_amount_chf": "amount",
+    "merchant.familiar": "merchant",
+    "merchant.category": "merchant",
+    "item.category": "item",
+    "item.name_contains": "item",
+    "item.size": "item",
+    "item.unrequested_present": "basket",
+    "order.return_window_days": "order_terms",
+    "session.integrity_risk": "session",
+    "order.duplicate_suspected": "duplicate",
+}
+
+
+def agent_view(decision: "EngineDecision") -> dict[str, Any]:
+    """What the SHOPPING AGENT may be told about a decision. Deliberately not what the
+    customer is told.
+
+    The wallet is an oracle: any decision system is. Measured on this engine, an agent
+    that sees only ALLOW/BLOCK recovers a secret CHF 137 ceiling to within CHF 0.24 in
+    twelve probes -- and spends CHF 531 of the customer's money doing it, because every
+    ALLOW probe is a real purchase. That cost is the only thing making the oracle
+    tolerable.
+
+    The customer's payload would collapse that to ZERO probes: it carries the rule's
+    numeric `value` and twenty evidence strings reading "projected 7-day spend=287.50
+    CHF". That is right for the customer, who owns the policy. Handing the same object
+    to the agent would be handing it the policy.
+
+    So this projection carries the decision and the CLASS of constraint that failed,
+    and nothing numeric. A period breach and an over-limit order both read "amount" --
+    the agent learns to propose less, not how much less. `test_agent_view_leaks_no_policy_values`
+    fails if a number, a rule field name, or an evidence string ever reaches it.
+
+    Naming the class adds no bits the agent could not already get: varying one
+    dimension at a time costs exactly one probe per dimension either way.
+    """
+    classes = sorted({
+        _AGENT_CONSTRAINT_CLASS.get(e.rule.field, "other")
+        for e in decision.rule_evaluations
+        if e.outcome in ("fail", "unknown")
+    })
+    return {
+        "authorization_id": decision.authorization_id,
+        "decision": decision.decision,
+        "blocked_by": classes,
+        # Whether a human could unblock this, so the agent knows to wait rather than
+        # retry. Not a policy fact.
+        "awaiting_customer": decision.decision == "review",
+    }
+
+
 def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], facts: PurchaseFacts) -> str:
     """Prose for a person. The technical detail goes in `evidence`, not here.
 

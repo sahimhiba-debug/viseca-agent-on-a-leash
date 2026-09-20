@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from .attack_demo import run_all_attacks
 from .audit import audit_timeline, delegation_summary
 from .csv_data import account_limits_for_card, history_csv_path, load_merchants, load_purchase_attempt_items, load_scenario_catalogue, scenario_rows
-from .decision_engine import evaluate_authorization, resolve_authorization
+from .decision_engine import _PLAIN_FAIL, agent_view, evaluate_authorization, resolve_authorization
 from .mandate import Mandate
 from .offline_replay import build_event, compile_and_confirm_mandate_for_scenario
 from .policy_compiler import compile_instruction
@@ -38,6 +38,13 @@ app = FastAPI(title="Wallet Control -- Agent on a Leash (demo)")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 _HISTORY = HistoryIndex.from_csv(history_csv_path())
+# Fixed simulated clock for the agent demo, so the trace is identical on every run.
+AGENT_DEMO_START = datetime(2026, 8, 12, 9, 0, tzinfo=timezone.utc)
+_AGENT_DEFAULT_INSTRUCTION = (
+    "Order our household groceries for delivery. Keep each order at or below CHF 120 "
+    "including delivery. Ask me when uncertain."
+)
+_AGENT_SESSIONS: dict[str, "DemoRun"] = {}
 
 
 @dataclass
@@ -105,6 +112,109 @@ def demo_reset() -> dict[str, Any]:
     cleared = len(_RUNS)
     _RUNS.clear()
     return {"cleared_runs": cleared}
+
+
+class AgentProposal(BaseModel):
+    session_id: str
+    instruction: str | None = None
+    lines: list[dict[str, Any]]
+
+
+@app.post("/api/agent/propose")
+def agent_propose(req: AgentProposal) -> dict[str, Any]:
+    """The AGENT-FACING decision endpoint. Returns `agent_view` and nothing else.
+
+    The wallet does not contain a shopping agent and must not import one -- the agent
+    is an external client, and `tests/test_runtime_boundary.py` enforces that the
+    runtime never reaches into `research/`. An earlier version of this endpoint ran
+    the agent loop inline and broke exactly that invariant; inverting the dependency
+    is both the correct architecture and the more honest demonstration, because the
+    loop now visibly happens OUTSIDE the wallet.
+
+    What comes back is deliberately poorer than `/api/runs/{id}`: the decision, the
+    CLASS of constraint that failed, and whether a human is deciding. No rule value,
+    no remaining budget, no evidence. See
+    `tests/security/test_agent_explanation_boundary.py` for the measurement that puts
+    the line there -- an agent seeing only this recovers a CHF 137 ceiling in twelve
+    probes and spends CHF 531 doing it; the customer's payload would do it in zero.
+    """
+    session = _AGENT_SESSIONS.get(req.session_id)
+    if session is None:
+        instruction = req.instruction or _AGENT_DEFAULT_INSTRUCTION
+        compiled = compile_instruction(instruction)
+        mandate = Mandate.draft(
+            instruction, compiled.hard_rules, compiled.uncertainty_policy,
+            compiled.guidance, compiled.open_questions, compiled.unsupported_restrictions,
+        )
+        mandate.confirm(confirmed=True, customer_id="CU0001", card_id="CA0001",
+                        profile_id="PROFILE_AGENT_DEMO",
+                        acknowledged_unsupported=compiled.unsupported_restrictions)
+        session = DemoRun(req.session_id, mandate,
+                          RunState(history=_HISTORY, card_id="CA0001"), {}, [], datetime.now(timezone.utc))
+        _AGENT_SESSIONS[req.session_id] = session
+
+    snapshot = session.mandate.snapshot()
+    revision = len(session.order)
+    amount = round(sum(float(l["unit_price"]) * int(l.get("quantity", 1)) for l in req.lines), 2)
+    when = AGENT_DEMO_START + timedelta(minutes=90 * revision)
+    stamp = when.isoformat().replace("+00:00", "Z")
+    items = [{"line_no": i + 1, "item_id": l["item_id"], "item_name": l["name"],
+              "item_category": l["category"], "quantity": int(l.get("quantity", 1)),
+              "unit_price": float(l["unit_price"]), "currency": "CHF",
+              "item_details": "returns accepted within 30 days"}
+             for i, l in enumerate(req.lines)]
+    event = {
+        "type": "authorization.request", "request_id": f"req_agent_{revision}",
+        "deadline_at": (when + timedelta(seconds=8)).isoformat().replace("+00:00", "Z"),
+        "authorization": {
+            "authorization_id": f"{req.session_id}_{revision}",
+            "source_authorization_id": f"{req.session_id}_{revision}",
+            "scenario_id": "SCEN_AGENT", "replay_order": revision + 1,
+            "mandate_id": snapshot.mandate_id, "profile_id": snapshot.profile_id,
+            "card_id": snapshot.card_id, "initiator_type": "agent",
+            "merchant": {"merchant_id": "ME0001", "merchant_name": "Alpine Basket",
+                         "merchant_category": "groceries", "merchant_mcc": "5411",
+                         "merchant_country": "CH", "merchant_city": "Zurich",
+                         "availability": "online", "recurring_capable": "false"},
+            "timestamp": stamp, "amount": amount, "currency": "CHF",
+            "billing_amount_chf": amount, "items_subtotal": amount, "delivery_fee": 0.0,
+            "channel": "ecommerce", "customer_device_id": "DVC-AGENT",
+            "authority_status": "active", "card_status_at_attempt": "active",
+            "spend_in_period_before_chf": None, "recent_attempt_count_10m": 0,
+            "fulfillment_method": "delivery", "delivery_by": None,
+            "order_returnable": "true", "order_cancellable": "unknown",
+            "related_authorization_id": None, "related_authorization_status": None,
+            "purchase_description": f"{len(items)} grocery lines", "items": items,
+        },
+        "mandate": {"mandate_id": snapshot.mandate_id, "status": snapshot.status.value,
+                    "customer_id": snapshot.customer_id, "card_id": snapshot.card_id,
+                    "instruction": snapshot.instruction,
+                    "hard_rules": [r.as_dict() for r in snapshot.hard_rules],
+                    "uncertainty_policy": snapshot.uncertainty_policy.value,
+                    "profile_id": snapshot.profile_id},
+        "context": {"approved_spend_in_period_chf": float(session.state.total_approved_spend_chf()),
+                    "recent_authorizations": []},
+        "runtime": {"received_at": stamp, "history_window_minutes": 60, "context_basis": "run"},
+    }
+    result = evaluate_authorization(event, snapshot, session.state)
+    session.order.append(result.authorization_id)
+    session.events_by_authorization[result.authorization_id] = event
+    return agent_view(result)
+
+
+@app.get("/api/agent/sessions/{session_id}")
+def agent_session_customer_view(session_id: str) -> dict[str, Any]:
+    """The SAME attempts, as the CUSTOMER sees them. Richer on purpose: this is the
+    other half of the audience separation, and the demo shows both side by side."""
+    session = _AGENT_SESSIONS.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"unknown agent session {session_id!r}")
+    return {
+        "session_id": session_id,
+        "mandate": session.mandate.as_dict(),
+        "attempts": [_stored_decision_summary(session.events_by_authorization[a], session.state.get_stored_decision(a))
+                     for a in session.order],
+    }
 
 
 @app.get("/api/attacks")
@@ -357,8 +467,24 @@ def _basket_lines(auth: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _recorded_message(stored, auth: dict[str, Any]) -> str:
+    """Plain prose for a decision re-presented from storage.
+
+    This used to emit `"Declined: hard_rule_failed:authorization.billing_amount_chf"`
+    -- raw reason codes, on a customer-facing endpoint. The same class of defect as
+    the one invariant I39 was written for, surviving in a surface that audit never
+    looked at: it checked `customer_message` on FRESH decisions and on the platform
+    payload, and `GET /api/runs/{id}` re-presents STORED ones through here.
+
+    The wording comes from `decision_engine._PLAIN_FAIL`, so there is one table rather
+    than a second copy to drift.
+    """
     if stored.decision == "block":
-        return f"Declined: {', '.join(stored.reason_codes) or 'a check failed'}"
+        fields = [c.split(":", 1)[1] for c in stored.reason_codes if ":" in c]
+        reasons = list(dict.fromkeys(
+            _PLAIN_FAIL.get(f) or f"a check on {f.replace('.', ' ').replace('_', ' ')} did not pass"
+            for f in fields
+        ))
+        return f"Declined: {'; '.join(reasons) or 'a check failed'}."
     if stored.was_reviewed and stored.resolved_at:
         return "You approved this purchase." if stored.decision == "allow" else "You declined this purchase."
     return "Approved: this purchase matched your wallet policy."

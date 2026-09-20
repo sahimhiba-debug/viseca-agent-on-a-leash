@@ -192,6 +192,7 @@
   <button data-p="home" class="on"><span class="ic">◆</span>Home</button>
   <button data-p="delegate"><span class="ic">✎</span>Delegate</button>
   <button data-p="decisions"><span class="ic">▤</span>Decisions</button>
+  <button data-p="agent"><span class="ic">◈</span>Agent</button>
   <button data-p="attacks"><span class="ic">⚠</span>Attacks</button>
   <button data-p="audit"><span class="ic">◷</span>Audit</button>
 </nav>
@@ -285,6 +286,19 @@
   </div>
 </section>
 
+<!-- ========== AGENT ========== -->
+<section class="panel" id="p-agent">
+  <div class="card">
+    <h2>Watch the agent get refused</h2>
+    <p class="muted">An autonomous shopping agent proposes a basket, the wallet refuses it,
+      and the agent tries again — <b>without ever being told your limit</b>. The loop runs in
+      this browser: the agent is a client of the wallet, not part of it.</p>
+    <button class="act b-dark" onclick="runAgent()">Send the agent shopping</button>
+    <p class="tiny" id="ag-sum" style="margin:9px 0 0"></p>
+  </div>
+  <div id="ag-out"></div>
+</section>
+
 <!-- ========== ATTACKS ========== -->
 <section class="panel" id="p-attacks">
   <div class="card">
@@ -337,6 +351,46 @@ async function boot(){
   $('#preset').innerHTML = '<option value="">Or load an official scenario…</option>' +
     SCEN.map(s=>`<option value="${s.scenario_id}">${esc(s.scenario_name)}</option>`).join('');
   showInstr();
+}
+const AG_ITEMS=[
+  {item_id:'IT0010',name:'Weekly grocery basket',category:'groceries',unit_price:95},
+  {item_id:'IT0011',name:'Pantry restock',category:'groceries',unit_price:60},
+  {item_id:'IT0002',name:'Pantry staples',category:'groceries',unit_price:50},
+  {item_id:'IT0012',name:'Family breakfast supplies',category:'groceries',unit_price:45},
+  {item_id:'IT0013',name:'Fresh produce order',category:'groceries',unit_price:42}];
+async function runAgent(){
+  const sid='ui_'+Date.now();
+  let lines=AG_ITEMS.slice(), out=[], why='opening basket: the 5 best grocery lines';
+  document.getElementById('ag-out').innerHTML='';
+  document.getElementById('ag-sum').textContent='the agent is proposing…';
+  for(let rev=0; rev<5; rev++){
+    const total=lines.reduce((s,l)=>s+l.unit_price*(l.quantity||1),0);
+    // The agent sees ONLY this response. No limit, no remaining budget, no evidence.
+    const r=await fetch('/api/agent/propose',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({session_id:sid,lines})});
+    const v=await r.json();
+    out.push({rev,total,n:lines.length,v,why});
+    if(v.decision==='allow'||v.awaiting_customer) break;
+    if(lines.length<=1) break;
+    const drop=lines.reduce((a,b)=>a.unit_price>=b.unit_price?a:b);
+    lines=lines.filter(l=>l!==drop);
+    why='dropped the most expensive line ('+drop.name+')';
+  }
+  const last=out[out.length-1];
+  document.getElementById('ag-sum').innerHTML = last.v.decision==='allow'
+    ? '<b>Approved after '+(out.length-1)+' refusal(s).</b> The agent never learned your limit — notice it stopped well below it.'
+    : 'The agent could not find a basket within your rules.';
+  document.getElementById('ag-out').innerHTML = out.map(o=>`
+    <div class="dec ${o.v.decision}">
+      <div class="badge">${o.v.decision==='allow'?'Allowed':'Blocked'}</div>
+      <div class="amt">CHF ${o.total.toFixed(2)}</div>
+      <div class="muted">${esc(o.n)} line(s) · attempt ${o.rev+1}</div>
+      <div class="why ${o.v.decision}"><div class="h">What the agent was told</div>
+        <ul><li><code>decision: ${esc(o.v.decision)}</code></li>
+            <li><code>blocked_by: [${(o.v.blocked_by||[]).map(esc).join(', ')}]</code></li></ul>
+        <p class="tiny" style="margin:6px 0 0">No amount. No limit. No remaining budget.</p></div>
+      <div class="ev">${esc(o.why)}</div>
+    </div>`).join('');
 }
 function showInstr(){
   const s = SCEN.find(x=>x.scenario_id===$('#scen').value);

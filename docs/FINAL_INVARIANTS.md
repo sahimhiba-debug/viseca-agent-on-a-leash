@@ -44,6 +44,8 @@ fail.
 | I19 | A run keeps its original snapshot for RULES | `live_worker` | `test_mandate_lifecycle` |
 | I20 | The platform's reported `mandate.status` is read **live** and may only narrow | `_run_binding_failures` | `test_a_mid_run_mandate_revocation_*` |
 | I21 | An event must belong to this run (`card_id`, `mandate_id`) | same | `test_run_binding` |
+| I45 | **The agent is told the DECISION and the CLASS of constraint, never a policy value** — no rule numbers, no remaining budget, no evidence strings reach the agent-facing projection | `decision_engine.agent_view` | `test_agent_view_leaks_no_policy_values` |
+| I46 | **Adaptation consumes delegation, never widens it** — a revised basket is re-decided from scratch against the same mandate | `decision_engine.evaluate_authorization` (stateless re-evaluation) | `test_adaptation_cannot_create_authority` |
 | I40 | **Unsupported restrictive intent blocks confirmation** — a mandate whose restrictions we cannot enforce cannot be confirmed without naming each one back | `Mandate.confirm` + `CompiledPolicy.unsupported_restrictions` | `test_unsupported_restrictive_intent_blocks_confirmation` |
 | I41 | **One `authorization_id` cannot carry two economic transactions** — the simulated purchase time joins the fingerprint, so a collision cannot read as a retry | `state.check_repeat_fingerprint` | `test_one_id_cannot_carry_two_economic_transactions` |
 | I42 | **A malformed `authorization_id` is refused** — null, empty, blank or non-string | `_run_binding_failures` | `test_a_malformed_authorization_id_is_refused` |

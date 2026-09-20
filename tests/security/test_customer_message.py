@@ -119,3 +119,28 @@ def test_an_unmapped_field_degrades_to_prose_not_to_a_field_name():
     text = _plain_reason(RuleEvaluation(rule=unknown_field, outcome="fail", detail="x"))
     assert "item.colour" not in text, text
     assert text.startswith("a check on "), text
+
+
+@pytest.mark.parametrize("path", ["fresh", "re-presented"])
+def test_neither_a_fresh_nor_a_re_presented_decision_shows_reason_codes(path):
+    """`GET /api/runs/{id}` re-presents STORED decisions through `_recorded_message`,
+    which emitted `"Declined: hard_rule_failed:authorization.billing_amount_chf"`.
+
+    The same defect class as I39, surviving in the one surface that audit never
+    looked at: it checked `customer_message` on fresh decisions and on the platform
+    payload, and this path builds the sentence somewhere else entirely. Found by the
+    master campaign while wiring an unrelated endpoint.
+    """
+    from fastapi.testclient import TestClient
+
+    from wallet_control.api import app
+
+    client = TestClient(app)
+    run = client.post("/api/scenarios/SCEN0001/run").json()
+    decisions = run["decisions"] if path == "fresh" else client.get(f"/api/runs/{run['run_id']}").json()["decisions"]
+
+    for decision in decisions:
+        message = decision["customer_message"]
+        assert "hard_rule_failed" not in message, message
+        assert "uncertain:" not in message, message
+        assert not re.search(r"\b\w+\.\w+_\w+\b", message), message

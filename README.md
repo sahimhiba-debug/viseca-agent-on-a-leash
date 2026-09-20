@@ -61,6 +61,7 @@ src/wallet_control/        THE RUNTIME -- only code that runs in production
   api.py                   Demo backend + static UI (same engine, no separate path)
 
 research/                  APPARATUS -- never imported by the runtime (asserted by a test)
+  shopping_agent.py        The autonomous agent: plans, proposes, is refused, adapts
   fulfillment.py           "Has this job already been done?", derived from the ledger
   red_team.py              17 hand-written adversarial scenarios
   red_team_corpus.py       133 generated cases
@@ -70,7 +71,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     947 tests
+tests/                     965 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -123,7 +124,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**947 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**965 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say
@@ -135,8 +136,8 @@ pytest -q
 - `tests/security/test_state_machine.py` -- a stateful model over the whole lifecycle.
 
 The count is not the argument. `python3 scripts/run_mutation_probe.py` deliberately
-breaks 36 security mechanisms in `src/wallet_control/`, one at a time, and checks the
-suite notices: **36 killed, 0 survived.** Its first run found a real gap and the
+breaks 38 security mechanisms in `src/wallet_control/`, one at a time, and checks the
+suite notices: **38 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
 Official replay: **45 events, 19 allow / 2 review / 24 block** -- a regression
@@ -167,6 +168,9 @@ behind every one of the 45 decisions.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
 - [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
+- [docs/COMPETITION_READINESS.md](docs/COMPETITION_READINESS.md) -- honest assessment against the five jury criteria, the ten questions a judge could ask, and the strongest argument that this project is mediocre
+- [docs/CLAIMS_REGISTER.md](docs/CLAIMS_REGISTER.md) -- every public claim with its scope, evidence, test, and what must NOT be inferred from it
+- [docs/MASTER_ADVERSARIAL_VALIDATION.md](docs/MASTER_ADVERSARIAL_VALIDATION.md) -- validation of the agent boundary, including the invariant that caught my own design error
 - [docs/DEEP_WEAKNESS_REPORT.md](docs/DEEP_WEAKNESS_REPORT.md) -- adversarial campaign against the remaining conceptual weaknesses: a silent weakening found and fixed, and why the run boundary is an implementation artifact standing in for a security boundary
 - [docs/POST_FABLE_FINAL_VALIDATION.md](docs/POST_FABLE_FINAL_VALIDATION.md) -- independent re-verification of those fixes: all four closed, one latent bypass found and fixed during the pass
 - [docs/POST_FABLE_REMEDIATION.md](docs/POST_FABLE_REMEDIATION.md) -- fixes for the independent audit: the confirmation gate for restrictions we cannot enforce, authorization identity, and the platform policy echo
