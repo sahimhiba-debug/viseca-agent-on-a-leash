@@ -263,6 +263,12 @@ class Beliefs:
 # it eventually proposes costs a real decision.
 MAX_BASKET = 5
 MAX_OFFERS_PER_MERCHANT = 12
+# ...and how many shops. The search is linear in merchants, and a shop that lists
+# enough of them is a denial-of-service against the agent: 1,000 merchants x 50 items
+# took 1.6s to enumerate, against a wallet deadline of 8s. The cap is on the AGENT's
+# own work, chosen by cheapest entry price so the choice is deterministic and not a
+# function of the order a hostile catalogue happens to return.
+MAX_MERCHANTS = 50
 
 
 def score(basket: list[Offer], mission: "Mission", beliefs: Beliefs) -> tuple:
@@ -287,23 +293,47 @@ def score(basket: list[Offer], mission: "Mission", beliefs: Beliefs) -> tuple:
     return (coverage, worst_window, -sum((o.unit_price for o in basket), Decimal("0")))
 
 
-def _candidates(shop: Shop, mission: Mission, beliefs: Beliefs) -> list[tuple[list[Offer], str]]:
-    """Every basket worth considering: subsets of one merchant's offers.
+def _plausible(offer: Offer, mission: Mission) -> bool:
+    """Whether an offer is worth considering at all.
+
+    The tool is the agent's only contact with a world it does not control, so what
+    comes back through it is untrusted input and is checked like any other. A shop
+    quoting a price of CHF -1000 was enough to make the search propose it, because
+    the objective prefers spending less and nothing spends less than a refund. The
+    wallet blocked it -- it refuses any non-positive amount -- so no money moved, but
+    the agent had spent one of the customer's four attempts on nonsense, and a
+    catalogue full of such offers would spend all of them.
+
+    This is not the wallet's rule restated on the agent's side. The agent is checking
+    that its TOOL is behaving, which is its own business and nobody else's.
+    """
+    return (isinstance(offer.item_id, str) and offer.item_id.strip() != ""
+            and offer.unit_price > 0
+            and offer.category == mission.category)
+
+
+def _candidates(shop: Shop, mission: Mission, beliefs: Beliefs):
+    """Yield every basket worth considering: subsets of ONE merchant's offers.
 
     One merchant per basket because the goods physically live at a shop. The old
     agent chose items and a merchant independently, which is why its "try another
     merchant" rung could never actually help -- it moved the basket to a shop that
-    did not stock it.
+    did not stock it, and, re-measured honestly, reported four successes while
+    holding goods from a shop the customer had excluded.
+
+    A generator rather than a list so that a catalogue large enough to exhaust
+    memory cannot, and so the bounds below are the only thing that grows.
     """
     by_merchant: dict[str, list[Offer]] = {}
     for o in shop.search(mission.category):
-        if o.merchant in beliefs.ruled_out_merchants:
+        if not _plausible(o, mission) or o.merchant in beliefs.ruled_out_merchants:
             continue
         by_merchant.setdefault(o.merchant, []).append(o)
 
-    out: list[tuple[list[Offer], str]] = []
-    for merchant, offers in by_merchant.items():
-        offers = sorted(offers, key=lambda o: o.unit_price)[:MAX_OFFERS_PER_MERCHANT]
+    ranked = sorted(by_merchant.items(),
+                    key=lambda kv: (min(o.unit_price for o in kv[1]), kv[0]))[:MAX_MERCHANTS]
+    for merchant, offers in ranked:
+        offers = sorted(offers, key=lambda o: (o.unit_price, o.item_id))[:MAX_OFFERS_PER_MERCHANT]
         for size in range(1, min(MAX_BASKET, mission.target_lines, len(offers)) + 1):
             for combo in combinations(offers, size):
                 ids = frozenset(o.item_id for o in combo)
@@ -312,16 +342,23 @@ def _candidates(shop: Shop, mission: Mission, beliefs: Beliefs) -> list[tuple[li
                 total = sum((o.unit_price for o in combo), Decimal("0"))
                 if beliefs.ceiling is not None and total >= beliefs.ceiling:
                     continue
-                out.append((list(combo), merchant))
-    return out
+                yield list(combo), merchant
 
 
 def best_basket(shop: Shop, mission: Mission, beliefs: Beliefs) -> tuple[list[Offer], str] | None:
-    """Search, rather than repair. Returns the highest-scoring untried basket."""
-    options = _candidates(shop, mission, beliefs)
-    if not options:
-        return None
-    return max(options, key=lambda c: score(c[0], mission, beliefs))
+    """Search, rather than repair. Returns the highest-scoring untried basket.
+
+    Ties break on the basket's item ids, so the same shop and the same beliefs give
+    the same basket on every run and on every machine. A search whose answer depends
+    on dictionary order is not reproducible, and reproducibility is the property this
+    whole system is built to keep.
+    """
+    best, best_key = None, None
+    for combo, merchant in _candidates(shop, mission, beliefs):
+        key = (score(combo, mission, beliefs), tuple(sorted(o.item_id for o in combo)))
+        if best_key is None or key > best_key:
+            best, best_key = (combo, merchant), key
+    return best
 
 
 def plan(mission: Mission, shop: Shop | None = None, beliefs: Beliefs | None = None) -> list[Line]:
