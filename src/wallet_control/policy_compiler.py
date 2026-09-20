@@ -724,6 +724,37 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
 
     # Named back to the customer LAST, so it sees the final rule set rather than a
     # partially-built one.
+    # Every CHF figure the customer wrote, against the ones that became a rule.
+    #
+    # The defensive `min()` above only ever saw amounts this compiler PARSED. When the
+    # stricter of two bounds used a phrasing it did not recognise, that bound was
+    # invisible: "at most CHF 200 but never over CHF 100" enforced CHF 200, and the
+    # multi-amount ambiguity question did not fire either, because it needs two PARSED
+    # figures. A stricter limit the customer wrote in plain English simply vanished.
+    #
+    # Advisory, never blocking. A figure mentioned in passing ("I spent CHF 40 last
+    # week") is harmless unknown language, and making an ordinary sentence with a
+    # number in it unconfirmable would break the category the confirmation gate
+    # deliberately protects. Naming the specific figure keeps it actionable.
+    # `\d[\d.,]*` and not `[\d.,]+`: the looser form matched the "chf." in
+    # "max 200 chf." and captured the full stop alone, so `_parse_amount(".")` raised
+    # ValueError and compiling an ordinary instruction CRASHED. Found by re-running the
+    # semantic corpus against this very fix, minutes after writing it.
+    stated = {
+        _parse_amount(m.group(1).rstrip(".,"))
+        for m in re.finditer(r"CHF\s*(\d[\d.,]*)", text, re.IGNORECASE)
+    }
+    used = {float(r.value) for r in rules if r.field == "authorization.billing_amount_chf"}
+    used |= period_amount_values | total_amounts
+    unused = sorted(stated - used)
+    if unused and used:
+        open_questions.append(
+            "The instruction also mentions "
+            + ", ".join(f"CHF {v:g}" for v in unused)
+            + ", which was not turned into any rule. If one of those was meant to be a limit, "
+            "it is NOT enforced -- please restate it, for example \"no more than CHF X per order\"."
+        )
+
     unsupported = _coverage_questions(text, rules)
     if not rules:
         # No executable rule at all is the strongest form of unsupported intent: the

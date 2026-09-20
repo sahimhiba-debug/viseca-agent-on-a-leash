@@ -229,3 +229,72 @@ def test_an_overall_total_produces_no_order_ceiling_and_says_so(phrase):
     amounts = [r for r in compiled.hard_rules if r.field == "authorization.billing_amount_chf"]
     assert not amounts, f"{phrase!r} produced {[(r.operator, r.value, r.scope) for r in amounts]}"
     assert "OVERALL TOTAL" in " ".join(compiled.open_questions), "the loss must be stated"
+
+
+@pytest.mark.parametrize(
+    "instruction,enforced,unused",
+    [
+        ("Buy groceries at most CHF 200 but never over CHF 100. Ask me when uncertain.", 200.0, "CHF 100"),
+        ("Buy groceries at most CHF 400; on reflection CHF 200. Ask me when uncertain.", 400.0, "CHF 200"),
+    ],
+)
+def test_a_stated_amount_that_became_no_rule_is_named_back(instruction, enforced, unused):
+    """A stricter bound written in an unrecognised phrasing used to vanish in silence.
+
+    The defensive `min()` only ever compared amounts the compiler PARSED, and the
+    multi-amount ambiguity question needs two parsed figures to fire. So
+    "at most CHF 200 but never over CHF 100" enforced CHF 200 -- the LOOSER bound --
+    with nothing said. That is a silent weakening, the one failure class an intent
+    layer cannot tolerate, and a 204-phrase semantic corpus found it.
+
+    The fix discloses rather than guesses. Taking the minimum of every CHF figure in
+    the text would "fix" this case and break "I spent CHF 40 last week", so the
+    enforced ceiling is left alone and the unused figure is named.
+    """
+    compiled = compile_instruction(instruction)
+    ceilings = [float(r.value) for r in compiled.hard_rules if r.field == "authorization.billing_amount_chf"]
+    assert ceilings == [enforced]
+    mentions = [q for q in compiled.open_questions if "also mentions" in q]
+    assert mentions, "the unused figure was not named back to the customer"
+    assert unused in mentions[0]
+
+
+def test_naming_an_unused_figure_is_advisory_and_never_blocks_confirmation():
+    """A number mentioned in passing is harmless unknown language. If this became a
+    blocking `unsupported_restriction`, an ordinary sentence containing a figure would
+    make the mandate unconfirmable -- breaking the category the confirmation gate was
+    built to protect."""
+    compiled = compile_instruction(
+        "Buy groceries for CHF 50 or less. I spent CHF 40 last week. Ask me when uncertain."
+    )
+    assert not compiled.unsupported_restrictions
+    assert any("also mentions" in q for q in compiled.open_questions)
+
+
+def test_the_official_five_gain_no_unused_figure_question():
+    """Every CHF figure in the official instructions becomes a rule, so this check is
+    silent on the judged path."""
+    from wallet_control.csv_data import load_scenario_catalogue
+
+    for scenario_id, scenario in load_scenario_catalogue().items():
+        compiled = compile_instruction(scenario["cardholder_instruction"])
+        assert not any("also mentions" in q for q in compiled.open_questions), scenario_id
+
+
+@pytest.mark.parametrize(
+    "instruction",
+    ["Buy groceries max 200 chf. Ask me when uncertain.",
+     "Buy groceries for CHF. Ask me when uncertain.",
+     "Buy groceries for CHF 200, CHF. Ask me when uncertain.",
+     "Buy groceries CHF 1,250 or less. Ask me when uncertain."],
+)
+def test_compiling_never_crashes_on_a_currency_token_without_digits(instruction):
+    """A defect introduced by the unused-figure check and caught minutes later by
+    re-running the corpus against it.
+
+    The first pattern was `CHF\\s*([\\d.,]+)`, which matched the "chf." in
+    "max 200 chf." and captured the full stop on its own, so `_parse_amount(".")`
+    raised and compiling an ordinary instruction CRASHED -- a denial of service on the
+    mandate-creation path, reachable by a customer who ends a sentence with the
+    currency."""
+    compile_instruction(instruction)   # must not raise
