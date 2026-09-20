@@ -63,7 +63,7 @@ supplied none of those three; it would have guessed at all of them, unreproducib
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import Any, Callable
 
@@ -285,7 +285,9 @@ def _event(ep: Episode, lines, merchant_id: str, n: int, mandate, world: World) 
                       items=items, card_id=CARD)
 
 
-def run_episode(ep: Episode, *, max_revisions: int = 4) -> Result:
+def run_episode(ep: Episode, *, max_revisions: int = 4, planner=None) -> Result:
+    ep = replace(ep, world=World(list(ep.world.products), ep.world.familiar_merchants,
+                                 set(ep.world.unavailable)))
     compiled = compile_instruction(ep.instruction)
     # Carry the unsupported restrictions into the DRAFT, not just into confirm().
     # Acknowledging at confirmation time while drafting an empty list means the gate
@@ -317,7 +319,8 @@ def run_episode(ep: Episode, *, max_revisions: int = 4) -> Result:
 
     mission = sa.Mission(ep.instruction, ep.mission_category, target_lines=3,
                          merchants=tuple(sorted({p.merchant for p in ep.world.products})))
-    episode = sa.shop(mission, propose, max_revisions=max_revisions, shop_tool=tool)
+    episode = sa.shop(mission, propose, max_revisions=max_revisions, shop_tool=tool,
+                      planner=planner or sa.DETERMINISTIC)
 
     final = tuple(l.item_id for l in episode.attempts[-1].lines) if episode.attempts else ()
     v: list[str] = []
