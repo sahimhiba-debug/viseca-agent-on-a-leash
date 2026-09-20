@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from .attack_demo import run_all_attacks
 from .audit import audit_timeline, delegation_summary
 from .csv_data import account_limits_for_card, history_csv_path, load_merchants, load_purchase_attempt_items, load_scenario_catalogue, scenario_rows
-from .decision_engine import _PLAIN_FAIL, agent_view, evaluate_authorization, resolve_authorization
+from .decision_engine import _PLAIN_FAIL, _PLAIN_UNKNOWN, agent_view, evaluate_authorization, resolve_authorization
 from .mandate import Mandate
 from .offline_replay import build_event, compile_and_confirm_mandate_for_scenario
 from .policy_compiler import compile_instruction
@@ -510,9 +510,25 @@ def _recorded_message(stored, auth: dict[str, Any]) -> str:
     looked at: it checked `customer_message` on FRESH decisions and on the platform
     payload, and `GET /api/runs/{id}` re-presents STORED ones through here.
 
-    The wording comes from `decision_engine._PLAIN_FAIL`, so there is one table rather
-    than a second copy to drift.
+    The wording comes from `decision_engine._PLAIN_FAIL` and `_PLAIN_UNKNOWN`, so
+    there is one table rather than a second copy to drift.
+
+    A second defect of the same shape was found here later, by running the scenario
+    the demo script pointed at. Everything that was neither a block nor an ANSWERED
+    review fell through to "Approved: this purchase matched your wallet policy" --
+    including a review still WAITING for the customer. So the one decision in
+    SCEN0004 where every customer rule passed and the wallet stopped the purchase
+    anyway described itself to that customer as approved, while the same card showed
+    the verdict as `review`. A message that contradicts the decision beside it is
+    worse than no message.
     """
+    # A human's answer is reported FIRST, because it outranks every other reason.
+    # With the block branch ahead of it, a purchase the customer had personally
+    # declined came back as "Declined: a check failed." -- blaming the wallet for a
+    # decision the customer made, which is the same misattribution defect as the two
+    # above wearing different clothes.
+    if stored.was_reviewed and stored.resolved_at:
+        return "You approved this purchase." if stored.decision == "allow" else "You declined this purchase."
     if stored.decision == "block":
         fields = [c.split(":", 1)[1] for c in stored.reason_codes if ":" in c]
         reasons = list(dict.fromkeys(
@@ -520,8 +536,13 @@ def _recorded_message(stored, auth: dict[str, Any]) -> str:
             for f in fields
         ))
         return f"Declined: {'; '.join(reasons) or 'a check failed'}."
-    if stored.was_reviewed and stored.resolved_at:
-        return "You approved this purchase." if stored.decision == "allow" else "You declined this purchase."
+    if stored.decision == "review":
+        fields = [c.split(":", 1)[1] for c in stored.reason_codes if c.startswith("uncertain:")]
+        reasons = list(dict.fromkeys(
+            _PLAIN_UNKNOWN.get(f) or f"the wallet could not check {f.replace('.', ' ').replace('_', ' ')}"
+            for f in fields
+        ))
+        return f"Waiting for you: {'; '.join(reasons) or 'the wallet was not sure about this one'}."
     return "Approved: this purchase matched your wallet policy."
 
 
