@@ -163,3 +163,35 @@ def test_the_navigation_follows_the_story():
     order = re.findall(r'data-p="(\w+)"', page)
     assert order.index("agent") < order.index("decisions"), order
     assert order.index("delegate") < order.index("agent"), order
+
+
+def test_the_instruction_on_screen_is_a_real_cardholder_instruction():
+    """The Delegate box is pre-filled with the sentence a jury will read first. It
+    must be an official `cardholder_instruction`, not something we composed to
+    demonstrate well. Same class of defect as the fabricated item names: real ids
+    around invented content."""
+    import re
+
+    official = {r["cardholder_instruction"].strip()
+                for r in _rows("scenario_catalogue.csv")}
+    page = PAGE.read_text()
+    shown = re.search(r'<textarea id="instr">(.*?)</textarea>', page, re.S)
+    assert shown, "the Delegate box no longer has a default instruction"
+    assert shown.group(1).strip() in official, (
+        "the instruction shown to the jury is not one of the official cardholder "
+        "instructions")
+
+
+def test_the_page_claims_tighten_only_and_the_mandate_enforces_it():
+    """The page tells the customer their rules "can only be tightened - never
+    widened, by anyone". Until this red-team pass that was false: an agent could
+    supply its own instruction on the propose endpoint and have a CHF 900 mandate
+    confirmed for it."""
+    from wallet_control.api import AgentProposal
+    from wallet_control.mandate import Mandate
+
+    assert "never widened" in PAGE.read_text()
+    assert "instruction" not in AgentProposal.model_fields, (
+        "the agent can name a policy again, so the page's promise is false")
+    assert hasattr(Mandate, "tighten_hard_rules"), (
+        "the tighten-only contract moved; re-check the claim on the page")

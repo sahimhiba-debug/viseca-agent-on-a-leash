@@ -343,7 +343,8 @@ def customer_session_view(view_id: str) -> dict[str, Any]:
                 "view_id": view_id,
                 "mandate": session.mandate.as_dict(),
                 "attempts": [_stored_decision_summary(session.events_by_authorization[a],
-                                                      session.state.get_stored_decision(a))
+                                                      session.state.get_stored_decision(a),
+                                                      revoked=session.state.is_revoked)
                              for a in session.order],
             }
     raise HTTPException(status_code=404, detail="unknown session view")
@@ -532,11 +533,11 @@ def get_run(run_id: str) -> dict[str, Any]:
         # every reason, every piece of evidence and every basket line the moment the
         # customer pressed Approve. A UX audit caught it: the one action a customer is
         # guaranteed to take deleted the explanation layer the product is built on.
-        decisions.append(_stored_decision_summary(event, stored))
+        decisions.append(_stored_decision_summary(event, stored, revoked=run.state.is_revoked))
     return {"run_id": run_id, "mandate": run.mandate.as_dict(), "decisions": decisions}
 
 
-def _stored_decision_summary(event: dict[str, Any], stored) -> dict[str, Any]:
+def _stored_decision_summary(event: dict[str, Any], stored, *, revoked: bool = False) -> dict[str, Any]:
     """Re-present a recorded decision with the same fields a fresh evaluation returns.
 
     `wallet_decision` is deliberately separate from `decision`: for a purchase the
@@ -570,7 +571,7 @@ def _stored_decision_summary(event: dict[str, Any], stored) -> dict[str, Any]:
         **_verdict_split(stored.reason_codes),
         "resolved_by_customer": bool(stored.was_reviewed and stored.resolved_at),
         "reason_codes": list(stored.reason_codes),
-        "customer_message": _recorded_message(stored, auth),
+        "customer_message": _recorded_message(stored, auth, revoked=revoked),
         "evidence": [], "policy_evidence": [], "safety_evidence": [],
         "payment_authority": None,
     }
@@ -627,7 +628,7 @@ def _basket_lines(auth: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _recorded_message(stored, auth: dict[str, Any]) -> str:
+def _recorded_message(stored, auth: dict[str, Any], *, revoked: bool = False) -> str:
     """Plain prose for a decision re-presented from storage.
 
     This used to emit `"Declined: hard_rule_failed:authorization.billing_amount_chf"`
@@ -655,6 +656,14 @@ def _recorded_message(stored, auth: dict[str, Any]) -> str:
     # above wearing different clothes.
     if stored.was_reviewed and stored.resolved_at:
         return "You approved this purchase." if stored.decision == "allow" else "You declined this purchase."
+    # A revoked run has nothing waiting in it. The message used to keep saying
+    # "Waiting for you" after revocation -- inviting an answer that could not
+    # produce an authority, since the run-level revocation refuses it either way.
+    # The demo page happened to override this with its own copy, which is exactly
+    # how a re-presented surface goes wrong unnoticed: the client was right and the
+    # record it was rendering was not.
+    if revoked and stored.decision == "review":
+        return "Cancelled: you revoked this mandate while this purchase was still waiting for you."
     if stored.decision == "block":
         fields = [c.split(":", 1)[1] for c in stored.reason_codes if ":" in c]
         reasons = list(dict.fromkeys(

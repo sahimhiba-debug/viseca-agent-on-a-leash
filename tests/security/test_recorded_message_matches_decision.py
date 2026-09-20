@@ -135,3 +135,41 @@ def test_the_customers_own_answer_is_reported_as_theirs_end_to_end(
              if d["authorization_id"] == auth_id][0]
     assert after["decision"] == expect_decision
     assert after["customer_message"] == expect_text
+
+
+def test_a_revoked_run_stops_saying_a_purchase_is_waiting_for_you():
+    """Third defect of the same shape, found in the final red-team pass.
+
+    After the customer revokes, a purchase still in `review` kept describing itself
+    as "Waiting for you" — inviting an answer that cannot produce an authority,
+    because run-level revocation refuses it either way. No money was ever at risk;
+    the record simply said something untrue about its own state.
+
+    What makes it worth a test rather than a shrug: the demo page happened to
+    override this with its own client-side copy, so the screen was right and the
+    record it was rendering was wrong. That is precisely how a re-presented surface
+    rots unnoticed, and it is the third time this function has done it.
+    """
+    run_id = client.post("/api/scenarios/SCEN0004/run", json={}).json()["run_id"]
+    pending = [d for d in client.get(f"/api/runs/{run_id}").json()["decisions"]
+               if d["decision"] == "review"]
+    assert pending, "SCEN0004 no longer raises a step-up"
+    auth_id = pending[0]["authorization_id"]
+    assert "Waiting for you" in pending[0]["customer_message"]
+
+    client.post(f"/api/runs/{run_id}/revoke", json={})
+    after = [d for d in client.get(f"/api/runs/{run_id}").json()["decisions"]
+             if d["authorization_id"] == auth_id][0]
+
+    assert "Waiting for you" not in after["customer_message"], after["customer_message"]
+    assert "revoked" in after["customer_message"].lower()
+
+    # ...and answering it anyway still cannot mint authority. That is the F1 fix,
+    # re-asserted here because a message change must never be mistaken for the
+    # protection itself.
+    client.post(f"/api/runs/{run_id}/authorizations/{auth_id}/resolve",
+                json={"decision": "allow"})
+    final = [d for d in client.get(f"/api/runs/{run_id}").json()["decisions"]
+             if d["authorization_id"] == auth_id][0]
+    assert final["decision"] == "block"
+    assert final["payment_authority"] is None
