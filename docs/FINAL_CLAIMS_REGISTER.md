@@ -83,3 +83,38 @@ made tempting to say.
 | 19/2/24 is a score | **DO NOT CLAIM** | `contains_expected_decisions: false` |
 | Our adversarial suites are exhaustive | **DO NOT CLAIM** | samples |
 | Anything here is formally proved | **DO NOT CLAIM** | all measured |
+
+---
+
+## The words, audited one by one
+
+Phase 10 of the pre-jury campaign asked for the specific vocabulary we might reach
+for under pressure. Each word, and whether we may use it.
+
+| word | may we say it? | the sentence that is safe |
+| --- | --- | --- |
+| **"autonomous agent"** | **yes** | "It plans, proposes, observes the refusal and replans without a human in the loop." It does. It also stops and asks when it cannot proceed, which is part of the claim, not a caveat to it. |
+| **"agentic"** | **yes, with the benchmark in the same breath** | Never alone. "Agentic" is what every project today says; "it scored 5 out of 11 on a benchmark we wrote before we fixed it" is what nobody says. Lead with the second. |
+| **"secure"** | **no, unqualified** | Say what holds: "a hostile planner cannot obtain an approval", "merchant text can only narrow a decision". Never "this is secure". |
+| **"policy privacy"** | **no** | The interface leaks ~1 bit per purchase and we publish the price. Say "the wallet never tells the agent a rule value" — that is provable — and then say the price. |
+| **"no bypass"** | **only of the policy path** | `test_NO_POLICY_BYPASS` is real and narrow: a decision cannot be reached that a rule forbids. It is not a claim about the system as a whole. |
+| **"reproducible"** | **yes** | Replay byte-identical; benchmark byte-identical; 40 demo runs across two server lifetimes identical. This one is fully earned. |
+| **"real-time"** | **avoid** | Decisions are sub-millisecond locally, and the platform allows 8 seconds. But "real-time" implies a production SLA we have not built. Say "well inside the 8-second deadline". |
+| **"prevents overspending"** | **no** | It enforces per-purchase and per-window rules **within one run**. It does not bound the total, and cannot: the rule vocabulary has no way to say one. |
+| **"prevents policy extraction"** | **no** | It prices it. ~12 probes, CHF 531. Saying "prevents" invites exactly the counter-example we already published. |
+| **"exactly once"** | **no** | At most once, within one process. On the refuse list since the first audit. |
+| **"total spending"** | **no** | See "prevents overspending". Disclosed to the customer, not enforced. |
+| **"cross-session enforcement"** | **no** | Not enforced. Disclosed. And we corrected our own earlier claim that it was *impossible* — it is a choice under uncertainty. |
+| **"AI reasoning"** | **no** | There is no model. Say "search over candidate baskets against an explicit objective function", which is both accurate and more specific than what most teams can say. |
+| **"tool use"** | **yes** | `Shop.search()` is called on every replanning step; benchmark episode G fails without it. |
+| **"learns"** | **yes, narrowly** | It learns from refusals, and what it learns is monotone toward caution. It does not learn across customers, sessions or time. |
+| **"bounded delegation"** | **yes** | The best two words we have. Every rule narrows, `PATCH` is tighten-only, consent is per-purchase. |
+| **"the agent never sees your limit"** | **no** | The *wallet* never tells it one. The customer's own sentence contains it. Say the precise version; it is still strong. |
+
+## Claims we retired this campaign
+
+| claim | why it went |
+| --- | --- |
+| "`GET /api/agent/sessions/{id}` is not reachable by the agent's protocol" | It was keyed on the session id the agent chooses. One GET returned the whole policy. Moved off the agent namespace; the claim is now "nothing the agent is **given** contains a policy value or the view's identifier". |
+| "The demo shows official catalogue data" | It showed official item **ids** with fabricated names, categories and prices. Now true and enforced by `tests/test_demo_data_is_real.py`. |
+| "SCEN0002 shows security overruling policy" | It does not. Its review is a *policy* review. The case is SCEN0004/AU0036, and the demo now derives it rather than naming it. |

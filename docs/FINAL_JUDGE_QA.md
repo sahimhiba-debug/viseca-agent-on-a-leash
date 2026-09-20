@@ -1,182 +1,210 @@
-# Final judge Q&A
+# Judge Q&A — flash cards
 
-For each: the strongest factual answer the implementation supports, and — separately —
-**what is not proven**. No invented capabilities.
+Twenty cards. Each answer is ten to twenty seconds spoken, in the voice of an
+engineer answering a colleague, not a pitch. Evidence and limitation on every one,
+because a jury that catches an unqualified claim discounts everything after it.
 
----
-
-**1. Where is the AI?**
-Deliberately outside the money path. The agent searches over candidate baskets
-against an explicit objective function, learns from refusals, and calls a tool to
-look at the shop; the wallet decides deterministically. `technical_details.md`
-requires a predictable response when the model is unavailable, so putting a model
-between a customer and their card would break the one property the spec insists on.
-
-We no longer say "we built the seam and did not fill it" — we filled it and measured
-it. `research/model_planner.py` puts a model planner at the same seam and
-`research/architecture_comparison.py` runs the eleven-episode benchmark eleven ways:
-the deterministic planner scores 11/11 with zero model calls, the best a model
-manages is a **tie**, and a confidently-wrong model *with a deterministic fallback*
-scores **8/11** — below the planner it was meant to improve, because a fallback
-catches answers that are unusable and that one is merely wrong.
-*Not proven:* that a real language model behaves like any of our stubs. Those are
-stubs; no API was called. What is measured is the architecture's sensitivity to model
-behaviours, not any model's ability.
-
-**2. Why isn't this just an API wrapper?**
-A wrapper forwards. This decides, and refuses. 39 security mechanisms, each of which
-we break on purpose to prove a test catches it. The agent is a separate process that
-talks to it over HTTP and is refused three times in the demo.
-*Not proven:* nothing here is a novel algorithm. The sliding-window containment fix is
-textbook once you see the bug.
-
-**3. Why does the wallet need to be separate from the agent?**
-Because the agent can be wrong, compromised, or someone else's code. We test that
-directly: five hostile planners — one proposing CHF 150,000, one hallucinating items,
-one crashing, one empty, one that never learns — and in every case the wallet approves
-nothing and moves no money.
-
-**4. What happens if the agent is malicious?**
-It proposes; it never decides. It cannot raise a ceiling, forge a platform field, fake
-merchant familiarity, or charge. 133 adversarial cases and 17 matrix attacks hold.
-*Not proven:* that our adversarial corpus is exhaustive. It is a sample.
-
-**5. Can the agent learn the spending limit?**
-Yes, slowly and expensively, and we publish the number: ~12 probes to recover a
-CHF 137 ceiling to CHF 0.24, costing CHF 531 in purchases it must keep. Any yes/no
-system is an oracle. What we prevent is the shortcut — the customer's payload carries
-the rule value and would give it up in **zero** queries; the agent's never does.
-*Not proven:* that the oracle can be eliminated. It cannot.
-
-**6. What happens if the model hallucinates?**
-Tested as a first-class case. A planner returning items that do not exist, or garbage
-instead of a basket, ends at the customer — never at a purchase.
-
-**7. What happens if the model is unavailable?**
-The shipped planner is deterministic, so the judged path has no model to lose. A
-planner that raises is caught and the agent hands back to the customer. Replay and the
-agent episode are byte-identical across runs, with no network and no API key.
-
-**8. Why trust merchant evidence?**
-We don't. Merchant text is read in one place under whitelist patterns and can only
-**narrow** a decision. It cannot raise a ceiling, fake familiarity, or override a
-platform status — verified.
-*Not proven, and the largest real exposure:* on two fields (return window, item size) a
-plausible lie can move REVIEW → ALLOW. Nothing in this protocol can verify them.
-
-**9. What prevents double spending?**
-One execution point, an atomic compare-and-set against a write-once ledger. Eight
-concurrent charges → exactly one succeeds.
-*Not proven:* exactly-once. It is **at-most-once, per process**; two workers restoring
-one checkpoint each charge once. Said plainly in the UI.
-
-**10. What happens after revocation?**
-An outstanding authority is swept, a purchase still awaiting the customer's answer
-cannot acquire one, a charge after revocation is refused, and a new run under a revoked
-mandate blocks.
-*Not proven:* what the platform does with work already queued. The spec leaves it open.
-
-**11. What happens across multiple shopping sessions?**
-The rolling window is enforced per session, matching the platform's own scope. Ten
-sessions under one mandate put CHF 2,999 through a CHF 300/7-day cap — **measured**,
-and disclosed to the customer at confirmation.
-*Not proven:* that cross-session enforcement is impossible. Team-scoped records exist;
-their shape is under-documented and we chose not to rely on it. Honest, and the first
-thing we would fix next.
-
-**12. Why not just use traditional card controls?**
-A card control knows an amount and a merchant category. It cannot know *"only the
-27-inch monitor I chose, from a seller I've used, and nothing added to the basket"* —
-and it cannot ask you when it isn't sure. Our blocks are 33 customer-policy violations
-against 0 wallet-safety blocks on the official corpus: the wallet enforces the
-customer's sentence, not a generic limit.
-
-**13. What is genuinely new here?**
-Not the crypto, not the algorithms. Two things: **an explanation protocol with two
-audiences** — the customer sees their policy, the agent sees a decision and a
-constraint class — and the **discipline apparatus**: a mutation probe, a machine-checked
-invariant register, self-describing numbers that fail the build when stale, and a
-document listing what we refuse to claim.
-*Not claimed as novel:* capability attenuation, sliding-window limits, step-up. All
-prior art.
-
-**14. Who would buy this?**
-Any issuer whose customers will soon be asked to let an agent shop — which is every
-issuer. The unit being sold is not the rules engine; it is the defensible answer to
-*"what happened when it got my instruction wrong?"*
-
-**15. Why is this necessary for agentic commerce?**
-Because the failure mode is not fraud, it is **misreading**. An agent that
-misunderstands you and spends faithfully is worse than one that is hacked, because
-nothing looks wrong. This system is built so that misreading cannot silently widen
-what you granted: unrepresentable intent blocks confirmation, merchant text can only
-narrow, and the agent is told a decision rather than a threshold.
+The long-form versions are in `FINAL_JURY_AUDIT.md`.
 
 ---
 
-## Questions this campaign invites
+**1 · Where is the AI?**
+> "Outside the money path, on purpose. The agent does the reasoning — it searches
+> baskets against an explicit objective and learns from refusals. The wallet decides
+> deterministically, because the spec requires a predictable answer when the model is
+> down."
 
-**How do I know your agent is a real agent and not a script?**
-Because we tried to prove it wasn't, in public. `research/planning_benchmark.py` is
-eleven adversarial episodes written **before** the agent was touched, so that it
-could fail — and it did, **5/11**. In five of them the cheapest valid-looking basket
-is the wrong one. Across all eleven the old agent used two distinct moves: swap for
-the cheapest, drop the dearest. Its own documented "try another merchant" rung never
-fired once. The agent you saw scores 11/11; the old one, re-measured against the same
-episodes, still scores 5/11.
-*Not proven:* that eleven small synthetic worlds represent a real catalogue. They are
-diagnostic, not representative, and the claims register grades this SUPPORTED rather
-than PROVEN for exactly that reason.
+*Evidence:* `research/shopping_agent.py`, `tests/test_runtime_boundary.py`.
+*Limitation:* no language model anywhere in the judged path.
 
-**Isn't "the cheapest basket" a trivially easy objective?**
-It is, which is why it is the wrong one and why the benchmark is built to punish it.
-Episode K has three baskets that look buyable, exactly one is allowed, and it is the
-**dearest**. The old agent deleted the right answer first *because* it was the
-dearest. The objective now reads: do more of the errand, prefer goods that can be
-sent back once a refusal showed that matters, and only then spend less. Price is last.
+---
 
-**Your agent was approved in one attempt in the privacy test but took three in the
-demo. Which is it?**
-Both, and the difference is the point. It settles low — CHF 7.50 against a hidden
-ceiling of CHF 137 — because the objective walks *away* from the limit. It takes
-three attempts in the demo because that mandate also restricts the shop and the
-return terms, and no amount of spending less fixes either. Two of the three demo
-refusals are not about money at all.
+**2 · Why is this an agent and not a workflow?**
+> "We wrote eleven adversarial episodes before touching the agent, so it could fail,
+> and it did — five out of eleven. In five of them the cheapest valid basket is the
+> wrong one. It scores eleven now. The old one still scores five."
 
-**What stops it retrying until something goes through?**
-Three things. `MAX_REVISIONS` bounds the loop; it never re-proposes a basket it has
-already tried; and a refusal about *the agent* rather than *the purchase* —
-`duplicate`, `session` — halts it unconditionally, even when a perfectly good
-alternative basket is sitting right there. That last one was a regression the search
-introduced, found by our own tests, and it is the behaviour we would least want a
-judge to find: an agent answering "you look like a runaway" by rephrasing itself
-until the wallet stops noticing.
+*Evidence:* `research/planning_benchmark.py`, `tests/test_planning_benchmark.py`.
+*Limitation:* eleven synthetic worlds is a diagnostic sample, not representative.
 
-**Could a hostile shop make your agent misbehave?**
-It could waste the customer's attempts, and did. A quoted price of CHF -1000 was
-enough to make the search propose it — the objective prefers spending less and
-nothing spends less than a refund. The wallet blocked it (it refuses any non-positive
-amount), so no money could move, but one of four attempts was gone. The agent now
-treats what its tool returns as untrusted input. A shop big enough to stall it is
-bounded too: 1,000 merchants took 1.6s against an 8s deadline before the cap went in.
+---
 
-**Can a sequence of refusals teach it that it may spend more?**
-No, by construction rather than by testing. The believed ceiling only ever falls and
-a ruled-out shop is never reinstated. And what it believes is not the customer's
-limit — it is "strictly less than a total I already tried", which is all a refusal
-can honestly say.
+**3 · What does the agent actually decide?**
+> "Which goods, from which shop, in what combination, and when to stop and ask you.
+> Nothing about money moving. Watch it: it changes shop, then swaps one line, and
+> the approved basket costs a franc more than the refused one."
 
-**Does the agent know the customer's limit?**
-The wallet never tells it one, and that is provable. But the errand is the customer's
-own sentence and that sentence says "CHF 120", so the honest answer is: the number is
-in the agent's possession, and the shipped planner never reads it — it uses the
-category and how many lines count as the errand done. A **model** planner would read
-it straight out of the prompt. We found this while writing the test that was supposed
-to check it, and which had been quietly slicing that line out of its own assertion.
+*Limitation:* its objective counts lines bought — a thin proxy for a shopping list.
 
-**The demo page runs its own planner. Isn't that a second, unverified agent?**
-It was. It carried a comment claiming it used "the same strategy ladder the Python
-agent uses", and by the time anyone read it that had stopped being true. Both
-planners now run over the page's own offer list across eight refusal sequences, and
-the suite fails if they choose different baskets, in a different order, or a
-different shop.
+---
+
+**4 · Why no LLM?**
+> "We measured it rather than assumed. A model planner at the same seam ties at
+> eleven out of eleven for twenty-one network calls. A confidently-wrong model with a
+> deterministic fallback scores eight — worse than no model, because the fallback
+> catches unusable answers and that one is merely wrong."
+
+*Evidence:* `research/architecture_comparison.py`.
+*Limitation:* those are stubs. No API was called; we did not benchmark an LLM.
+
+---
+
+**5 · Isn't this just a policy engine?**
+> "A policy engine answers 'does this match the rules'. There's one decision in the
+> official data where every rule the customer wrote passed and the wallet stopped it
+> anyway. A policy engine can't produce that — the policy said yes."
+
+*Evidence:* `GET /api/scenarios/security-override` → SCEN0004/AU0036.
+*Limitation:* the policy half genuinely is a simple rules engine.
+
+---
+
+**6 · Why not just use a card spending limit?**
+> "A limit answers 'can this card spend'. It can't say 'from a seller I've used
+> before' or 'only if returnable in fourteen days', and it can't tell the agent why
+> it was refused without telling it the number. Two of our three refusals are things
+> a limit cannot express."
+
+*Limitation:* for the amount rule alone, a card limit is equivalent. We say so.
+
+---
+
+**7 · What if the agent is malicious?**
+> "It proposes, it never decides. We test planners worse than a compromised one —
+> one asking for a hundred and fifty thousand francs, one hallucinating items, one
+> that crashes. No approval, no money, every time."
+
+*Evidence:* `tests/security/test_agent_planner_boundary.py`.
+*Limitation:* the wallet cannot verify a merchant stocks an item. An agent lying
+about its own basket gets a truthful evaluation of a false description.
+
+---
+
+**8 · What if the model hallucinates?**
+> "There's no model in the path, so the real answer is about the seam: a
+> hallucinating planner returns ids that don't exist, the parse fails closed, and the
+> deterministic search takes over. Nothing unusable ever widens an errand."
+
+*Limitation:* a model that is confidently *wrong* in well-formed JSON is the case a
+fallback cannot catch. That's the eight-out-of-eleven number.
+
+---
+
+**9 · Can the agent learn my spending limit?**
+> "Slowly and expensively — about twelve probes and five hundred francs of purchases
+> it has to keep, for one ceiling. Ours doesn't, because its objective spends as
+> little as it can, so it walks away from the limit rather than toward it. Seven
+> francs fifty against a hidden one-thirty-seven."
+
+*Limitation:* that's a property of our planner, not the interface. A different
+planner behind the same seam could probe.
+
+---
+
+**10 · So the agent never sees the limit?**
+> "The *wallet* never tells it one — that's provable. But the errand is your own
+> sentence and your sentence says 'CHF 120', so the number is in its possession. Our
+> planner never reads the instruction; it uses the category and how many lines count
+> as done. A model planner would read it straight out of the prompt."
+
+*Evidence:* `test_the_SHIPPED_planner_never_reads_the_instruction_at_all`.
+
+---
+
+**11 · Why trust merchant evidence?**
+> "You shouldn't, and we don't. Return windows and sizes are merchant claims from
+> text we can't verify. The rule is that merchant text can only ever narrow a
+> decision, never widen one, and we test that against injection in the description."
+
+*Limitation:* a plausible lie beats us. 'Returns accepted within 90 days' satisfies
+any realistic threshold. It's on the refuse list with no fix inside this protocol.
+
+---
+
+**12 · What happens after revocation?**
+> "Nothing is authorised, including a purchase already waiting for you. That was a
+> real vulnerability — revoke, then answer the pending step-up, and a hundred
+> seventy-five francs was charged. Revocation was a sweep over records, and a waiting
+> purchase had no record yet. It's run-scoped state now."
+
+*Limitation:* within one process.
+
+---
+
+**13 · What about across sessions?**
+> "The rolling cap is per run, matching the platform's own scope. Ten runs put three
+> thousand eight hundred francs through a stated three-hundred-a-week cap. We
+> disclose that to the customer at confirmation. We do not enforce it."
+
+*Limitation:* and we corrected ourselves — we used to call that a protocol limit.
+It's a choice under uncertainty. A ledger prototype lost writes under concurrency.
+
+---
+
+**14 · Double spending?**
+> "At most once, within one process, by construction — the execution lifecycle lives
+> on the decision record rather than in a second object. Two records describing one
+> authorization was the shape that produced four separate vulnerabilities. Eight
+> concurrent charges give one charge."
+
+*Limitation:* not exactly-once, not across processes. It's on the refuse list.
+
+---
+
+**15 · What if the wallet is down?**
+> "Nothing is authorised. The agent holds no authority to fall back on, so it fails
+> closed by construction rather than by a check."
+
+*Limitation:* we don't know what the platform does on a missed deadline. The spec
+doesn't say. If silence approves, our failure mode is wrong and it's the first thing
+we'd change.
+
+---
+
+**16 · What's actually novel?**
+> "Not the rules engine, and not one-shot mandates — SEPA and Google's AP2 intent
+> mandates are prior art and we cite them. What we haven't found prior art for is
+> refusing an agent in a form it can act on while withholding everything it could
+> probe with, and pricing the leak that's left in francs."
+
+*Limitation:* 'we didn't find prior art' is not 'there is none'.
+
+---
+
+**17 · Who pays for this?**
+> "The card issuer. They carry the loss when an agent spends wrongly, they're already
+> in the authorization path, and they already hold the purchase history the
+> familiarity rule needs."
+
+*Limitation:* no customer discovery, no pilot, and we have no market-size number.
+
+---
+
+**18 · What's reproducible?**
+> "All of it, offline. The replay is byte-identical run to run. The benchmark and the
+> architecture comparison are byte-identical. We ran the demo forty times across two
+> server restarts plus eight concurrent sessions — same trace every time."
+
+*Limitation:* 19/2/24 is a regression boundary, not a score. The dataset says
+`contains_expected_decisions: false`.
+
+---
+
+**19 · What are you not claiming?**
+> "There's a document for it and it's the one I'd rather you read. Exactly-once
+> payment. Capping total spend. Cross-session enforcement. Detecting merchant lies.
+> Understanding intent. Formal proof of anything."
+
+*This is the strongest card. Play it before being asked.*
+
+---
+
+**20 · Did you find anything wrong with your own work?**
+> "Several, this week. The demo was quoting real item ids with fabricated names — a
+> hotel room on screen as pantry restock. A pending step-up told the customer it was
+> approved. And the customer view sat under `/api/agent/` keyed on an id the agent
+> chooses, so an agent could read the whole policy in one GET instead of twelve
+> probes. All three are fixed, tested and written up."
+
+*Why answer this fully: a team that can name its own defects precisely is the one
+whose remaining claims are worth believing.*
