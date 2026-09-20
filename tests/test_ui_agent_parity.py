@@ -130,3 +130,29 @@ def test_the_page_does_not_claim_something_it_stopped_doing():
     """The comment that used to sit here said the page ran "the same strategy ladder
     the Python agent uses". There is no ladder any more in either place."""
     assert "strategy ladder" not in PAGE.read_text()
+
+
+def test_the_demo_endpoint_refuses_a_basket_no_single_shop_could_supply():
+    """Quietly re-attributing a mixed basket to a default merchant would hand the
+    engine a truthful evaluation of a false description -- the same defect that let
+    an earlier agent be "approved" while holding goods from a shop the customer had
+    excluded. The endpoint refuses instead."""
+    from fastapi.testclient import TestClient
+    from wallet_control.api import app
+
+    client = TestClient(app)
+    mixed = [{"item_id": "IT0001", "name": "a", "category": "groceries",
+              "unit_price": 10, "quantity": 1, "merchant": "ME0001", "return_days": 30},
+             {"item_id": "IT0002", "name": "b", "category": "groceries",
+              "unit_price": 12, "quantity": 1, "merchant": "ME0005", "return_days": 30}]
+    assert client.post("/api/agent/propose",
+                       json={"session_id": "t_mixed", "lines": mixed}).status_code == 400
+
+    unknown = [dict(mixed[0], merchant="ME_NOT_A_REAL_SHOP")]
+    assert client.post("/api/agent/propose",
+                       json={"session_id": "t_unknown", "lines": unknown}).status_code == 400
+
+    good = [mixed[0]]
+    ok = client.post("/api/agent/propose", json={"session_id": "t_ok", "lines": good})
+    assert ok.status_code == 200
+    assert set(ok.json()) == {"authorization_id", "decision", "blocked_by", "awaiting_customer"}

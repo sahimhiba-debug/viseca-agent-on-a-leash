@@ -55,8 +55,8 @@ is allowed; and it is the **dearest**.
 
 | agent | score | notes |
 | --- | --- | --- |
-| the old repair ladder | **5/11** | measured before anything changed |
-| the old ladder, re-measured on the corrected benchmark | **5/11** | see *One fixture bug*, below |
+| the old repair ladder | **5/11** | measured at commit `db72435`, before anything changed |
+| the old ladder, re-measured on the corrected benchmark | **5/11** | the old planner is recoverable from `git show f47f89d:research/shopping_agent.py`, so this is re-runnable |
 | the search-based agent (shipped) | **11/11** | |
 
 Across all eleven episodes the old agent used **two** distinct moves: *swap for the

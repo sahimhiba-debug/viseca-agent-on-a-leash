@@ -179,9 +179,21 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
              for i, l in enumerate(req.lines)]
     returnable = ("unknown" if any(w is None for w in windows)
                   else "true" if all(int(w) > 0 for w in windows) else "false")
+    # A basket spanning two shops, or naming one that does not exist, is not a
+    # purchase anyone could make. Quietly re-attributing it to a default merchant
+    # would hand the engine a truthful evaluation of a false description -- the same
+    # defect that let an earlier agent be "approved" while holding goods from a shop
+    # the customer had excluded. Refuse it instead; the caller has a bug.
     proposed = {str(l.get("merchant") or "ME0001") for l in req.lines}
-    merchant_id = sorted(proposed)[0] if len(proposed) == 1 else "ME0001"
-    merchant = load_merchants().get(merchant_id, {})
+    if len(proposed) != 1:
+        raise HTTPException(status_code=400, detail=(
+            "a proposal must come from one merchant; this basket names "
+            f"{len(proposed)}: {sorted(proposed)}"))
+    merchant_id = proposed.pop()
+    merchant = load_merchants().get(merchant_id)
+    if merchant is None:
+        raise HTTPException(status_code=400,
+                            detail=f"unknown merchant {merchant_id!r}")
     event = {
         "type": "authorization.request", "request_id": f"req_agent_{revision}",
         "deadline_at": (when + timedelta(seconds=8)).isoformat().replace("+00:00", "Z"),
@@ -193,11 +205,11 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
             "card_id": snapshot.card_id, "initiator_type": "agent",
             "merchant": {
                 "merchant_id": merchant_id,
-                "merchant_name": merchant.get("merchant_name", merchant_id),
-                "merchant_category": merchant.get("merchant_category", "groceries"),
-                "merchant_mcc": merchant.get("merchant_mcc", "5411"),
-                "merchant_country": merchant.get("merchant_country", "CH"),
-                "merchant_city": merchant.get("merchant_city", "Zurich"),
+                "merchant_name": merchant["merchant_name"],
+                "merchant_category": merchant["merchant_category"],
+                "merchant_mcc": merchant["merchant_mcc"],
+                "merchant_country": merchant["merchant_country"],
+                "merchant_city": merchant["merchant_city"],
                 "availability": "online", "recurring_capable": "false"},
             "timestamp": stamp, "amount": amount, "currency": "CHF",
             "billing_amount_chf": amount, "items_subtotal": amount, "delivery_fee": 0.0,
