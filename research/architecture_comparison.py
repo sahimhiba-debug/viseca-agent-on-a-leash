@@ -99,10 +99,23 @@ ARCHS = [
 ]
 
 
+def _real_model_arms():
+    """The real-model arms, when a key is present. Empty otherwise, loudly."""
+    import os
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("  (no ANTHROPIC_API_KEY: the real-model arms were NOT run. "
+              "See docs/FINAL_LLM_EXPERIMENT.md.)\n")
+        return []
+    from research.model_planner import anthropic_completer
+    complete = anthropic_completer()
+    return [("REAL MODEL, no fallback", complete, False),
+            ("REAL MODEL, hybrid", complete, True)]
+
+
 def main() -> int:
     random.seed(20260920)
     print(f"{'architecture':30s} {'score':>7s} {'calls':>6s} {'fell back':>10s}  failed")
-    for label, complete, fallback in ARCHS:
+    for label, complete, fallback in [*ARCHS, *_real_model_arms()]:
         if complete is None:
             planner, model = DETERMINISTIC, None
         else:

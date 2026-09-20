@@ -132,3 +132,52 @@ class ModelPlanner:
 # planner, and `ModelPlanner` is passed to `shop(..., planner=...)` directly. That
 # the seam turned out to need no wrapper is the strongest evidence it is a real
 # seam and not a hole shaped like the deterministic planner.
+
+
+# ---------------------------------------------------------------------------
+# A real model, for anyone who has a key. We did not.
+# ---------------------------------------------------------------------------
+
+def anthropic_completer(model: str = "claude-haiku-4-5-20251001",
+                        max_tokens: int = 256, temperature: float = 0.0):
+    """Return a `complete` callable backed by the real Anthropic API.
+
+    Stdlib only, on purpose: adding an SDK to run one experiment would put a
+    dependency in the repository that the judged path must never acquire. This is
+    research apparatus and stays optional.
+
+    `temperature=0` because the comparison is only worth running if it is
+    repeatable. It still will not be byte-identical across runs -- that is a
+    property of the model, not of this code, and any published number from it must
+    carry a variance rather than a single figure.
+
+    Raises `RuntimeError` when `ANTHROPIC_API_KEY` is unset, rather than silently
+    degrading to a stub, because a stub quietly standing in for a model is exactly
+    the confusion this whole file exists to avoid.
+    """
+    import json as _json
+    import os
+    import urllib.request
+
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY is not set. This is the real-model arm of the "
+            "comparison and it needs a key; see docs/FINAL_LLM_EXPERIMENT.md for "
+            "what was and was not run.")
+
+    def complete(prompt: str) -> str:
+        request = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=_json.dumps({
+                "model": model, "max_tokens": max_tokens, "temperature": temperature,
+                "messages": [{"role": "user", "content": prompt}],
+            }).encode(),
+            headers={"content-type": "application/json", "x-api-key": key,
+                     "anthropic-version": "2023-06-01"},
+        )
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = _json.load(response)
+        return "".join(block.get("text", "") for block in payload.get("content", []))
+
+    return complete
