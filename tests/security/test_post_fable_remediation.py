@@ -350,3 +350,43 @@ def test_the_expiry_comparison_uses_the_same_clock_the_horizon_was_set_on():
     other = _approved_state()
     just_before = other.get_authority("AU1").expires_at - timedelta(seconds=1)
     other.consume_authority("AU1", executed_at=just_before, now=just_before)
+
+
+# ============================================  bypass-by-omission (audit of the fix)
+def test_every_compiling_drafter_plumbs_unsupported_restrictions():
+    """The gate is only as good as the callers that carry it.
+
+    `Mandate.draft(...)` defaults `unsupported_restrictions` to None, so any caller
+    that compiles an instruction and then forgets to pass it gets an empty list and
+    confirms freely -- no tampering required, just an omission. The final validation
+    pass enumerated every module that does BOTH by AST and found exactly one:
+    `research/demo_scenario.py`, which drafted with five positional arguments.
+
+    It was not exploitable (its instruction carries no unsupported restriction, and
+    `research/` is never imported by the runtime), but a gate that depends on every
+    caller remembering is a gate that will be forgotten. This makes forgetting fail
+    the suite instead.
+    """
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    offenders = []
+    for directory in ("src", "scripts", "research"):
+        for path in sorted((root / directory).rglob("*.py")):
+            source = path.read_text()
+            if "compile_instruction" not in source:
+                continue
+            for node in ast.walk(ast.parse(source)):
+                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "draft"):
+                    continue
+                keywords = {k.arg for k in node.keywords}
+                # draft(instruction, hard_rules, uncertainty, guidance, open_questions, unsupported)
+                if len(node.args) < 6 and "unsupported_restrictions" not in keywords:
+                    offenders.append(f"{path.relative_to(root)}:{node.lineno}")
+
+    assert not offenders, (
+        "these call sites compile an instruction and draft a mandate without carrying "
+        f"unsupported_restrictions, so the confirmation gate cannot fire for them: {offenders}"
+    )

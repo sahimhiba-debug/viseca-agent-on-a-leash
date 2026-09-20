@@ -70,7 +70,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     938 tests
+tests/                     939 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -123,7 +123,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**938 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**939 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say
@@ -135,8 +135,8 @@ pytest -q
 - `tests/security/test_state_machine.py` -- a stateful model over the whole lifecycle.
 
 The count is not the argument. `python3 scripts/run_mutation_probe.py` deliberately
-breaks 34 security mechanisms in `src/wallet_control/`, one at a time, and checks the
-suite notices: **34 killed, 0 survived.** Its first run found a real gap and the
+breaks 35 security mechanisms in `src/wallet_control/`, one at a time, and checks the
+suite notices: **35 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
 Official replay: **45 events, 19 allow / 2 review / 24 block** -- a regression
@@ -167,6 +167,7 @@ behind every one of the 45 decisions.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
 - [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
+- [docs/POST_FABLE_FINAL_VALIDATION.md](docs/POST_FABLE_FINAL_VALIDATION.md) -- independent re-verification of those fixes: all four closed, one latent bypass found and fixed during the pass
 - [docs/POST_FABLE_REMEDIATION.md](docs/POST_FABLE_REMEDIATION.md) -- fixes for the independent audit: the confirmation gate for restrictions we cannot enforce, authorization identity, and the platform policy echo
 - [docs/FINAL_PRE_FABLE_AUDIT.md](docs/FINAL_PRE_FABLE_AUDIT.md) -- the freeze audit: attacked as a hostile judge, including the ten questions a senior reviewer could ask and the truthful answers
 - [docs/FINAL_INTENT_FIDELITY_AUDIT.md](docs/FINAL_INTENT_FIDELITY_AUDIT.md) -- does the wallet enforce what the customer asked for, or what the compiler heard? Six defects, including a weekly budget silently compiled as a per-order ceiling

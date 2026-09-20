@@ -14,11 +14,11 @@ disagreed with the code, the code won and the document was corrected.
 
 | suite | command | result |
 | --- | --- | --- |
-| tests | `python3 -m pytest -q` | **933 pass, 5 reported skips** (938 collected) |
+| tests | `python3 -m pytest -q` | **934 pass, 5 reported skips** (939 collected) |
 | official replay | `python3 scripts/run_replay.py` | **45 events — 19 allow / 2 review / 24 block** |
 | adversarial corpus | `python3 scripts/run_red_team_corpus.py` | **133/133** across 10 categories |
 | attack matrix | `python3 scripts/run_red_team.py` | **17/17** |
-| mutation probe | `python3 scripts/run_mutation_probe.py` | **34 applied, 34 killed, 0 survived** |
+| mutation probe | `python3 scripts/run_mutation_probe.py` | **35 applied, 35 killed, 0 survived** |
 
 `/api/health` reports `matches_regression_boundary: true`.
 

@@ -97,8 +97,17 @@ INJECTED_ITEM_DETAILS = (
 
 def _mandate() -> Mandate:
     compiled = compile_instruction(INSTRUCTION)
-    mandate = Mandate.draft(INSTRUCTION, compiled.hard_rules, compiled.uncertainty_policy, compiled.guidance, compiled.open_questions)
-    mandate.confirm(confirmed=True, customer_id=CUSTOMER_ID, card_id=CARD_ID, profile_id=PROFILE_ID)
+    mandate = Mandate.draft(
+        INSTRUCTION, compiled.hard_rules, compiled.uncertainty_policy,
+        compiled.guidance, compiled.open_questions, compiled.unsupported_restrictions,
+    )
+    # Acknowledged explicitly, exactly as `offline_replay` does. Omitting the field
+    # would ALSO confirm -- an empty list passes the gate -- and that silent bypass is
+    # what this call site was, until an audit enumerated every compiling drafter by AST.
+    mandate.confirm(
+        confirmed=True, customer_id=CUSTOMER_ID, card_id=CARD_ID, profile_id=PROFILE_ID,
+        acknowledged_unsupported=compiled.unsupported_restrictions,
+    )
     return mandate
 
 
