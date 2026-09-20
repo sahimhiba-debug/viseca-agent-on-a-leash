@@ -14,8 +14,21 @@ scenario id; each episode is a world plus a customer instruction, and the agent 
 given no privileged knowledge of either.
 
 BASELINE, measured before any change to the agent (commit db72435): 5/11.
+AFTER the planner was rebuilt around a tool, an objective function and a search
+over candidate baskets: 11/11.
 
-    pass  A B F H J          fail  C D E G I K
+    before   pass  A B F H J          fail  C D E G I K
+    after    pass  all eleven
+
+One fixture bug was found and fixed in between: this file emitted the seller's
+returnable flag as English "yes"/"no" where the platform's vocabulary is
+"true"/"false", so it fell through to "the seller said nothing" and episode D
+escalated to a human on attempt one. That measured the fixture, not the agent. The
+OLD agent was re-run against the CORRECTED benchmark and still scored 5/11, and its
+failures got worse under the honest rendering: in C, E, I and K it reported
+"approved" while holding the excluded shop's goods, because it chose the items from
+a catalogue and the merchant from the mission and never checked them against each
+other. The wallet approved a truthful evaluation of an untruthful proposal.
 
 The six failures are three defects, not six:
 
@@ -40,6 +53,12 @@ Across all 11 episodes it used TWO distinct moves: "swapped X for the cheaper Y"
 (once) and "dropped X" (seven times). The merchant-switch and category-filter rungs
 never fired at all. A greedy descent on one axis is not planning, and the honest
 word for the result is a reactive repair loop.
+
+WHAT CHANGED, and what did NOT. No model was added. The three defects were failures
+of representation, not of reasoning power: the agent had no way to say what it
+wanted (objective), no way to consider an option it had not already chosen
+(search), and no way to look at the shop (tool). A language model would have
+supplied none of those three; it would have guessed at all of them, unreproducibly.
 """
 
 from __future__ import annotations
@@ -225,8 +244,17 @@ class Result:
         return not self.violations
 
 
-def _lines_for(world: World) -> list[sa.Line]:
-    return [sa.Line(p.item_id, p.name, p.category, p.price) for p in world.search()]
+class WorldShop(sa.Shop):
+    """The episode world, exposed through the agent's own tool interface. Read live
+    on every call, so an episode that changes the shop mid-run actually changes what
+    the agent sees -- which is the whole point of episodes F and G."""
+
+    def __init__(self, world: World) -> None:
+        self.world = world
+
+    def search(self, category=None):
+        return [sa.Offer(p.item_id, p.name, p.category, p.price, p.merchant, p.returnable_days)
+                for p in self.world.search(category)]
 
 
 def _event(ep: Episode, lines, merchant_id: str, n: int, mandate, world: World) -> dict[str, Any]:
@@ -241,7 +269,17 @@ def _event(ep: Episode, lines, merchant_id: str, n: int, mandate, world: World) 
                       "item_category": l.category, "quantity": l.quantity,
                       "unit_price": float(l.unit_price), "currency": "CHF",
                       "item_details": detail})
+    # What the seller says about returns, consistently with the per-item details the
+    # agent can read. Leaving this "unknown" made episode D escalate to a human on
+    # attempt one, which measured the fixture, not the agent.
+    windows = [by_id[l.item_id].returnable_days for l in lines]
+    # "true"/"false"/"unknown" -- the platform's vocabulary, not English. Emitting
+    # "yes"/"no" here silently fell through to "the seller said nothing", which made
+    # episode D escalate on attempt one and measured the fixture, not the agent.
+    returnable = ("unknown" if any(w is None for w in windows)
+                  else "true" if all(w > 0 for w in windows) else "false")
     return make_event(authorization_id=f"AU_{ep.key}_{n:04d}", mandate=mandate,
+                      order_returnable=returnable,
                       merchant_id=merchant_id, merchant_category=_GROC,
                       amount=total, billing_amount_chf=total, items_subtotal=total,
                       items=items, card_id=CARD)
@@ -249,8 +287,14 @@ def _event(ep: Episode, lines, merchant_id: str, n: int, mandate, world: World) 
 
 def run_episode(ep: Episode, *, max_revisions: int = 4) -> Result:
     compiled = compile_instruction(ep.instruction)
+    # Carry the unsupported restrictions into the DRAFT, not just into confirm().
+    # Acknowledging at confirmation time while drafting an empty list means the gate
+    # has nothing to fire on; the anti-rot test in tests/security caught this file
+    # doing precisely that.
     m = Mandate.draft(ep.instruction, list(compiled.hard_rules),
-                      UncertaintyPolicy(compiled.uncertainty_policy))
+                      UncertaintyPolicy(compiled.uncertainty_policy),
+                      list(compiled.guidance), list(compiled.open_questions),
+                      list(compiled.unsupported_restrictions))
     m.confirm(confirmed=True, customer_id="CU_BENCH", card_id=CARD, profile_id="PR_BENCH",
               acknowledged_unsupported=tuple(compiled.unsupported_restrictions))
     mandate = m.snapshot()
@@ -259,31 +303,21 @@ def run_episode(ep: Episode, *, max_revisions: int = 4) -> Result:
     by_id = {p.item_id: p for p in ep.world.products}
     seen = {"n": 0}
 
-    # The shipped agent reads a module-level CSV. There is no tool to point at a
-    # different shop, so the only way to run it against an episode world is to
-    # replace that global. That necessity is finding #1, not an artefact.
-    original = sa.catalogue
-    sa.catalogue = lambda category=None: [                       # type: ignore[assignment]
-        l for l in _lines_for(ep.world) if category is None or l.category == category]
+    tool = WorldShop(ep.world)
 
     def propose(lines, revision, merchant):
         seen["n"] += 1
         # The basket decides the shop, because the goods live at a shop. The agent
         # has no such notion; we render its intent as faithfully as we can.
-        merchants = {by_id[l.item_id].merchant for l in lines if l.item_id in by_id}
-        mid = sorted(merchants)[0] if merchants else merchant
-        ev = _event(ep, lines, mid, seen["n"], mandate, ep.world)
+        ev = _event(ep, lines, merchant, seen["n"], mandate, ep.world)
         view = agent_view(evaluate_authorization(ev, mandate, state))
         if seen["n"] == 1 and ep.mutate_after_first:
             ep.mutate_after_first(ep.world)
         return view
 
-    try:
-        mission = sa.Mission(ep.instruction, ep.mission_category, target_lines=3,
-                             merchants=tuple(sorted(ep.world.familiar_merchants)))
-        episode = sa.shop(mission, propose, max_revisions=max_revisions)
-    finally:
-        sa.catalogue = original                                   # type: ignore[assignment]
+    mission = sa.Mission(ep.instruction, ep.mission_category, target_lines=3,
+                         merchants=tuple(sorted({p.merchant for p in ep.world.products})))
+    episode = sa.shop(mission, propose, max_revisions=max_revisions, shop_tool=tool)
 
     final = tuple(l.item_id for l in episode.attempts[-1].lines) if episode.attempts else ()
     v: list[str] = []

@@ -35,12 +35,14 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, field
+from itertools import combinations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable
 
 _ITEMS = Path(__file__).resolve().parents[1] / "data" / "official" / "items.csv"
+_MERCHANTS = Path(__file__).resolve().parents[1] / "data" / "official" / "merchants.csv"
 
 # How many revisions before the agent gives up and asks the customer. Bounded because
 # an unbounded loop is exactly the cheap-probing case the oracle analysis warns about,
@@ -101,25 +103,28 @@ class Episode:
         }
 
 
-def catalogue(category: str | None = None) -> list[Line]:
-    with _ITEMS.open(newline="", encoding="utf-8") as f:
-        rows = [r for r in csv.DictReader(f)]
-    if category:
-        rows = [r for r in rows if r["item_category"] == category]
-    return [
-        Line(r["item_id"], r["item_name"], r["item_category"], Decimal(r["unit_price_typical_chf"]))
-        for r in rows
-    ]
+# Which refusals the agent may answer by shopping differently, and which it must not.
+#
+# The line is not "can I think of a move" -- it is WHAT THE WALLET OBJECTED TO. A
+# constraint on the PURCHASE (too dear, wrong shop, goods that cannot be sent back)
+# is answered by choosing different goods: that is shopping. A constraint on the
+# AGENT'S OWN BEHAVIOUR (this looks like a duplicate, this session looks wrong) is
+# not, and answering it with a different basket is precisely the probing we refuse
+# to do -- it would be an agent that responds to "you look like a runaway" by
+# rephrasing itself until the wallet stops noticing. Those go to the human, always,
+# even when a perfectly good alternative basket is sitting right there.
+_SHOPPABLE = {"amount", "item", "basket", "merchant", "order_terms"}
+_STOP = {"session", "duplicate", "other"}
 
 
 @dataclass(frozen=True)
 class Mission:
     """What the customer actually wants, separate from any one basket.
 
-    The agent plans against THIS, not against the last thing it happened to
-    propose. Without an explicit goal there is nothing to replan toward -- the
-    earlier version had only a basket and one rule for shrinking it, which is
-    why it gave up on five of nine adversarial episodes.
+    The agent plans against THIS, not against the last thing it happened to propose.
+    `target_lines` is how much of the errand counts as done, and it is the first term
+    of the objective function -- so the goal is what the search maximises, not a
+    label on a loop.
     """
 
     description: str
@@ -129,78 +134,259 @@ class Mission:
     merchants: tuple[str, ...] = ("ME0001",)
 
 
-def plan(mission: Mission) -> list[Line]:
-    """Opening basket: the best available lines for the mission.
+class Offer:
+    """One thing that can actually be bought, at one shop, right now.
 
-    Deliberately ambitious. The agent does not know the customer's ceiling, so its
-    first proposal is the one most likely to be refused -- which is the point of the
-    demonstration and also the honest behaviour: nothing tells it to aim low.
+    Distinct from `Line` (what the agent has decided to put in a basket) because the
+    old design conflated them and thereby assumed the shop never changes. An offer
+    carries the seller's OWN stated return window -- public product data, not policy.
     """
-    available = [l for l in catalogue(mission.category) if l.item_id not in mission.unavailable]
-    return sorted(available, key=lambda l: l.unit_price, reverse=True)[: mission.target_lines]
+
+    __slots__ = ("item_id", "name", "category", "unit_price", "merchant", "stated_return_days")
+
+    def __init__(self, item_id, name, category, unit_price, merchant, stated_return_days=None):
+        self.item_id, self.name, self.category = item_id, name, category
+        self.unit_price, self.merchant = unit_price, merchant
+        self.stated_return_days = stated_return_days
+
+    def line(self, quantity: int = 1) -> "Line":
+        return Line(self.item_id, self.name, self.category, self.unit_price, quantity)
 
 
-def _cheaper_substitute(line: Line, mission: Mission, in_basket: list[Line]) -> Line | None:
-    """The cheapest same-category item that is available and not already in the basket."""
-    held = {l.item_id for l in in_basket}
-    options = [
-        l for l in catalogue(line.category)
-        if l.item_id not in mission.unavailable and l.item_id not in held and l.unit_price < line.unit_price
-    ]
-    return min(options, key=lambda l: l.unit_price) if options else None
+class Shop:
+    """The agent's TOOL, and the only way it learns what exists.
+
+    The previous version read a module-level CSV inside `plan`, so it could not be
+    pointed at a different shop and, worse, could not notice that the shop had
+    changed: availability was frozen before the first proposal, and in benchmark
+    episode G the agent re-proposed an item that had sold out two attempts earlier.
+    A tool called on every replanning step fixes that by construction.
+    """
+
+    def search(self, category: str | None = None) -> list[Offer]:
+        raise NotImplementedError
+
+    def available(self, item_id: str) -> bool:
+        return any(o.item_id == item_id for o in self.search())
+
+    def merchant_for(self, lines: list["Line"]) -> str | None:
+        """Which shop can supply this whole basket. None if no single shop can.
+
+        The agent asks rather than assumes, so that a basket produced by ANY planner
+        -- including a hostile one -- is still sent to a shop that actually stocks
+        it. The old loop took the merchant from the mission and the items from the
+        catalogue independently, and they were never checked against each other."""
+        wanted = {l.item_id for l in lines}
+        if not wanted:
+            return None
+        stock: dict[str, set[str]] = {}
+        for o in self.search():
+            stock.setdefault(o.merchant, set()).add(o.item_id)
+        for merchant in sorted(stock):
+            if wanted <= stock[merchant]:
+                return merchant
+        return None
 
 
-# What the agent can actually do about each constraint class. A class it has no move
-# for is not a failure to plan -- it is a reason to involve the customer, which is a
-# different outcome and must not be collapsed into "gave up".
-_ACTIONABLE = {"amount", "item", "basket"}
-_NEEDS_CUSTOMER = {"order_terms", "session", "duplicate", "merchant", "other"}
+class CatalogueShop(Shop):
+    """The official item and merchant lists, read fresh on every call."""
+
+    def __init__(self, unavailable: frozenset[str] = frozenset(),
+                 return_days: dict[str, int] | None = None) -> None:
+        self._unavailable = unavailable
+        self._return_days = return_days or {}
+
+    def search(self, category: str | None = None) -> list[Offer]:
+        with _ITEMS.open(newline="", encoding="utf-8") as f:
+            items = [r for r in csv.DictReader(f)]
+        with _MERCHANTS.open(newline="", encoding="utf-8") as f:
+            shops = [r for r in csv.DictReader(f)]
+        out: list[Offer] = []
+        for r in items:
+            if r["item_id"] in self._unavailable:
+                continue
+            if category and r["item_category"] != category:
+                continue
+            for s in shops:
+                if s["merchant_category"] != r["item_category"]:
+                    continue
+                out.append(Offer(r["item_id"], r["item_name"], r["item_category"],
+                                 Decimal(r["unit_price_typical_chf"]), s["merchant_id"],
+                                 self._return_days.get(r["item_id"])))
+        return out
+
+
+def catalogue(category: str | None = None) -> list[Line]:
+    """Kept because the browser demo and the older tests speak in `Line`s."""
+    seen: dict[str, Line] = {}
+    for o in CatalogueShop().search(category):
+        seen.setdefault(o.item_id, o.line())
+    return list(seen.values())
+
+
+@dataclass
+class Beliefs:
+    """Everything the agent has worked out from being refused.
+
+    This is the whole learning mechanism, and it is deliberately tiny, because every
+    fact in here was paid for with one of the customer's refused purchases.
+
+    Note what is NOT here: any number the wallet holds. `ceiling` is not the
+    customer's limit -- it is "strictly less than a total I already tried", which is
+    all a refusal can honestly tell you. The agent converges toward the real limit
+    from above and never learns it, which is exactly the property
+    `test_NO_POLICY_EXTRACTION` pins down.
+    """
+
+    ruled_out_merchants: set[str] = field(default_factory=set)
+    ceiling: Decimal | None = None          # strictly below this total
+    returns_matter: bool = False            # a refusal mentioned the order's terms
+    tried: set[frozenset[str]] = field(default_factory=set)
+
+    def learn(self, basket: list[Line], merchant: str, blocked_by: list[str]) -> bool:
+        """Fold one refusal into what the agent believes. True if anything is new."""
+        before = (len(self.ruled_out_merchants), self.ceiling, self.returns_matter, len(self.tried))
+        self.tried.add(frozenset(l.item_id for l in basket))
+        total = sum((l.total for l in basket), Decimal("0"))
+        if "amount" in blocked_by and (self.ceiling is None or total < self.ceiling):
+            self.ceiling = total
+        if "merchant" in blocked_by:
+            self.ruled_out_merchants.add(merchant)
+        if "order_terms" in blocked_by:
+            self.returns_matter = True
+        after = (len(self.ruled_out_merchants), self.ceiling, self.returns_matter, len(self.tried))
+        return before != after
+
+
+# How wide the search may go. Bounded because an agent that enumerates without limit
+# is a denial-of-service against the customer's own wallet, and because every basket
+# it eventually proposes costs a real decision.
+MAX_BASKET = 5
+MAX_OFFERS_PER_MERCHANT = 12
+
+
+def score(basket: list[Offer], mission: "Mission", beliefs: Beliefs) -> tuple:
+    """THE OBJECTIVE FUNCTION. Stated once, here, in the order the customer would.
+
+        1. do more of the errand          (coverage, up to what was asked for)
+        2. prefer goods that can be sent back, once a refusal showed that matters
+        3. spend less of the customer's money
+
+    Price is LAST, not first. That inversion is the entire fix for benchmark episode
+    K, where three baskets looked buyable, exactly one was allowed, and the old agent
+    deleted that one first precisely because it was the dearest. Ranking by price is
+    not ranking by what the customer asked for.
+
+    Every term is computed from things the agent can legitimately see: its own
+    mission, the seller's published terms, and the CLASS of constraint that refused
+    it. No term reads a rule value, because it has never been told one.
+    """
+    coverage = min(len(basket), mission.target_lines)
+    worst_window = min((o.stated_return_days if o.stated_return_days is not None else -1)
+                       for o in basket) if beliefs.returns_matter else 0
+    return (coverage, worst_window, -sum((o.unit_price for o in basket), Decimal("0")))
+
+
+def _candidates(shop: Shop, mission: Mission, beliefs: Beliefs) -> list[tuple[list[Offer], str]]:
+    """Every basket worth considering: subsets of one merchant's offers.
+
+    One merchant per basket because the goods physically live at a shop. The old
+    agent chose items and a merchant independently, which is why its "try another
+    merchant" rung could never actually help -- it moved the basket to a shop that
+    did not stock it.
+    """
+    by_merchant: dict[str, list[Offer]] = {}
+    for o in shop.search(mission.category):
+        if o.merchant in beliefs.ruled_out_merchants:
+            continue
+        by_merchant.setdefault(o.merchant, []).append(o)
+
+    out: list[tuple[list[Offer], str]] = []
+    for merchant, offers in by_merchant.items():
+        offers = sorted(offers, key=lambda o: o.unit_price)[:MAX_OFFERS_PER_MERCHANT]
+        for size in range(1, min(MAX_BASKET, mission.target_lines, len(offers)) + 1):
+            for combo in combinations(offers, size):
+                ids = frozenset(o.item_id for o in combo)
+                if ids in beliefs.tried:
+                    continue
+                total = sum((o.unit_price for o in combo), Decimal("0"))
+                if beliefs.ceiling is not None and total >= beliefs.ceiling:
+                    continue
+                out.append((list(combo), merchant))
+    return out
+
+
+def best_basket(shop: Shop, mission: Mission, beliefs: Beliefs) -> tuple[list[Offer], str] | None:
+    """Search, rather than repair. Returns the highest-scoring untried basket."""
+    options = _candidates(shop, mission, beliefs)
+    if not options:
+        return None
+    return max(options, key=lambda c: score(c[0], mission, beliefs))
+
+
+def plan(mission: Mission, shop: Shop | None = None, beliefs: Beliefs | None = None) -> list[Line]:
+    """Opening basket: the best-scoring one the shop can supply."""
+    found = best_basket(shop or CatalogueShop(mission.unavailable), mission, beliefs or Beliefs())
+    return [o.line() for o in found[0]] if found else []
 
 
 def replan(lines: list[Line], blocked_by: list[str], mission: Mission,
-           merchant_index: int) -> tuple[list[Line], str, int] | str:
-    """One replanning step toward the mission.
+           merchant_index: int, shop: Shop | None = None,
+           beliefs: Beliefs | None = None, merchant: str | None = None):
+    """One replanning step: learn from the refusal, look at the shop AGAIN, re-search.
 
     Returns a new (basket, rationale, merchant_index), or a STRING naming why the
-    agent is handing back to the customer. The strategy ladder is ordered so that the
-    agent gives up the least mission value it can:
-
-        1. substitute a cheaper line of the same kind   (keeps the mission intact)
-        2. drop the most expensive line                  (loses one item)
-        3. switch to another merchant it was told about  (keeps the whole basket)
-        4. ask the customer                              (cannot be fixed by shopping)
-
-    None of these uses a numeric threshold, because the agent is never given one.
-    It knows only the CLASS of constraint it hit, so it can move in the right
-    direction and try again -- which is the difference between adapting and probing.
+    agent is handing back. There is no ladder of repairs any more. A ladder can only
+    subtract, so every constraint it had no rung for -- a shop the customer excluded,
+    goods that cannot be returned -- became a human handoff while a perfectly good
+    alternative sat unexamined in the same catalogue. Six of eleven benchmark
+    episodes failed that way.
     """
     if not blocked_by:
         return "the wallet gave no reason the agent can act on"
 
-    unfixable = [c for c in blocked_by if c in _NEEDS_CUSTOMER]
-    actionable = [c for c in blocked_by if c in _ACTIONABLE]
+    halt = sorted(c for c in blocked_by if c not in _SHOPPABLE)
+    if halt:
+        return (f"the wallet raised something about this session rather than about the "
+                f"goods ({', '.join(halt)}); only the customer can resolve that")
 
-    if "item" in actionable or "basket" in actionable:
-        kept = [l for l in lines if l.category == mission.category]
-        if kept and len(kept) < len(lines):
-            return kept, "removed lines outside what the customer asked for", merchant_index
+    shop = shop or CatalogueShop(mission.unavailable)
+    beliefs = beliefs if beliefs is not None else Beliefs()
+    current = merchant or (mission.merchants[merchant_index] if mission.merchants else "")
 
-    if "amount" in actionable:
-        dearest = max(lines, key=lambda l: l.total)
-        swap = _cheaper_substitute(dearest, mission, lines)
-        if swap is not None:
-            return ([l for l in lines if l is not dearest] + [swap],
-                    f"swapped {dearest.name} for the cheaper {swap.name}", merchant_index)
-        if len(lines) > 1:
-            return ([l for l in lines if l is not dearest],
-                    f"no cheaper substitute; dropped {dearest.name}", merchant_index)
+    if not beliefs.learn(lines, current, blocked_by):
+        return "nothing was learned from that refusal, so trying again would only repeat it"
 
-    if unfixable and merchant_index + 1 < len(mission.merchants) and "merchant" in unfixable:
-        return lines, f"trying {mission.merchants[merchant_index + 1]} instead", merchant_index + 1
+    found = best_basket(shop, mission, beliefs)
+    if found is None:
+        return "no basket this shop can supply would satisfy what the customer asked for"
 
-    if unfixable:
-        return f"only the customer can resolve this ({', '.join(sorted(unfixable))})"
-    return "no further change would help"
+    offers, new_merchant = found
+    index = merchant_index
+    if new_merchant != current and new_merchant in mission.merchants:
+        index = mission.merchants.index(new_merchant)
+    return [o.line() for o in offers], _why(lines, offers, current, new_merchant, blocked_by), index
+
+
+def _why(old: list[Line], new: list[Offer], old_merchant: str, new_merchant: str,
+         blocked_by: list[str]) -> str:
+    """Plain language for the audit trail. Says what CHANGED and what prompted it,
+    never a threshold, because the agent does not have one to leak."""
+    was, now = {l.item_id for l in old}, {o.item_id for o in new}
+    bits = []
+    if new_merchant != old_merchant:
+        bits.append(f"moved to {new_merchant}")
+    added = [o.name for o in new if o.item_id not in was]
+    dropped = [l.name for l in old if l.item_id not in now]
+    if dropped:
+        bits.append("dropped " + ", ".join(dropped))
+    if added:
+        bits.append("took " + ", ".join(added))
+    because = {"amount": "the total was refused", "merchant": "that shop was refused",
+               "order_terms": "the return terms were refused", "item": "an item was refused",
+               "basket": "the basket was refused"}
+    reasons = [because[c] for c in blocked_by if c in because]
+    return (", ".join(bits) or "kept the basket") + (f" -- {reasons[0]}" if reasons else "")
 
 
 @dataclass(frozen=True)
@@ -224,11 +410,16 @@ class Planner:
     plan: Callable[[Mission], list[Line]] = None          # type: ignore[assignment]
     replan: Callable[..., Any] = None                      # type: ignore[assignment]
 
-    def opening(self, mission: Mission) -> list[Line]:
-        return (self.plan or plan)(mission)
+    def opening(self, mission, shop=None, beliefs=None) -> list[Line]:
+        if self.plan is not None:
+            return self.plan(mission)
+        return plan(mission, shop, beliefs)
 
-    def next_step(self, lines, blocked_by, mission, merchant_index):
-        return (self.replan or replan)(lines, blocked_by, mission, merchant_index)
+    def next_step(self, lines, blocked_by, mission, merchant_index, shop=None,
+                  beliefs=None, merchant=None):
+        if self.replan is not None:
+            return self.replan(lines, blocked_by, mission, merchant_index)
+        return replan(lines, blocked_by, mission, merchant_index, shop, beliefs, merchant)
 
 
 DETERMINISTIC = Planner()
@@ -239,6 +430,7 @@ def shop(
     propose: Callable[[list[Line], int, str], dict[str, Any]],
     max_revisions: int = MAX_REVISIONS,
     planner: Planner = DETERMINISTIC,
+    shop_tool: Shop | None = None,
 ) -> Episode:
     """Plan, propose, observe, replan -- stopping on success, on a human, or when the
     agent judges that no further basket change would help.
@@ -247,10 +439,12 @@ def shop(
     ONLY channel through which the agent learns anything about the policy.
     """
     episode = Episode(mission=mission.description)
+    tool = shop_tool or CatalogueShop(mission.unavailable)
+    beliefs = Beliefs()
     # A planner that raises, returns nothing, or returns nonsense must not take the
     # wallet down with it: the agent degrades to asking the customer.
     try:
-        lines = planner.opening(mission)
+        lines = planner.opening(mission, tool, beliefs)
     except Exception as exc:                                   # noqa: BLE001 -- any planner failure
         episode.outcome = "asked_customer"
         episode.handoff_reason = f"the planner failed to produce a basket ({type(exc).__name__})"
@@ -260,11 +454,12 @@ def shop(
         episode.handoff_reason = "the planner produced no basket"
         return episode
     merchant_index = 0
-    rationale = f"opening basket: the {len(lines)} best available {mission.category} lines"
+    current = tool.merchant_for(lines) or (mission.merchants[0] if mission.merchants else "")
+    rationale = f"opening basket: {len(lines)} {mission.category} line(s), the best the shop offers"
 
     for revision in range(max_revisions + 1):
         amount = sum((l.total for l in lines), Decimal("0"))
-        view = propose(lines, revision, mission.merchants[merchant_index])
+        view = propose(lines, revision, current)
         episode.attempts.append(Attempt(revision, tuple(lines), amount, view, rationale))
 
         if view["decision"] == "allow":
@@ -275,7 +470,8 @@ def shop(
             return episode
 
         try:
-            step = planner.next_step(lines, view.get("blocked_by", []), mission, merchant_index)
+            step = planner.next_step(lines, view.get("blocked_by", []), mission,
+                                     merchant_index, tool, beliefs, current)
         except Exception as exc:                               # noqa: BLE001
             episode.outcome = "asked_customer"
             episode.handoff_reason = f"the planner failed while replanning ({type(exc).__name__})"
@@ -289,6 +485,10 @@ def shop(
             episode.handoff_reason = step
             return episode
         lines, rationale, merchant_index = step
+        # Ask the tool again rather than assuming the new basket is still sold where
+        # the last one was. This is the loop's only claim about the world, and it is
+        # re-checked on every pass.
+        current = tool.merchant_for(lines) or current
 
     episode.outcome = "gave_up"
     episode.handoff_reason = "ran out of revisions"

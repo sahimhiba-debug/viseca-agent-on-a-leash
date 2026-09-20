@@ -126,10 +126,19 @@ def test_adaptation_cannot_create_authority():
 def test_replan_hands_back_to_the_customer_when_it_has_no_move_left():
     """The agent must be able to say "only you can fix this", or `shop` would loop.
     A handoff is a RESULT, not a failure -- collapsing the two was the old design's
-    mistake, and it is why it gave up on five of nine adversarial episodes."""
+    mistake, and it is why it gave up on five of nine adversarial episodes.
+
+    `merchant` used to be listed here too, on the reasoning that only a customer can
+    change which shop is acceptable. That was wrong: the agent cannot change the
+    RULE, but it can go to a different shop, and refusing to was how four of eleven
+    benchmark episodes were lost with a valid alternative sitting in the catalogue.
+    What remains here is the genuinely unanswerable: a refusal with no stated reason,
+    and one aimed at the agent's own conduct rather than at the goods."""
     mission = Mission("m", "groceries")
-    assert isinstance(replan([Line("I1", "x", "groceries", Decimal("10"))], ["merchant"], mission, 0), str)
-    assert isinstance(replan([Line("I1", "x", "groceries", Decimal("10"))], [], mission, 0), str)
+    one = [Line("I1", "x", "groceries", Decimal("10"))]
+    assert isinstance(replan(one, [], mission, 0), str)
+    for behavioural in ("session", "duplicate", "other"):
+        assert isinstance(replan(one, [behavioural], mission, 0), str), behavioural
 
 
 def test_the_runtime_never_imports_the_agent():
@@ -159,8 +168,9 @@ _TWO_SHOPS = Mission("Order groceries", "groceries", merchants=("ME0001", "ME000
         ("one item must be removed", [_L("a", 95), _L("b", 60), _L("c", 50)], ["amount"], "replan"),
         ("removal creates a new violation", [_L("a", 95), _L("b", 60, "jewellery")], ["amount", "item"], "replan"),
         ("merchant rejected", [_L("a", 95)], ["merchant"], "replan"),
+        ("shop refused AND goods too dear", [_L("a", 95)], ["merchant", "amount"], "replan"),
         ("unrequested item in basket", [_L("a", 95), _L("x", 5, "jewellery")], ["basket"], "replan"),
-        ("return policy uncertain", [_L("a", 95)], ["order_terms"], "ask"),
+        ("return policy uncertain", [_L("a", 95)], ["order_terms"], "replan"),
         ("security review: duplicate", [_L("a", 95)], ["duplicate"], "ask"),
         ("session integrity", [_L("a", 95)], ["session"], "ask"),
         ("no reason the agent can act on", [_L("a", 95)], [], "ask"),
@@ -177,14 +187,22 @@ def test_the_agent_either_replans_or_asks_but_never_stalls(label, lines, blocked
         assert isinstance(step, tuple) and step[0], f"{label}: expected a replan, got {step!r}"
 
 
-def test_the_agent_prefers_substitution_over_losing_the_customers_item():
-    """Dropping a line loses mission value; swapping keeps it. A planner that only
-    shrinks is a heuristic."""
-    step = replan([_L("a", 95), _L("b", 60)], ["amount"], Mission("m", "groceries"), 0)
-    assert isinstance(step, tuple)
+def test_the_agent_does_not_answer_a_refusal_by_shrinking():
+    """Dropping a line loses mission value. A planner whose only move is subtraction
+    is a heuristic, and measurably so: the old one answered every refusal by deleting
+    its most expensive line, which in benchmark episode K deleted the single basket
+    that was actually allowed.
+
+    The new agent re-searches instead, so the test is no longer "it substituted" but
+    the stronger "it did not lose ground": told the total was refused, it comes back
+    with a cheaper basket that is no smaller than the one it had."""
+    mission = Mission("m", "groceries", target_lines=2)
+    before = [_L("a", 95), _L("b", 60)]
+    step = replan(before, ["amount"], mission, 0)
+    assert isinstance(step, tuple), step
     new, why, _ = step
-    assert len(new) == 2, "the basket should keep its size when a cheaper option exists"
-    assert "swapped" in why
+    assert len(new) >= len(before), "the basket lost a line the customer asked for"
+    assert sum(l.total for l in new) < sum(l.total for l in before), why
 
 
 # ====================================== Phase 4: the two properties, named explicitly
