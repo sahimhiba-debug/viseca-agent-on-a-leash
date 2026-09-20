@@ -327,6 +327,31 @@ def compile_preview(req: CompileRequest) -> dict[str, Any]:
     }
 
 
+@app.get("/api/scenarios/security-override")
+def scenario_with_security_override() -> dict[str, Any]:
+    """Which official scenario contains a decision the CUSTOMER's rules allowed and
+    the wallet stopped anyway.
+
+    Computed by running them, not looked up in a table. The written demo script
+    pointed at the wrong scenario for two campaigns -- SCEN0002's review is a POLICY
+    review, the customer's own returnable rule being uncertain, which is a much
+    weaker claim than the one being made over it. Deriving it means the demo follows
+    the property rather than a remembered id, and a jury can check the derivation.
+    """
+    for scenario_id in sorted(load_scenario_catalogue()):
+        try:
+            result = start_scenario_run(scenario_id, None)
+        except HTTPException:
+            continue
+        for decision in result.get("decisions", []):
+            if decision.get("policy_verdict") == "allow" and decision.get("security_verdict") != "allow":
+                return {"scenario_id": scenario_id,
+                        "authorization_id": decision.get("authorization_id"),
+                        "why": "the customer's rules were satisfied and the wallet stopped it anyway"}
+    return {"scenario_id": None, "authorization_id": None,
+            "why": "no official scenario currently contains a security override"}
+
+
 @app.post("/api/scenarios/{scenario_id}/run")
 def start_scenario_run(scenario_id: str, req: RunRequest | None = None) -> dict[str, Any]:
     """Compile+confirm a fresh mandate from the scenario's own cardholder_instruction
@@ -658,5 +683,28 @@ def _require_run(run_id: str) -> DemoRun:
 # Registered LAST and deliberately: a Mount("/") matches every path prefix, so it
 # must come after every "/api/..." route above or it would swallow them first.
 _UI_DIR = Path(__file__).resolve().parents[2] / "ui"
+
+
+class _NoCacheStatic(StaticFiles):
+    """Serve the demo page with caching off.
+
+    A browser holding yesterday's page is a demo failure that looks exactly like a
+    bug: during this campaign the nav still showed the old tab order and the
+    scenario picker the old default, several minutes after both had been fixed and
+    the server restarted. The fix-list in the demo script used to say "reload with
+    ?v=2" for precisely this, which is a workaround written down instead of a cause
+    removed. The page is a few tens of kilobytes on localhost; there is nothing to
+    save by caching it.
+    """
+
+    def is_not_modified(self, response_headers, request_headers) -> bool:
+        return False
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+        return response
+
+
 if _UI_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=_UI_DIR, html=True), name="ui")
+    app.mount("/", _NoCacheStatic(directory=_UI_DIR, html=True), name="ui")

@@ -122,3 +122,44 @@ console.log(JSON.stringify(out));
     assert trace[2]["total"] >= trace[1]["total"], (
         "the approved basket is CHEAPER than the refused one, so the demo no longer "
         "shows that the agent solved a non-price problem without spending less")
+
+
+# ========================================== the demo must not depend on remembered ids
+def test_the_security_scenario_is_derived_rather_than_remembered():
+    """The page asks the server which scenario contains a decision the customer's
+    rules allowed and the wallet stopped anyway, and the server answers by running
+    them. The written script pointed at the wrong scenario for two campaigns; a
+    derivation cannot make that mistake, and a jury can check it."""
+    from fastapi.testclient import TestClient
+    from wallet_control.api import app
+
+    answer = TestClient(app).get("/api/scenarios/security-override").json()
+    assert answer["scenario_id"], "no scenario carries the demo's security moment"
+    assert answer["authorization_id"]
+
+    page = PAGE.read_text()
+    assert "/api/scenarios/security-override" in page, "the page stopped asking"
+    assert f"'{answer['scenario_id']}'" not in page.split("const AG_OFFERS")[0], (
+        "the page hard-codes the scenario id it is supposed to be deriving")
+
+
+def test_the_page_is_served_without_caching():
+    """A browser holding yesterday's page is a demo failure that looks like a bug.
+    It happened during this campaign: the nav showed the old tab order minutes after
+    it was fixed and the server restarted."""
+    from fastapi.testclient import TestClient
+    from wallet_control.api import app
+
+    headers = TestClient(app).get("/").headers
+    assert "no-store" in headers.get("cache-control", ""), headers.get("cache-control")
+
+
+def test_the_navigation_follows_the_story():
+    """Delegate, then the agent shopping and adapting, then the wallet's own
+    judgement. The Agent tab used to sit AFTER Decisions, so the two-minute script
+    had to jump backwards through the navigation in front of the jury."""
+    page = PAGE.read_text()
+    import re
+    order = re.findall(r'data-p="(\w+)"', page)
+    assert order.index("agent") < order.index("decisions"), order
+    assert order.index("delegate") < order.index("agent"), order

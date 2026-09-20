@@ -196,8 +196,8 @@
 <nav>
   <button data-p="home" class="on"><span class="ic">◆</span>Home</button>
   <button data-p="delegate"><span class="ic">✎</span>Delegate</button>
-  <button data-p="decisions"><span class="ic">▤</span>Decisions</button>
   <button data-p="agent"><span class="ic">◈</span>Agent</button>
+  <button data-p="decisions"><span class="ic">▤</span>Decisions</button>
   <button data-p="attacks"><span class="ic">⚠</span>Attacks</button>
   <button data-p="audit"><span class="ic">◷</span>Audit</button>
 </nav>
@@ -277,7 +277,7 @@
 <!-- ========== DECISIONS ========== -->
 <section class="panel" id="p-decisions">
   <div class="card">
-    <h2>Watch the agent shop</h2>
+    <h2>The wallet's own judgement</h2>
     <label class="fld" for="scen">Scenario</label>
     <select id="scen" onchange="showInstr()"></select>
     <p class="tiny" id="scen-instr" style="margin:9px 0 0"></p>
@@ -354,6 +354,11 @@ async function boot(){
 
   SCEN = await (await fetch('/api/scenarios')).json();
   $('#scen').innerHTML = SCEN.map(s=>`<option value="${s.scenario_id}">${esc(s.scenario_name)}</option>`).join('');
+  // Not hard-coded to an id: pick whichever scenario actually contains a decision
+  // where the customer's rules passed and the wallet stopped it anyway. If that
+  // moves to another scenario, the demo follows it instead of pointing at the
+  // wrong one, which is a mistake the written script already made once.
+  $('#scen').value = (await pickSecurityScenario()) || SCEN[0].scenario_id;
   $('#preset').innerHTML = '<option value="">Or load an official scenario…</option>' +
     SCEN.map(s=>`<option value="${s.scenario_id}">${esc(s.scenario_name)}</option>`).join('');
   showInstr();
@@ -534,6 +539,12 @@ async function runAgent(){
             <li><code>blocked_by: [${(o.v.blocked_by||[]).map(esc).join(', ')}]</code></li></ul>
         <p class="tiny" style="margin:6px 0 0">No amount. No limit. No remaining budget.</p></div>
     </div>`).join('');
+}
+async function pickSecurityScenario(){
+  try{
+    const r = await (await fetch('/api/scenarios/security-override')).json();
+    return r.scenario_id || null;
+  }catch(e){ return null; }
 }
 function showInstr(){
   const s = SCEN.find(x=>x.scenario_id===$('#scen').value);
