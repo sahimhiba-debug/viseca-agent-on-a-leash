@@ -101,19 +101,55 @@ def test_a_confidently_wrong_model_is_the_case_a_fallback_cannot_catch():
 
 
 # ==================================================== no planner can widen the errand
-def test_the_prompt_carries_nothing_the_deterministic_agent_cannot_see():
-    """A model given more than the agent is allowed to know would be a privacy
-    regression wearing a capability costume. The prompt may name the shop's own
-    offers, the errand, and the CLASSES that refused it -- never a rule value."""
+def test_the_model_prompt_DOES_carry_the_customers_own_limit():
+    """Stated plainly rather than skipped, because an earlier version of this test
+    quietly excluded the line it should have been checking.
+
+    The prompt opens with the errand, and the errand is the customer's own sentence
+    -- which in these episodes contains "CHF 120". So a model planner CAN see the
+    limit. That is not the wallet leaking: the customer handed the agent the errand,
+    and an agent that does not know its errand cannot shop. But it is one more
+    reason the model planner is not the one we ship, and pretending otherwise by
+    slicing the line out of the assertion would be exactly the kind of test this
+    project exists not to write.
+
+    What the wallet contributes to the prompt is the part that must stay clean: the
+    classes that refused, and the agent's own refused total. Never a rule value.
+    """
     shop, mission = _shop_and_mission("K")
-    beliefs = Beliefs(ruled_out_merchants={"ME0777"}, ceiling=Decimal("175"),
-                      returns_matter=True)
-    prompt = describe(shop, mission, beliefs)
-    # `ceiling` is the agent's own refused total, not a policy value, and it is the
-    # only number in here that came from a refusal at all.
-    assert "175" in prompt
-    for leak in ("120", "14 days", "merchant.familiar", "billing_amount_chf"):
-        assert leak not in prompt.split("Errand:")[1].split("\n", 1)[1], leak
+    prompt = describe(shop, mission, Beliefs(ruled_out_merchants={"ME0777"},
+                                             ceiling=Decimal("175"), returns_matter=True))
+    errand, rest = prompt.split("\n", 1)
+    assert "CHF 120" in errand, "the episode no longer states a limit; this test is moot"
+
+    # `ceiling` is the agent's OWN refused total, not anything the wallet told it.
+    assert "175" in rest
+    for leak in ("120", "14 days", "merchant.familiar", "billing_amount_chf", "<=", ">="):
+        assert leak not in rest, f"the wallet-derived part of the prompt leaked {leak!r}"
+
+
+def test_the_SHIPPED_planner_never_reads_the_instruction_at_all():
+    """The stronger property, and the one that actually matters.
+
+    The deterministic planner uses `mission.category` and `mission.target_lines` and
+    nothing else. The customer's sentence sits in the same struct carrying "CHF 120",
+    and the planner never touches it -- so the number is not merely unused, it is
+    unread, on every path that chooses a basket.
+    """
+    touched = []
+
+    class Watched(str):
+        def __getattribute__(self, name):
+            touched.append(name)
+            return str.__getattribute__(self, name)
+
+    from research.shopping_agent import CatalogueShop, plan, replan
+    mission = Mission(Watched("Order groceries at or below CHF 120"), "groceries",
+                      target_lines=3)
+    shop, beliefs = CatalogueShop(), Beliefs()
+    lines = plan(mission, shop, beliefs)
+    replan(lines, ["amount"], mission, 0, shop, beliefs, "ME0001")
+    assert not touched, f"the planner read the customer's instruction: {sorted(set(touched))}"
 
 
 @pytest.mark.parametrize("reply", [

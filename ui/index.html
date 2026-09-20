@@ -295,6 +295,7 @@
       this browser: the agent is a client of the wallet, not part of it.</p>
     <button class="act b-dark" onclick="runAgent()">Send the agent shopping</button>
     <p class="tiny" id="ag-sum" style="margin:9px 0 0"></p>
+    <p class="tiny" id="ag-under" style="margin:7px 0 0; font-style:italic"></p>
   </div>
   <div id="ag-out"></div>
 </section>
@@ -328,7 +329,7 @@
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const chf = n => 'CHF ' + Number(n).toLocaleString('en-CH', {minimumFractionDigits:2, maximumFractionDigits:2});
-let RUN=null, SCEN=[], CONFIRMED=null, REVOKED=false, LASTRULES=null;
+let RUN=null, SCEN=[], CONFIRMED=null, REVOKED=false, LASTRULES=null, CONFIRMED_TEXT=null;
 
 function go(p){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
@@ -445,6 +446,9 @@ async function runAgent(){
   let step=agBest(beliefs), out=[];
   document.getElementById('ag-out').innerHTML='';
   document.getElementById('ag-sum').textContent='the agent is proposing…';
+  document.getElementById('ag-under').textContent = CONFIRMED_TEXT
+    ? 'Shopping under your mandate: “'+CONFIRMED_TEXT+'”'
+    : 'No mandate confirmed on the Delegate tab, so this runs under the built-in demo mandate.';
   let why='opening basket: '+step.lines.length+' grocery line(s), the best '+step.merchant+' offers';
   let stopped=null;
   for(let rev=0; rev<5 && step; rev++){
@@ -455,7 +459,7 @@ async function runAgent(){
     const total=lines.reduce((s,l)=>s+l.unit_price,0);
     // The agent sees ONLY this response. No limit, no remaining budget, no evidence.
     const r=await fetch('/api/agent/propose',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({session_id:sid,lines})});
+      body:JSON.stringify({session_id:sid,lines,instruction:CONFIRMED_TEXT})});
     const v=await r.json();
     out.push({rev,total,n:lines.length,v,why,merchant:step.merchant});
     if(v.decision==='allow'||v.awaiting_customer) break;
@@ -474,8 +478,19 @@ async function runAgent(){
     step=next;
   }
   const last=out[out.length-1];
+  // Say what actually happened, not what usually happens. This line used to assert
+  // that none of the refusals was about money, which stopped being true the moment
+  // the agent started shopping under whatever mandate the customer had confirmed.
+  const classes=[...new Set(out.flatMap(o=>o.v.blocked_by||[]))];
+  const nonPrice=classes.filter(c=>c!=='amount');
+  const note = !classes.length ? ''
+    : nonPrice.length && !classes.includes('amount')
+      ? ' Not one of these refusals was about money.'
+      : nonPrice.length
+        ? ' It was refused over '+nonPrice.join(' and ')+' as well as the amount.'
+        : '';
   document.getElementById('ag-sum').innerHTML = last.v.decision==='allow'
-    ? '<b>Approved after '+(out.length-1)+' refusal(s).</b> At no point was the agent told your rules — only <i>which kind</i> of rule it broke, and not one of these refusals was about money.'
+    ? '<b>Approved after '+(out.length-1)+' refusal(s).</b> At no point was the agent told your rules — only <i>which kind</i> of rule it broke.'+note
     : esc(stopped||'The agent could not find a basket within your rules.');
   document.getElementById('ag-out').innerHTML = out.map(o=>`
     <div class="dec ${o.v.decision}">
@@ -542,6 +557,10 @@ function row(k,v,enforced,note){
 }
 function confirmMandate(){
   CONFIRMED = new Date().toISOString();
+  // The agent must shop under the mandate the customer just confirmed. It used
+  // to shop under a fixed demo instruction no matter what was typed here, so the
+  // two tabs were quietly describing different mandates.
+  CONFIRMED_TEXT = $('#instr').value.trim() || null;
   $('#confirm-card').innerHTML = `<div class="banner ok"><b>Confirmed</b>
     These rules are now enforceable. They can only be tightened from here.</div>
     <button class="act b-dark" onclick="go('decisions')">Let the agent shop →</button>`;

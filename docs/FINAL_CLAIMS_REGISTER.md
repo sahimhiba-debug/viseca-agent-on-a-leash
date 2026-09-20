@@ -29,19 +29,40 @@ Every claim we would make in a pitch, classified. Five classes:
 
 ## The agent
 
+Everything in this section was re-derived against `research/planning_benchmark.py`,
+an eleven-episode benchmark written before the agent was changed. Four rows moved
+class as a result — three up, one **down**: "handles nine adversarial episodes" was
+listed as PROVEN and is now SUPPORTED, because eleven small synthetic worlds is a
+diagnostic sample and calling a sample proof is the mistake this register exists to
+prevent. Three new DO NOT CLAIM rows were added, all of them things the rebuild
+made tempting to say.
+
 | claim | class | evidence |
 | --- | --- | --- |
 | The agent recovers from refusal and succeeds on the merits | **PROVEN** | `test_the_agent_recovers_from_a_block_and_succeeds_on_the_merits` |
-| It is never told a policy value | **PROVEN** | `test_agent_view_leaks_no_policy_values`, 2 mutants |
+| The **wallet** never tells it a policy value | **PROVEN** | `test_agent_view_leaks_no_policy_values`, 2 mutants |
+| The shipped planner never reads the customer's instruction | **PROVEN** | it uses `category` and `target_lines` only; the sentence carrying "CHF 120" sits unread in the same struct |
+| The agent has never seen the customer's limit | **DO NOT CLAIM** | the customer's own sentence contains it, and a **model** planner would read it from the prompt. The shipped planner does not, and that is the honest version of this claim |
 | Its proposals do not depend on the secret limit | **PROVEN** | identical against two different ceilings until the wallet's answers diverge |
 | A hostile or broken planner obtains no approval | **PROVEN** | 5 hostile planners; no ALLOW, no money |
+| A hostile SHOP obtains no approval and cannot stall it | **PROVEN** | `test_agent_tool_boundary`: negative prices, phantom goods, 2,000 merchants |
+| What it believes only ever moves toward caution | **PROVEN** | `ceiling` falls monotonically, a ruled-out shop is never reinstated |
+| It never re-proposes a basket it already tried | **PROVEN** | `test_the_agent_never_re_proposes_a_basket_it_already_tried` |
+| A refusal about the AGENT is never answered by shopping | **PROVEN** | `session`/`duplicate`/`other` halt even when a valid basket exists |
 | It stops and waits when a human is asked | **PROVEN** | `test_the_agent_stops_and_waits_when_a_human_is_asked` |
-| It handles nine adversarial episodes | **PROVEN** | 5 replanned, 4 escalated |
-| The wallet never depends on the agent | **PROVEN** | AST-enforced; caught a real violation this phase |
-| The agent cannot learn the limit | **DO NOT CLAIM** | ~12 probes, CHF 531. Say the number instead |
-| It settles far below the ceiling | **DO NOT CLAIM** | it lands on CHF 119 against CHF 120. A *better* planner converges closer |
-| It performs tool use or semantic reasoning | **DO NOT CLAIM** | it reads a CSV and applies four rules |
-| A model would work behind the same seam | **DESIGN INTENT** | the seam is tested; it has never held a model |
+| It proposes only baskets one shop can actually supply | **PROVEN, agent-side only** | `merchant_for`; the wallet cannot verify this and we say so in `WHAT_WE_REFUSE_TO_CLAIM.md` |
+| It performs tool use | **PROVEN** — *was DO NOT CLAIM* | `Shop.search()` is called on every replanning step; episode G fails without it |
+| It plans against an explicit objective, not a repair rule | **PROVEN** — *was overstated as already true* | one `score()` function; episode K fails for any price-first planner |
+| The demo page plans identically to the Python agent | **PROVEN** | both run over the page's own fixture, 8 refusal sequences |
+| The wallet never depends on the agent | **PROVEN** | AST-enforced; caught a real violation in an earlier phase |
+| It handles eleven adversarial planning episodes | **SUPPORTED** | 11/11, up from 5/11. Eleven small synthetic worlds is a diagnostic sample, not a representative one |
+| It settles well below the ceiling | **SUPPORTED** — *was DO NOT CLAIM* | the objective minimises price within a coverage tier, so it walks AWAY from the limit: CHF 7.50 against a hidden CHF 137, on the first proposal. How far below depends on what the shop stocks |
+| A model works behind the same seam | **PROVEN** — *was DESIGN INTENT* | `ModelPlanner` is passed to `shop()` with no adapter; 5 model behaviours, 18 tests |
+| The agent cannot learn the limit | **DO NOT CLAIM** | a probing agent needs ~12 probes and CHF 531. Ours does not probe; that is a property of ours, not of the interface |
+| It performs semantic reasoning | **DO NOT CLAIM** | it searches a bounded candidate set against a three-term objective. No language is understood anywhere in it |
+| Adding a model would improve it | **DO NOT CLAIM** | measured: best case a tie at 11/11 and 21 network calls; a confidently-wrong model **with** a fallback scores 8/11, below the deterministic planner |
+| It understands the errand | **DO NOT CLAIM** | the objective counts lines bought, which is a thin proxy for a shopping list |
+| Its search is exhaustive | **DO NOT CLAIM** | bounded at 5 lines / 12 offers / 50 shops |
 
 ## Intent
 

@@ -1,92 +1,182 @@
 # Final agentic audit
 
-Is this credible to a senior AI jury? Assessed by attacking the agent, not describing it.
+**Is this a real agentic shopping system, or a deterministic workflow we call an
+agent?** Answered by building a benchmark that could fail it, and then failing it.
+
+This document replaces an earlier version of itself that claimed the agent did
+"search / planning" and "goal-directed replanning". Both claims were false, and the
+way we found out is the only part of this worth reading.
 
 ---
 
-## 1. A definition, before a claim
+## 1. The honest classification
 
-| capability | before this phase | after |
-| --- | --- | --- |
-| **A** deterministic workflow automation | yes | yes |
-| **B** search / planning | **no** — sorted by price, took the top 5 | **yes** — plans against an explicit `Mission`, filters unavailable stock, substitutes |
-| **C** adaptive behaviour | partial — one rule | **yes** — an ordered strategy ladder |
-| **D** tool use | no | no — it reads a catalogue; that is not tool use and is not claimed |
-| **E** environment feedback | yes | yes |
-| **F** goal-directed replanning | **no** — no goal existed | **yes** — replans toward the `Mission`, not toward the last basket |
-| **G** uncertainty handling | **no** — gave up blindly | **yes** — distinguishes "I can fix this" from "only you can" |
-| **H** autonomous stopping | partial | yes — success, handoff, or bounded exhaustion |
-| **I** policy-aware adaptation | partial | yes — acts on constraint class without a threshold |
-| **J** model-based reasoning | no | **no, deliberately** — §3 |
+The previous audit assessed the agent by describing it. Describing an agent tells
+you what its author intended. So this time the first step was a benchmark
+(`research/planning_benchmark.py`), written **before** any code changed, over eleven
+small worlds where the cheapest basket is usually the wrong one.
 
-## 2. The evidence that forced the rebuild
+The agent as it stood scored **5/11**. More damning than the score: across all
+eleven episodes it used exactly **two** distinct moves — *swap for the cheapest*
+(once) and *drop the dearest* (seven times). The merchant-switch and category-filter
+rungs of its own documented ladder never fired at all.
 
-The old agent's entire brain was `revise()`: drop the most expensive line, else swap
-for the cheapest. Run against the nine adversarial episodes:
+| capability | claimed before | actually measured | now |
+| --- | --- | --- | --- |
+| **A** workflow automation | yes | yes | yes |
+| **B** search over alternatives | **yes** | **no** — greedy descent on price, no candidate set | yes — bounded exhaustive search per shop |
+| **C** explicit objective function | implied | **no** — "better" meant only "cheaper" | yes — one function, stated in one place |
+| **D** tool use | honestly: no | no — a module-level CSV read | yes — `Shop.search()` called on every step |
+| **E** environment feedback | yes | **no** — availability frozen before the first attempt | yes |
+| **F** goal-directed replanning | **yes** | **no** — no goal existed to be directed *by* | yes — the objective is what the search maximises |
+| **G** uncertainty handling | yes | partial | yes |
+| **H** autonomous stopping | yes | yes | yes |
+| **I** policy-aware adaptation | yes | partial — only price | yes, on every constraint class it may act on |
+| **J** model-based reasoning | no | no | **no, and now measured** — §4 |
 
-```
-1 cheapest item unavailable        -> dropped the most expensive line
-3 one item must be removed         -> dropped the most expensive line
-4 removal creates a new violation  -> dropped the most expensive line
-5 merchant rejected                -> GIVES UP
-6 return policy uncertain          -> GIVES UP
-7 unrequested item in basket       -> GIVES UP
-8 security REVIEW                  -> GIVES UP
-9 no reason given                  -> GIVES UP
-10 single line, no substitute      -> swapped to the cheapest
-```
+**Would a senior AI engineer call the old one an agent?** They would call it a
+*reactive repair loop*: agentic in architecture (perceive, decide, act, observe,
+revise, with bounded autonomy and a human handoff) and not in competence. That is a
+fair description and we should have written it ourselves.
 
-**Five of nine handled by giving up.** A senior AI engineer would need one look. The
-gap was never "no LLM" — it was that there was no planner.
+**Would they call this one an agent?** A goal-directed, tool-using, bounded-
+autonomy planning agent with an explicit objective and no model. The absence of a
+model is a measured decision (§4), not a gap.
 
-After the rebuild, all nine are handled: five replanned, four **escalated to the
-customer**, which is the correct answer for a constraint no basket change can fix.
-Giving up and handing back are different outcomes, and collapsing them was the
-original design error.
+---
 
-## 3. Why there is still no model in the loop, and why that is the stronger position
+## 2. Three defects, not six failures
 
-The planner is now **injectable** (`Planner(plan=…, replan=…)`) precisely so the
-architectural claim is testable. A model would slot in there, outside the authority
-boundary.
+The six failing episodes were three causes.
 
-We do not ship one, for three reasons that survive hostile questioning:
+**No objective function** (C, E, I, K). The agent's only notion of "better" was
+"cheaper". Episode K is the whole argument in one case: three baskets look buyable,
+exactly one is allowed, and it is the **dearest**. The agent deleted the right
+answer first, then walked down the price ladder into a shop the customer had
+excluded. Ranking by price is not ranking by what the customer asked for.
 
-1. **`technical_details.md` requires a predictable response when the model is
-   unavailable.** A network call in the judged path breaks that.
-2. **Reproducibility is a jury criterion we win outright.** The agent episode is
-   byte-identical across runs.
-3. **Proving the seam is stronger evidence than one successful live call.**
-   `tests/security/test_agent_planner_boundary.py` substitutes planners far worse than
-   any real model — one proposing CHF 150,000, one hallucinating items, one raising on
-   every call, one returning garbage, one repeating a rejected basket forever — and in
-   every case the wallet approves nothing and moves no money.
+**No substitution except on price** (C, D, E, I, K). Told `blocked_by=["merchant"]`
+with a familiar-merchant alternative in the same catalogue, it replied "only the
+customer can resolve this". A ladder can only subtract, so every constraint it had
+no rung for became a human handoff while a perfectly good alternative sat
+unexamined.
 
-That is the claim a model-based competitor cannot make about their own system.
+**No observation of the environment** (G). `Mission.unavailable` was a frozenset
+captured before the first proposal. An item sold out mid-episode, the agent
+re-proposed it two attempts later, and the wallet approved — correctly, since stock
+is none of the wallet's business. Nothing but the agent could have caught that.
 
-## 4. What a senior AI engineer would still say is missing
+A fourth defect surfaced only when the benchmark rendered the old agent faithfully:
+it chose items from a catalogue and a merchant from the mission and **never checked
+them against each other**. On C, E, I and K it reported *approved* while holding
+goods from the excluded shop. The wallet had approved a truthful evaluation of an
+untruthful proposal. The wallet cannot catch this — nothing in the API lets it
+verify that a merchant stocks an item — so it is an agent-side integrity property
+and we claim it as one, in `FINAL_CLAIMS_REGISTER.md`.
 
-Honestly: **tool use and genuine natural-language reasoning.** The agent reads a CSV
-catalogue and applies an ordered ladder. It does not search a real web, negotiate,
-compare across merchants on quality, or reason about substitutions semantically
-("oat milk is a fine replacement for whole milk").
+---
 
-We do not claim any of those. The smallest addition that would materially change this
-is a model-backed `Planner` behind the same seam — already possible, deliberately not
-in the judged path.
+## 3. What changed
 
-## 5. The property that replaced a bad test
+An **objective function**, stated once, in the order the customer would: do more of
+the errand; prefer goods that can be sent back, once a refusal showed that matters;
+and only then spend less. *Price is last.* A **search** over candidate baskets,
+one shop at a time, bounded, replacing the ladder. A **tool**, called on every
+replanning step, so the shop is looked at rather than remembered.
 
-An earlier test asserted the agent settles **CHF 5 below** the ceiling, as proof it had
-not extracted the limit. That oracle was wrong: it measured how *weak* the planner was.
-A better planner substitutes rather than drops and therefore converges **closer** to
-the boundary while being strictly better shopping — the browser agent now lands on
-CHF 119 against a CHF 120 limit.
+**5/11 → 11/11.** The old agent, re-measured against the corrected benchmark, still
+scores 5/11.
 
-The honest test runs the same agent against **two different secret ceilings** and
-requires its opening basket and every revision to be identical until the wallet's own
-answers diverge. An agent using the number would aim differently from the first
-proposal. This one cannot — a property of the interface, not of the planner.
+What it learns from a refusal stays deliberately small, because every fact in it was
+paid for with one of the customer's refused purchases. `ceiling` is not the
+customer's limit; it is *"strictly less than a total I already tried"*, which is all
+a refusal can honestly say. It falls monotonically and never arrives.
 
-The UI copy was corrected at the same time: it claimed the agent "stopped well below"
-a limit while displaying CHF 119 against CHF 120.
+One regression the search introduced and the tests caught: it would happily answer a
+duplicate or session-integrity flag with a different basket — an agent responding to
+"you look like a runaway" by rephrasing itself until the wallet stops noticing.
+Constraints on the **purchase** are shoppable; constraints on the **agent** are not,
+and the latter now halt unconditionally even when a valid alternative exists.
+
+---
+
+## 4. The model question, measured
+
+`technical_details.md` requires a predictable response when the model or another
+external service is unavailable. That forbids *depending* on a model, not having
+one. So `research/model_planner.py` puts one at the same seam and
+`research/architecture_comparison.py` runs the benchmark eleven ways:
+
+| architecture | score | model calls | fell back |
+| --- | --- | --- | --- |
+| deterministic (shipped) | **11/11** | 0 | 0 |
+| model only, competent | 11/11 | 21 | 0 |
+| model only, careless | 3/11 | 16 | 5 |
+| model only, hallucinating | 1/11 | 11 | 11 |
+| model only, replies in prose | 1/11 | 11 | 11 |
+| model only, unavailable | 1/11 | 11 | 11 |
+| hybrid, competent | 11/11 | 21 | 0 |
+| **hybrid, careless** | **8/11** | 21 | 10 |
+| hybrid, hallucinating | 11/11 | 21 | 21 |
+| hybrid, unavailable | 11/11 | 21 | 21 |
+| hybrid, flaky 50% | 11/11 | 21 | 8 |
+
+Three readings. The best a model achieves is a **tie**, bought with twenty-one
+network calls. Every failure that makes a model *unusable* is survivable — which
+means the hybrid's good scores are the deterministic agent's scores plus latency.
+And the failure real models actually have, *being confidently wrong in well-formed
+JSON*, is exactly the one a fallback cannot catch: the net is woven to catch
+unusable answers, and this answer is merely wrong. It takes the hybrid to 8/11,
+**below the planner it was meant to improve**.
+
+We ship the deterministic planner. The decision is now a measurement somebody can
+re-run and disagree with.
+
+Two things worth keeping from building it. The seam needed **no adapter** — `shop()`
+asks a planner for two methods and `ModelPlanner` is passed straight in, which is
+the evidence it is a seam and not a hole shaped like the planner we wrote. And the
+halt rule stayed out of the planner's hands: whether a refusal may be answered by
+shopping at all is a property of what the wallet objected to, and a model that could
+talk its way past it would be the entire risk of having one.
+
+---
+
+## 5. What the agent still cannot do
+
+- **`target_lines` is a thin notion of "the errand".** Coverage counts lines, not
+  whether the household actually has what it needs. The agent buys the cheapest N
+  grocery lines; a real one would model a shopping list. We do not claim otherwise.
+- **It discovers the acceptable shop by being refused.** It has no prior over which
+  merchants a customer has used, and it must not — that fact belongs to the wallet.
+  So finding a familiar shop costs one refused purchase. Bounded, but not free.
+- **It cannot tell which line in a basket caused an `order_terms` refusal.** It
+  re-ranks on the whole basket's worst published return window instead. Sufficient
+  here, and not the same thing as attribution.
+- **The search is bounded** at 5 lines, 12 offers and 50 shops. Beyond that it is
+  examining a subset, and a sufficiently adversarial catalogue can hide the best
+  basket outside it.
+- **Nothing verifies that the shop exists.** The agent checks that offers are
+  plausible; it cannot check that they are real.
+- **The customer's instruction contains the limit, and the agent holds it.** The
+  errand is the customer's own sentence — "at or below CHF 120" and all. The
+  *wallet* never tells the agent a rule value, and the shipped planner never reads
+  the instruction at all (it uses only the category and how many lines count as the
+  errand done). But a **model** planner reads it straight out of the prompt, which
+  is a further reason the model is not the one we ship. An earlier version of the
+  test asserting prompt hygiene sliced that line out of the assertion; it now
+  asserts the leak explicitly and checks only the wallet-derived part for cleanliness.
+
+---
+
+## 6. Where to look
+
+| | |
+| --- | --- |
+| the benchmark, and the baseline it recorded | `research/planning_benchmark.py` |
+| the agent | `research/shopping_agent.py` |
+| the model planner and the comparison | `research/model_planner.py`, `research/architecture_comparison.py` |
+| the benchmark as a regression gate | `tests/test_planning_benchmark.py` |
+| hostile shops and belief poisoning | `tests/security/test_agent_tool_boundary.py` |
+| hostile planners | `tests/security/test_agent_planner_boundary.py` |
+| the model seam | `tests/security/test_model_planner_seam.py` |
+| the demo page's planner, pinned to the Python one | `tests/test_ui_agent_parity.py` |
