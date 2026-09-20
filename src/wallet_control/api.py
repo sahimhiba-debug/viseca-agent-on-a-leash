@@ -126,9 +126,70 @@ def demo_reset() -> dict[str, Any]:
 
 
 class AgentProposal(BaseModel):
+    """What an agent may send. Note what is NOT here: an instruction.
+
+    It used to be. `POST /api/agent/propose` accepted `instruction` and, for an
+    unknown session, compiled and CONFIRMED a mandate out of it -- so an agent could
+    author the policy it was about to be judged against. A red-team pass put the
+    same CHF 500 basket through twice: refused under the customer's CHF 120 mandate,
+    and APPROVED when the agent supplied "keep each order at or below CHF 900".
+
+    That is the exact opposite of this project's claim. Adaptation is supposed to
+    consume a delegation, never widen one. Establishing a mandate is a customer
+    action and now requires a customer endpoint.
+    """
+
     session_id: str
-    instruction: str | None = None
     lines: list[dict[str, Any]]
+
+
+class MandateForSession(BaseModel):
+    session_id: str
+    instruction: str
+
+
+def _new_agent_session(session_id: str, instruction: str) -> "DemoRun":
+    """Compile and confirm one mandate, and open a session under it."""
+    compiled = compile_instruction(instruction)
+    mandate = Mandate.draft(
+        instruction, compiled.hard_rules, compiled.uncertainty_policy,
+        compiled.guidance, compiled.open_questions, compiled.unsupported_restrictions,
+    )
+    mandate.confirm(confirmed=True, customer_id="CU0001", card_id="CA0001",
+                    profile_id="PROFILE_AGENT_DEMO",
+                    acknowledged_unsupported=compiled.unsupported_restrictions)
+    session = DemoRun(session_id, mandate, RunState(history=_HISTORY, card_id="CA0001"),
+                      {}, [], datetime.now(timezone.utc), view_id=secrets.token_urlsafe(9))
+    _AGENT_SESSIONS[session_id] = session
+    return session
+
+
+@app.post("/api/customer/mandates")
+def establish_mandate(req: MandateForSession) -> dict[str, Any]:
+    """The CUSTOMER establishes the mandate a session will be judged under.
+
+    This is deliberately not on the agent's endpoint. It used to be: `propose`
+    accepted an `instruction` and confirmed a mandate from it, so an agent could
+    write the policy it was about to be judged against, and a CHF 500 basket that
+    the customer's CHF 120 mandate refused was approved when the agent supplied a
+    CHF 900 one instead.
+
+    Tightening-only amendment still belongs to the mandate lifecycle; this only
+    opens a session. An existing session's mandate cannot be replaced here, because
+    "the rules can change under a running agent" is not a property we want.
+    """
+    if req.session_id in _AGENT_SESSIONS:
+        raise HTTPException(status_code=409, detail=(
+            "this session already has a mandate; start a new session rather than "
+            "changing the rules under a running agent"))
+    session = _new_agent_session(req.session_id, req.instruction)
+    compiled = compile_instruction(req.instruction)
+    return {
+        "session_id": req.session_id,
+        "hard_rules": [r.as_dict() for r in session.mandate.snapshot().hard_rules],
+        "unsupported_restrictions": list(compiled.unsupported_restrictions),
+        "open_questions": list(compiled.open_questions),
+    }
 
 
 @app.post("/api/agent/propose")
@@ -149,21 +210,21 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
     the line there -- an agent seeing only this recovers a CHF 137 ceiling in twelve
     probes and spends CHF 531 doing it; the customer's payload would do it in zero.
     """
+    # A malformed line is the caller's bug, and must read as one. Omitting `item_id`
+    # raised an uncaught KeyError and returned a 500 with a stack trace on an
+    # agent-controlled input -- a refusal dressed as a crash.
+    required = ("item_id", "name", "category", "unit_price")
+    for index, line in enumerate(req.lines):
+        missing = [k for k in required if k not in line]
+        if missing:
+            raise HTTPException(status_code=400, detail=(
+                f"line {index + 1} is missing {', '.join(missing)}"))
+
     session = _AGENT_SESSIONS.get(req.session_id)
     if session is None:
-        instruction = req.instruction or _AGENT_DEFAULT_INSTRUCTION
-        compiled = compile_instruction(instruction)
-        mandate = Mandate.draft(
-            instruction, compiled.hard_rules, compiled.uncertainty_policy,
-            compiled.guidance, compiled.open_questions, compiled.unsupported_restrictions,
-        )
-        mandate.confirm(confirmed=True, customer_id="CU0001", card_id="CA0001",
-                        profile_id="PROFILE_AGENT_DEMO",
-                        acknowledged_unsupported=compiled.unsupported_restrictions)
-        session = DemoRun(req.session_id, mandate,
-                          RunState(history=_HISTORY, card_id="CA0001"), {}, [],
-                          datetime.now(timezone.utc), view_id=secrets.token_urlsafe(9))
-        _AGENT_SESSIONS[req.session_id] = session
+        # An unknown session gets the BUILT-IN demo mandate, never one the caller
+        # chose. A customer establishes their own through POST /api/customer/mandates.
+        session = _new_agent_session(req.session_id, _AGENT_DEFAULT_INSTRUCTION)
 
     snapshot = session.mandate.snapshot()
     revision = len(session.order)
