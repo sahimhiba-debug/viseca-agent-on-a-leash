@@ -41,7 +41,7 @@ def _fixture_offers() -> list[Offer]:
     block = js[js.index("const AG_OFFERS=["):js.index("];", js.index("const AG_OFFERS=[")) + 1]
     rows = re.findall(
         r"\{item_id:'([^']+)',name:'([^']+)',category:'([^']+)',"
-        r"unit_price:([\d.]+),merchant:'([^']+)',ret:(\d+|null)\}", block)
+        r"unit_price:([\d.]+),merchant:'([^']+)',mname:'[^']+',ret:(\d+|null)\}", block)
     assert rows, "could not read the demo page's offer list"
     return [Offer(i, n, c, Decimal(p), m, None if r == "null" else int(r))
             for i, n, c, p, m, r in rows]

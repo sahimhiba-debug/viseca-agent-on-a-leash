@@ -85,6 +85,11 @@
   .pill.review, .pill.ask { background:var(--ask-bg); color:var(--ask); }
 
   /* ---------- decision card: the most important screen ---------- */
+  .plan { padding:12px 15px 0; display:flex; flex-wrap:wrap; align-items:baseline; gap:7px; }
+  .plan .chip { background:var(--brand); color:#fff; border-radius:7px; padding:3px 9px;
+                font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+  .plan .pd { font-size:13.5px; color:var(--ink2); }
+  .plan .pdelta { font-size:12px; font-weight:700; color:var(--ask); }
   .dec { background:#fff; border:1px solid var(--line); border-radius:14px; margin-bottom:12px; overflow:hidden; }
   .dec-top { padding:14px 15px 12px; border-left:5px solid var(--line); }
   .dec.allow .dec-top { border-left-color:var(--allow); }
@@ -358,19 +363,25 @@ async function boot(){
 // faithful port of that planner and `tests/test_ui_agent_parity.py` runs both over
 // this exact fixture and fails if they disagree.
 const AG_OFFERS=[
-  // Rhine Pantry is a real shop in the official merchant list that this card has
-  // never paid. It is also the cheapest, so the agent goes there first and is
-  // refused -- a refusal no amount of spending less can fix.
-  {item_id:'IT0001',name:'Fresh produce selection',category:'groceries',unit_price:15,merchant:'ME0005',ret:30},
-  {item_id:'IT0002',name:'Pantry staples',category:'groceries',unit_price:18,merchant:'ME0005',ret:30},
-  {item_id:'IT0003',name:'Milk and eggs',category:'groceries',unit_price:10,merchant:'ME0005',ret:30},
-  // Alpine Basket is familiar. Its cheapest line is a clearance box the seller will
-  // not take back, so the agent is refused a second time, on different grounds.
-  {item_id:'IT0004',name:'Clearance box (final sale)',category:'groceries',unit_price:12,merchant:'ME0001',ret:0},
-  {item_id:'IT0010',name:'Milk and eggs',category:'groceries',unit_price:20,merchant:'ME0001',ret:30},
-  {item_id:'IT0011',name:'Fresh produce order',category:'groceries',unit_price:28,merchant:'ME0001',ret:30},
-  {item_id:'IT0012',name:'Pantry restock',category:'groceries',unit_price:35,merchant:'ME0001',ret:30},
-  {item_id:'IT0013',name:'Family breakfast supplies',category:'groceries',unit_price:45,merchant:'ME0001',ret:30}];
+  // EVERY id, name and category below is the official `data/official/items.csv`, and
+  // every price sits inside that item's own official min-max band. Both shops are
+  // real groceries merchants from `data/official/merchants.csv`, and which of them
+  // card CA0001 has paid before comes from the real authorization history. Nothing
+  // here is invented; `tests/test_demo_data_is_real.py` fails if that stops holding.
+  //
+  // Rhine Pantry has never been paid by this card and quotes at the bottom of each
+  // band, so the agent goes there first and is refused for a reason no amount of
+  // spending less can fix.
+  {item_id:'IT0001',name:'Fresh produce selection',category:'groceries',unit_price:12,merchant:'ME0005',mname:'Rhine Pantry',ret:30},
+  {item_id:'IT0003',name:'Breakfast supplies',category:'groceries',unit_price:15,merchant:'ME0005',mname:'Rhine Pantry',ret:30},
+  {item_id:'IT0002',name:'Pantry staples',category:'groceries',unit_price:20,merchant:'ME0005',mname:'Rhine Pantry',ret:30},
+  // Alpine Basket is familiar. Its cheapest line is a clearance weekly basket the
+  // seller will not take back, so the agent is refused a second time, on other
+  // grounds, and answers it by swapping that one line rather than by spending less.
+  {item_id:'IT0018',name:'Fresh produce order',category:'groceries',unit_price:30,merchant:'ME0001',mname:'Alpine Basket',ret:30},
+  {item_id:'IT0020',name:'Family breakfast supplies',category:'groceries',unit_price:32,merchant:'ME0001',mname:'Alpine Basket',ret:30},
+  {item_id:'IT0004',name:'Weekly grocery basket',category:'groceries',unit_price:45,merchant:'ME0001',mname:'Alpine Basket',ret:0},
+  {item_id:'IT0019',name:'Pantry restock',category:'groceries',unit_price:46,merchant:'ME0001',mname:'Alpine Basket',ret:30}];
 
 const AG_TARGET=3, AG_MAXBASKET=5, AG_SHOPPABLE=new Set(['amount','item','basket','merchant','order_terms']);
 
@@ -426,18 +437,30 @@ function agLearn(beliefs, basket, merchant, blocked){
   return String(before)!==String([beliefs.ruledOut.size,beliefs.ceiling,beliefs.returnsMatter,beliefs.tried.size]);
 }
 
+// Name the STRATEGY the agent switched to, not just the diff it produced. A jury
+// watching a basket change cannot tell "chose a different approach" from "deleted
+// the expensive line" unless something says which it was.
 function agWhy(oldLines,newLines,oldM,newM,blocked){
   const was=new Set(oldLines.map(o=>o.item_id)), now=new Set(newLines.map(o=>o.item_id));
-  const bits=[];
-  if(newM!==oldM) bits.push('moved to '+newM);
+  const oldTotal=oldLines.reduce((s,o)=>s+o.unit_price,0);
+  const newTotal=newLines.reduce((s,o)=>s+o.unit_price,0);
   const dropped=oldLines.filter(o=>!now.has(o.item_id)).map(o=>o.name);
   const added=newLines.filter(o=>!was.has(o.item_id)).map(o=>o.name);
-  if(dropped.length) bits.push('dropped '+dropped.join(', '));
-  if(added.length) bits.push('took '+added.join(', '));
-  const because={amount:'the total was refused',merchant:'that shop was refused',
-    order_terms:'the return terms were refused',item:'an item was refused',basket:'the basket was refused'};
-  const r=blocked.filter(c=>because[c]).map(c=>because[c]);
-  return (bits.join(', ')||'kept the basket')+(r.length?' — '+r[0]:'');
+  let strategy, detail;
+  if(newM!==oldM){
+    strategy='Change shop';
+    detail='went to '+(newLines[0]&&newLines[0].mname||newM)+' instead';
+  } else if(added.length && newLines.length>=oldLines.length){
+    strategy='Change the goods';
+    detail='swapped '+dropped.join(', ')+' for '+added.join(', ');
+  } else if(dropped.length){
+    strategy='Buy less';
+    detail='dropped '+dropped.join(', ');
+  } else { strategy='Try again'; detail='kept the basket'; }
+  const d=newTotal-oldTotal;
+  const delta = d===0 ? 'same total'
+    : (d>0?'+':'') + 'CHF ' + d.toFixed(2) + (d>0?' — it did not spend less':'');
+  return {strategy, detail, delta};
 }
 
 async function runAgent(){
@@ -449,7 +472,9 @@ async function runAgent(){
   document.getElementById('ag-under').textContent = CONFIRMED_TEXT
     ? 'Shopping under your mandate: “'+CONFIRMED_TEXT+'”'
     : 'No mandate confirmed on the Delegate tab, so this runs under the built-in demo mandate.';
-  let why='opening basket: '+step.lines.length+' grocery line(s), the best '+step.merchant+' offers';
+  let why={strategy:'Opening plan',
+    detail:'the best '+step.lines.length+' grocery lines one shop can supply',
+    delta:''};
   let stopped=null;
   for(let rev=0; rev<5 && step; rev++){
     // Send what was actually chosen -- shop and published return window included --
@@ -461,7 +486,9 @@ async function runAgent(){
     const r=await fetch('/api/agent/propose',{method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({session_id:sid,lines,instruction:CONFIRMED_TEXT})});
     const v=await r.json();
-    out.push({rev,total,n:lines.length,v,why,merchant:step.merchant});
+    out.push({rev,total,n:lines.length,v,why,merchant:step.merchant,
+              mname:(step.lines[0]&&step.lines[0].mname)||step.merchant,
+              basket:step.lines.map(o=>({name:o.name,price:o.unit_price,ret:o.ret}))});
     if(v.decision==='allow'||v.awaiting_customer) break;
     const cls=v.blocked_by||[];
     const halt=cls.filter(c=>!AG_SHOPPABLE.has(c));
@@ -494,14 +521,18 @@ async function runAgent(){
     : esc(stopped||'The agent could not find a basket within your rules.');
   document.getElementById('ag-out').innerHTML = out.map(o=>`
     <div class="dec ${o.v.decision}">
+      <div class="plan"><span class="chip">${esc(o.why.strategy)}</span>
+        <span class="pd">${esc(o.why.detail)}</span>
+        ${o.why.delta?`<span class="pdelta">${esc(o.why.delta)}</span>`:''}</div>
       <div class="badge">${o.v.decision==='allow'?'Allowed':'Blocked'}</div>
       <div class="amt">CHF ${o.total.toFixed(2)}</div>
-      <div class="muted">${esc(o.n)} line(s) · ${esc(o.merchant)} · attempt ${o.rev+1}</div>
-      <div class="why ${o.v.decision}"><div class="h">What the agent was told</div>
+      <div class="muted">${esc(o.mname)} · attempt ${o.rev+1}</div>
+      <ul class="basket">${o.basket.map(l=>`<li><span class="q">CHF ${l.price.toFixed(2)}</span>
+        ${esc(l.name)}${l.ret===0?' <b class="flag">· seller takes no returns</b>':''}</li>`).join('')}</ul>
+      <div class="why ${o.v.decision}"><div class="h">Everything the agent was told</div>
         <ul><li><code>decision: ${esc(o.v.decision)}</code></li>
             <li><code>blocked_by: [${(o.v.blocked_by||[]).map(esc).join(', ')}]</code></li></ul>
         <p class="tiny" style="margin:6px 0 0">No amount. No limit. No remaining budget.</p></div>
-      <div class="ev">${esc(o.why)}</div>
     </div>`).join('');
 }
 function showInstr(){
