@@ -140,6 +140,9 @@ def compile_preview(req: CompileRequest) -> dict[str, Any]:
         "uncertainty_policy": compiled.uncertainty_policy.value,
         "guidance": compiled.guidance,
         "open_questions": compiled.open_questions,
+        # The subset the customer must actively accept -- restrictive intent we could
+        # not turn into a rule. The UI shows these separately from advisory questions.
+        "unsupported_restrictions": compiled.unsupported_restrictions,
     }
 
 

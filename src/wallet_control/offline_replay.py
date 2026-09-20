@@ -137,12 +137,19 @@ def compile_and_confirm_mandate_for_scenario(scenario_id: str) -> Mandate:
         compiled.uncertainty_policy,
         compiled.guidance,
         compiled.open_questions,
+        compiled.unsupported_restrictions,
     )
+    # The offline replay stands in for a customer who has already reviewed and accepted
+    # the mandate, so it acknowledges explicitly rather than leaving the field unset.
+    # Leaving it unset would ALSO confirm -- an empty list passes the gate -- and that
+    # is precisely the bypass-by-omission this project keeps finding. SCEN0000's "buy
+    # ONE grocery item" is a real unsupported restriction; this is where it is accepted.
     mandate.confirm(
         confirmed=True,
         customer_id=authority["customer_id"],
         card_id=authority["card_id"],
         profile_id=f"PROFILE_OFFLINE_{scenario_id}",
+        acknowledged_unsupported=compiled.unsupported_restrictions,
     )
     return mandate
 

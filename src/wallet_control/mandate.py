@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Sequence
 
 _ALLOWED_OPERATORS = {"<", "<=", "=", "!=", ">", ">=", "in", "not_in"}
 _ALLOWED_CURRENCIES = {"CHF", "EUR", "GBP", "USD", None}
@@ -54,6 +54,14 @@ _ALLOWED_UNCERTAINTY_TRANSITIONS: dict[UncertaintyPolicy, set[UncertaintyPolicy]
 
 class MandateError(ValueError):
     """Raised when an operation would violate the tighten-only mandate contract."""
+
+
+class UnsupportedRestrictionError(MandateError):
+    """Confirmation refused: the instruction restricts in a way we cannot enforce."""
+
+    def __init__(self, message: str, *, unsupported: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.unsupported = unsupported
 
 
 @dataclass(frozen=True)
@@ -122,6 +130,9 @@ class Mandate:
     uncertainty_policy: UncertaintyPolicy
     guidance: list[str] = field(default_factory=list)
     open_questions: list[str] = field(default_factory=list)
+    # Restrictive intent the compiler could not represent. Non-empty blocks
+    # confirmation until the caller names each item back -- see `confirm`.
+    unsupported_restrictions: list[str] = field(default_factory=list)
     status: MandateStatus = MandateStatus.DRAFT
     customer_id: str | None = None
     card_id: str | None = None
@@ -141,6 +152,7 @@ class Mandate:
         uncertainty_policy: UncertaintyPolicy,
         guidance: list[str] | None = None,
         open_questions: list[str] | None = None,
+        unsupported_restrictions: list[str] | None = None,
     ) -> "Mandate":
         if not instruction.strip():
             raise MandateError("instruction must be nonempty")
@@ -150,17 +162,49 @@ class Mandate:
             uncertainty_policy=uncertainty_policy,
             guidance=list(guidance or []),
             open_questions=list(open_questions or []),
+            unsupported_restrictions=list(unsupported_restrictions or []),
             status=MandateStatus.DRAFT,
         )
         m._hard_rules = list(hard_rules)
         return m
 
-    def confirm(self, *, confirmed: bool, customer_id: str, card_id: str, profile_id: str) -> "Mandate":
-        """Activate a draft. Only the customer's explicit confirmation can do this."""
+    def confirm(
+        self,
+        *,
+        confirmed: bool,
+        customer_id: str,
+        card_id: str,
+        profile_id: str,
+        acknowledged_unsupported: "Sequence[str]" = (),
+    ) -> "Mandate":
+        """Activate a draft. Only the customer's explicit confirmation can do this.
+
+        `acknowledged_unsupported` is the second gate, and it exists because a warning
+        nobody reads is not a control. The compiler can detect restrictive intent it
+        cannot represent -- a quantity, an overall total, an end date, an amount whose
+        phrasing produced no ceiling -- and an audit found `run_live_worker.py`
+        compiling, drafting and confirming in three consecutive statements. That chain
+        ran warning -> automatic confirmation -> unenforced restriction with no human
+        anywhere in it.
+
+        So a caller must name back every unsupported restriction it is choosing to
+        proceed without. Producing that list is what "the customer saw this" means
+        here: a caller that has not looked cannot produce it. Harmless unknown language
+        never reaches this set (see `CompiledPolicy`), so an ordinary mandate confirms
+        exactly as before.
+        """
         if self.status != MandateStatus.DRAFT:
             raise MandateError(f"cannot confirm a mandate in status {self.status}")
         if not confirmed:
             raise MandateError("confirm() called without customer confirmation")
+        outstanding = [u for u in self.unsupported_restrictions if u not in set(acknowledged_unsupported)]
+        if outstanding:
+            raise UnsupportedRestrictionError(
+                "this instruction contains restrictions this wallet cannot enforce; the customer "
+                "must see and accept them before the mandate is confirmed:\n  - "
+                + "\n  - ".join(outstanding),
+                unsupported=tuple(outstanding),
+            )
         for name, value in (("customer_id", customer_id), ("card_id", card_id), ("profile_id", profile_id)):
             if not _ID_RE.match(value):
                 raise MandateError(f"{name}={value!r} is not a well-formed identifier")

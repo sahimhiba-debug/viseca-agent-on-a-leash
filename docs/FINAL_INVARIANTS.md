@@ -44,6 +44,11 @@ fail.
 | I19 | A run keeps its original snapshot for RULES | `live_worker` | `test_mandate_lifecycle` |
 | I20 | The platform's reported `mandate.status` is read **live** and may only narrow | `_run_binding_failures` | `test_a_mid_run_mandate_revocation_*` |
 | I21 | An event must belong to this run (`card_id`, `mandate_id`) | same | `test_run_binding` |
+| I40 | **Unsupported restrictive intent blocks confirmation** — a mandate whose restrictions we cannot enforce cannot be confirmed without naming each one back | `Mandate.confirm` + `CompiledPolicy.unsupported_restrictions` | `test_unsupported_restrictive_intent_blocks_confirmation` |
+| I41 | **One `authorization_id` cannot carry two economic transactions** — the simulated purchase time joins the fingerprint, so a collision cannot read as a retry | `state.check_repeat_fingerprint` | `test_one_id_cannot_carry_two_economic_transactions` |
+| I42 | **A malformed `authorization_id` is refused** — null, empty, blank or non-string | `_run_binding_failures` | `test_a_malformed_authorization_id_is_refused` |
+| I43 | **The platform's echoed policy is checked, never adopted** — any difference from what the customer confirmed fails the run closed | `live_worker._verify_echoed_policy` | `test_any_echoed_difference_fails_closed` |
+| I44 | **A payment authority expires, and its horizon tracks the TTL constant** | `state.issue_authority` / `consume_authority` | `test_an_authority_expires_after_the_ttl_and_cannot_execute` |
 | I39 | **`customer_message` is prose for a person, never the engine's internals** — no field names, no `(fail)` vocabulary, no Python reprs; technical facts go to `evidence` | `decision_engine._customer_message` | `test_no_official_decision_leaks_engine_internals_to_the_customer` |
 | I37 | **A period-qualified amount compiles to a period rule, never a per-order ceiling** — "CHF 250 per week" is a budget, not an order limit | `policy_compiler._AMOUNT_THEN_PERIOD_RE` | `test_a_period_qualified_amount_is_a_budget_not_an_order_ceiling` |
 | I38 | **Restrictive language that produced no rule is named back to the customer** — the compiler never treats an unrecognised restriction as silent permission | `policy_compiler._coverage_questions` | `test_a_quantity_the_vocabulary_cannot_express_is_named_back_to_the_customer` |

@@ -54,6 +54,7 @@ _CARD_STATUS_RULE = HardRule(field="authorization.card_status_at_attempt", opera
 _CARD_BINDING_RULE = HardRule(field="authorization.card_id_binding", operator="=", value="true")
 _MANDATE_BINDING_RULE = HardRule(field="authorization.mandate_id_binding", operator="=", value="true")
 _MANDATE_STATUS_RULE = HardRule(field="mandate.mandate_status", operator="=", value="active")
+_AUTHORIZATION_ID_RULE = HardRule(field="authorization.authorization_id_wellformed", operator="=", value="true")
 
 # The exact enums from data/official/schemas/authorization_event.schema.json. A
 # value outside these sets is not assumed benign -- it is treated as unknown.
@@ -134,6 +135,23 @@ def _run_binding_failures(
     character is a different identity, not a near-enough one.
     """
     failures: list[RuleEvaluation] = []
+
+    # The live authorization_id is this purchase's IDENTITY and the key of the decision
+    # ledger. The schema requires a string of minLength 1, and the API addresses the
+    # purchase BY it -- `POST /v1/authorizations/{authorization_id}/decision` -- so a
+    # null, empty or non-string id is not a purchase we could answer for even if we
+    # wanted to. Accepting one meant recording a decision under a degenerate key that a
+    # second purchase could collide with.
+    raw_id = auth.get("authorization_id")
+    if not isinstance(raw_id, str) or not raw_id.strip():
+        failures.append(
+            RuleEvaluation(
+                rule=_AUTHORIZATION_ID_RULE,
+                outcome="fail",
+                detail=f"authorization_id={raw_id!r} is not a usable identifier",
+                source="safety",
+            )
+        )
 
     # Is the mandate behind this purchase still in force at all? `mandate.status`
     # is a required field of the official schema with enum
@@ -523,8 +541,14 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         stored = state.get_stored_decision(authorization_id)
         if stored is not None:
             if not state.check_repeat_fingerprint(
-                authorization_id, merchant_id=merchant_id, basket_key=basket_key, billing_amount_chf=billing_amount_chf
-            ):
+            authorization_id,
+            merchant_id=merchant_id,
+            basket_key=basket_key,
+            billing_amount_chf=billing_amount_chf,
+            # Parsed here rather than reusing the later local: the fingerprint check
+            # runs BEFORE `timestamp` is bound at the top of the evaluation proper.
+            timestamp=datetime.fromisoformat(auth["timestamp"].replace("Z", "+00:00")),
+        ):
                 # Same authorization_id, different purchase. Neither trust the old
                 # decision (it was made on different facts) nor silently re-evaluate
                 # and re-submit a new one (the platform already has a decision for this

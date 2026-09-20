@@ -311,7 +311,13 @@ class RunState:
         return tuple(self._decisions.values())
 
     def check_repeat_fingerprint(
-        self, authorization_id: str, *, merchant_id: str, basket_key: BasketKey, billing_amount_chf: Decimal
+        self,
+        authorization_id: str,
+        *,
+        merchant_id: str,
+        basket_key: BasketKey,
+        billing_amount_chf: Decimal,
+        timestamp: datetime | None = None,
     ) -> bool:
         """True if a stored decision exists for `authorization_id` AND its
         merchant/basket/amount match what is being re-delivered now -- i.e. this is
@@ -324,6 +330,23 @@ class RunState:
         existing = self._decisions.get(authorization_id)
         if existing is None:
             return True  # nothing to conflict with; not a repeat at all
+        # `timestamp` is the SIMULATED PURCHASE TIME -- a property of the purchase, not
+        # of the delivery -- so a genuine re-delivery of the same purchase carries the
+        # same value and stays a replay. Two DIFFERENT economic transactions do not.
+        #
+        # Without it, merchant+basket+amount alone let a same-id collision whose facts
+        # happened to match read as a legitimate retry: five distinct CHF 100 orders
+        # sharing one id were all approved while the rolling window counted CHF 100,
+        # exceeding a CHF 300 cap in silence. A collision with DIFFERING facts already
+        # failed closed; only the identical-facts case failed open, which is the shape
+        # that is hardest to notice.
+        #
+        # The protocol makes this a defence in depth rather than a live hole: the live
+        # id is a RESOURCE ADDRESS -- `POST /v1/authorizations/{authorization_id}/decision`
+        # -- so two purchases sharing one would be mutually unaddressable. We no longer
+        # depend on that being true.
+        if timestamp is not None and existing.timestamp != timestamp:
+            return False
         return (
             existing.merchant_id == merchant_id
             and existing.basket_key == basket_key

@@ -20,7 +20,7 @@ mandate status checks -- rather than generated over every operator in the tree.
 It cannot tell you about a mechanism nobody thought to mutate. It can tell you
 that the ones listed here are genuinely held.
 
-RESULT AT THE TIME OF WRITING: 29 mutants, 29 killed, 0 survived.
+RESULT AT THE TIME OF WRITING: 34 mutants, 34 killed, 0 survived.
 
 One survivor was found when this probe was first run: widening the rolling window's
 start from `end - window < ts` to `end - window <= ts` passed the entire suite.
@@ -91,6 +91,20 @@ MUTANTS: list[tuple[str, str, str, str]] = [
      "        already_resolved = False",
      "an answered purchase can be answered again and overridden"),
 
+    # --- post-audit remediation: I40, I41, I42, I43 --------------------------
+    ("state.py", "DEFAULT_AUTHORITY_TTL = timedelta(minutes=15)", "DEFAULT_AUTHORITY_TTL = timedelta(days=3650)",
+     "a payment authority never effectively expires"),
+    ("state.py", "        if timestamp is not None and existing.timestamp != timestamp:\n            return False",
+     "        if False:\n            return False",
+     "two economic transactions under one id read as a retry again"),
+    ("decision_engine.py", "    if not isinstance(raw_id, str) or not raw_id.strip():",
+     "    if False:",
+     "a null or empty authorization_id is accepted again"),
+    ("mandate.py", "        if outstanding:", "        if False:",
+     "unsupported restrictive intent no longer blocks confirmation"),
+    ("live_worker.py", "        if problems:", "        if False:",
+     "a widened platform echo silently becomes the policy again"),
+
     # --- customer-facing explanation: I39 ------------------------------------
     ("decision_engine.py", "    reasons = list(dict.fromkeys(_plain_reason(e) for e in problems))",
      '    reasons = [f"{e.rule.field} ({e.outcome}): {e.detail}" for e in problems]',
@@ -99,7 +113,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     # --- intent fidelity: I37, I38 -------------------------------------------
     ("policy_compiler.py", "        if v not in period_amount_values", "        if True",
      "a period-qualified amount becomes a per-order ceiling again"),
-    ("policy_compiler.py", "    open_questions.extend(_coverage_questions(text, rules))", "    pass",
+    ("policy_compiler.py", "    unsupported = _coverage_questions(text, rules)", "    unsupported = []",
      "restrictive language with no rule is dropped in silence again"),
 
     ("policy_compiler.py", '    text = re.sub(r"\\s+", " ", instruction).strip()',

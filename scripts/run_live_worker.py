@@ -35,6 +35,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("scenario_id")
     parser.add_argument("--wait", type=int, default=25, help="long-poll wait seconds")
+    parser.add_argument(
+        "--acknowledge-unsupported",
+        action="store_true",
+        help="proceed even though the instruction restricts in ways this wallet cannot enforce",
+    )
     args = parser.parse_args()
 
     base_url = os.environ.get("LEASH_BASE_URL")
@@ -69,7 +74,31 @@ def main() -> None:
         if compiled.open_questions:
             logger.warning("open questions for the customer before confirming: %s", compiled.open_questions)
 
-        # In a real product this pauses for the customer's explicit confirmation.
+        # THE GATE. This script used to say "in a real product this pauses for the
+        # customer's explicit confirmation" and then confirm anyway, three statements
+        # after compiling. An audit found the consequence: an instruction whose
+        # restriction the compiler cannot represent produced
+        # warning -> automatic confirmation -> unenforced restriction, with no human
+        # in the chain and the warning written only to a log.
+        #
+        # Unsupported restrictive intent now stops this script. `--acknowledge-unsupported`
+        # is the operator standing in for the customer, and it requires them to have
+        # read the list, because the list is printed here and nowhere else in the flow.
+        if compiled.unsupported_restrictions:
+            for item in compiled.unsupported_restrictions:
+                logger.error("UNSUPPORTED RESTRICTION: %s", item)
+            if not args.acknowledge_unsupported:
+                sys.exit(
+                    f"refusing to confirm {draft_id}: this instruction restricts in "
+                    f"{len(compiled.unsupported_restrictions)} way(s) this wallet cannot enforce "
+                    "(listed above). A customer must see and accept them. Re-run with "
+                    "--acknowledge-unsupported to proceed on their behalf."
+                )
+            logger.warning(
+                "proceeding with %d unenforceable restriction(s) on the operator's acknowledgement",
+                len(compiled.unsupported_restrictions),
+            )
+
         confirmed = client.confirm_mandate(draft_id)
         mandate_id = confirmed["mandate_id"]
         logger.info("mandate confirmed: %s", mandate_id)
@@ -79,7 +108,16 @@ def main() -> None:
         logger.info("run started: %s", run_id)
 
         history = HistoryIndex.from_csv(history_csv_path())
-        worker = LiveWorker(client, history)
+        worker = LiveWorker(
+            client,
+            history,
+            # What the customer confirmed, so the platform's echo of it in the run's
+            # first event is CHECKED rather than adopted. Without this the echo simply
+            # becomes the policy -- an audit widened it and turned a CHF 9,000 purchase
+            # at an unknown seller from BLOCK into ALLOW for the whole run.
+            confirmed_rules=compiled.hard_rules,
+            confirmed_uncertainty_policy=compiled.uncertainty_policy,
+        )
         # The worker auto-registers the run from the first event's own `mandate`
         # block (see live_worker.py) since customer_id/card_id/profile_id are only
         # known once the platform assigns them here.

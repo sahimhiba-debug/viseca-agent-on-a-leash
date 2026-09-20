@@ -50,10 +50,10 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from .decision_engine import EngineDecision, evaluate_authorization, resolve_authorization
-from .mandate import MandateSnapshot
+from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy
 from .state import HistoryIndex, RunState
 from .viseca_client import VisecaApiError, VisecaClient
 from .viseca_mapping import to_viseca_decision
@@ -72,6 +72,23 @@ _SUBMIT_RETRY_DELAYS = (0.5, 1.5, 3.0)  # seconds; bounded retry for transient s
 # degrade to waiting" contract. 404/400/409 on a specific call are handled by that
 # call's own caller, not here, since they are request-specific, not connection-wide.
 _FATAL_POLL_STATUS_CODES = frozenset({401, 403})
+
+
+class EchoedMandateMismatch(RuntimeError):
+    """The platform echoed a policy that is not the one the customer confirmed.
+
+    A run's policy is built from its FIRST event's `mandate` block. That block is the
+    platform repeating back the rules we drafted -- but nothing compared them, so an
+    echo that differed simply became the policy. An audit demonstrated the
+    consequence: a widened echo turned a CHF 9,000 purchase at an unknown seller from
+    BLOCK into ALLOW for the whole run.
+
+    Any difference is fatal, including one that looks like a TIGHTENING. The platform
+    is not an authority on the customer's policy; a tightening we did not author is
+    still a policy we cannot explain to the customer, and treating "narrower" as
+    acceptable would require trusting the same channel to tell us which direction it
+    moved. The tighten-only rule governs `Mandate`, not this boundary.
+    """
 
 
 class FatalWorkerError(RuntimeError):
@@ -99,13 +116,64 @@ class LiveWorker:
     the *next* purchase.
     """
 
-    def __init__(self, client: VisecaClient, history: HistoryIndex, *, checkpoint_dir: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        client: VisecaClient,
+        history: HistoryIndex,
+        *,
+        checkpoint_dir: Path | str | None = None,
+        confirmed_rules: "Sequence[HardRule] | None" = None,
+        confirmed_uncertainty_policy: "UncertaintyPolicy | None" = None,
+    ) -> None:
         self._client = client
         self._history = history
         self._runs: dict[str, RunHandle] = {}
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
+        # What the CUSTOMER confirmed, held locally so the platform's echo can be
+        # checked against it rather than trusted. Optional so offline and test callers
+        # need not supply it; `run_live_worker.py` always does.
+        self._confirmed_rules = tuple(confirmed_rules) if confirmed_rules is not None else None
+        self._confirmed_uncertainty_policy = confirmed_uncertainty_policy
+
+    @staticmethod
+    def _rule_key(rule: "HardRule") -> tuple:
+        return (rule.field, rule.operator, str(rule.value), rule.currency or "", rule.scope or "", rule.period_days or 0)
+
+    def _verify_echoed_policy(self, run_id: str, snapshot: MandateSnapshot) -> None:
+        """Refuse a run whose first event echoes a policy we did not confirm.
+
+        Compares only what the CUSTOMER authored -- `hard_rules` and
+        `uncertainty_policy`. `customer_id`, `card_id` and `profile_id` are assigned by
+        the platform at run start and are legitimately absent from what we drafted, so
+        comparing them would fail every healthy run.
+        """
+        if self._confirmed_rules is None:
+            return
+        echoed = {self._rule_key(r) for r in snapshot.hard_rules}
+        confirmed = {self._rule_key(r) for r in self._confirmed_rules}
+        problems = []
+        if echoed != confirmed:
+            for missing in sorted(confirmed - echoed):
+                problems.append(f"rule the customer confirmed is ABSENT from the echo: {missing}")
+            for added in sorted(echoed - confirmed):
+                problems.append(f"rule in the echo that the customer never confirmed: {added}")
+        if (
+            self._confirmed_uncertainty_policy is not None
+            and snapshot.uncertainty_policy != self._confirmed_uncertainty_policy
+        ):
+            problems.append(
+                f"uncertainty_policy echoed as {snapshot.uncertainty_policy.value!r}, "
+                f"customer confirmed {self._confirmed_uncertainty_policy.value!r}"
+            )
+        if problems:
+            detail = "\n  - ".join(problems)
+            logger.error("run %s: echoed mandate does not match the confirmed one:\n  - %s", run_id, detail)
+            raise EchoedMandateMismatch(
+                f"run {run_id}: the platform echoed a policy that is not the one the customer "
+                f"confirmed; refusing to decide anything under it:\n  - {detail}"
+            )
 
     def _checkpoint_path(self, run_id: str) -> Path | None:
         if self._checkpoint_dir is None:
@@ -233,6 +301,7 @@ class LiveWorker:
             # only known once the platform assigns them at run start (see
             # `MandateSnapshot.from_event_mandate`).
             snapshot = MandateSnapshot.from_event_mandate(event["mandate"])
+            self._verify_echoed_policy(run_id, snapshot)
             handle = self.register_run(run_id, snapshot)
             logger.info("auto-registered run_id=%s from its first event (mandate_id=%s)", run_id, snapshot.mandate_id)
 

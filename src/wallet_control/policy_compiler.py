@@ -87,13 +87,19 @@ _RETAILER_TYPE_LEXICON: dict[str, str] = {
 _AMOUNT_RE = re.compile(
     r"""
     (?:
-        (?:no\ more\ than|not\ more\ than|up\ to|at\ most|pay\ no\ more\ than|
-           under|below|less\ than|a\ maximum\ of|maximum\ of|max\ of)\s*
+        (?:no\ more\ than|not\ more\ than|never\ more\ than|never\ (?:spend|pay)\ more\ than|
+           up\ to|at\ most|pay\ no\ more\ than|
+           under|below|less\ than|a\ maximum\ of|maximum\ of|max\ of|max|
+           capped\ at|limited\ to|no\ higher\ than|nothing\ over|nothing\ above|
+           (?:do\ not|don't|doesn't|does\ not)\ (?:exceed|go\ over|go\ above)|
+           not\ exceeding|within|up\ to\ a\ limit\ of|budget(?:\ of)?)\s*
         CHF\s*(?P<v1>[\d.,]+)
-        | CHF\s*(?P<v2>[\d.,]+)\s*(?:or\ less|or\ below|maximum|max\b)
+        | CHF\s*(?P<v2>[\d.,]+)\s*(?:or\ less|or\ below|maximum|max\b|cap\b|ceiling|limit)
         | at\ or\ below\s*CHF\s*(?P<v3>[\d.,]+)
         | CHF\s*(?P<v4>[\d.,]+)\s+is\ the\ (?:real\ |actual\ |true\ )?limit
         | the\ limit\ is\ CHF\s*(?P<v5>[\d.,]+)
+        | a\ CHF\s*(?P<v6>[\d.,]+)\ (?:cap|ceiling|limit)
+        | with\ a\ CHF\s*(?P<v7>[\d.,]+)\ (?:cap|ceiling|limit)
     )
     """,
     re.IGNORECASE | re.VERBOSE,
@@ -143,12 +149,15 @@ _AMOUNT_THEN_PERIOD_RE = re.compile(
     CHF\s*(?P<amount>[\d.,]+)
     [^.;]{0,30}?                                   # same clause only -- never across a full stop
     \b(?:per|a|each|every|in\ any|over\ any|across\ any|within\ any|in|over)\s+
-    (?:(?P<days>\d+)\s*days?|(?P<word>day|week|fortnight|month|year)s?)\b
+    (?:(?P<days>\d+)\s*days?
+       |(?P<daywords>seven|fourteen|thirty|ten|twenty|sixty|ninety)\s*days?
+       |(?P<word>day|week|fortnight|month|year)s?)\b
     """,
     re.IGNORECASE | re.VERBOSE,
 )
 
-_WORDS_TO_NUM = {"seven": 7, "fourteen": 14, "thirty": 30}
+_WORDS_TO_NUM = {"seven": 7, "ten": 10, "fourteen": 14, "twenty": 20,
+                 "thirty": 30, "sixty": 60, "ninety": 90}
 
 _PER_ORDER_LABEL_RE = re.compile(
     r"(?:per\s+order|each\s+order|per\s+purchase|per\s+transaction)", re.IGNORECASE
@@ -178,7 +187,7 @@ _RETAILER_TYPE_RE = re.compile(
 )
 
 _RETURN_WINDOW_RE = re.compile(
-    r"return(?:ed|able)?\s*(?:within)?\s*(?P<days>\d+)\s*days?\s*(?P<or_more>or\ more)?",
+    r"return(?:ed|able|s)?\s*(?:are\s+accepted\s*)?(?:within)?\s*(?P<days>\d+)\s*days?\s*(?P<or_more>or\ more)?",
     re.IGNORECASE,
 )
 
@@ -297,6 +306,14 @@ _COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
         "NOT enforced. Please rephrase it, for example \"do not add anything I did not ask for\".",
     ),
     (
+        "per-order ceiling",
+        re.compile(r"CHF\s*[\d.,]+", re.IGNORECASE),
+        "authorization.billing_amount_chf",
+        "You named an amount, but no spending ceiling was recognised from the way it is "
+        "worded, so purchases are NOT limited by amount. Rephrase it, for example "
+        "\"for CHF 40 or less\" or \"no more than CHF 40 per order\".",
+    ),
+    (
         "overall total",
         re.compile(r"CHF\s*[\d.,]+\s*(?:in\s+total|total|overall|altogether|in\s+all)\b", re.IGNORECASE),
         "",
@@ -334,7 +351,12 @@ _COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
 
 
 def _coverage_questions(text: str, rules: list[HardRule]) -> list[str]:
-    """Restrictive language the customer wrote that no rule of that kind represents."""
+    """Restrictive language the customer wrote that no rule of that kind represents.
+
+    Every item here is UNSUPPORTED RESTRICTIVE INTENT by construction: the marker
+    fired, so the customer used narrowing language of a kind we recognise, and no rule
+    of that kind exists. That is precisely the set that must block auto-confirmation.
+    """
     present = {r.field for r in rules}
     out: list[str] = []
     for _kind, pattern, required_field, message in _COVERAGE_MARKERS:
@@ -354,10 +376,35 @@ def _parse_amount(raw: str) -> float:
 
 @dataclass
 class CompiledPolicy:
+    """The four categories this compiler distinguishes, stated once, precisely.
+
+    SUPPORTED RESTRICTION -- a phrase mapped to a `HardRule`. Enforced.
+
+    UNSUPPORTED RESTRICTIVE INTENT -- the text carries a restrictive marker of a kind
+        this compiler recognises, and no rule of that kind was produced. The customer
+        asked for something narrowing and did not get it. Goes in
+        `unsupported_restrictions` and BLOCKS automatic confirmation.
+
+    AMBIGUOUS INTENT -- a restriction of a supported kind stated more than once with
+        conflicting values ("CHF 100, actually CHF 50"). The compiler resolves it
+        DEFENSIVELY (the smaller figure) and names the resolution. Advisory, not
+        blocking: a rule exists, it is the stricter reading, and the customer can see
+        which one was used.
+
+    HARMLESS UNKNOWN LANGUAGE -- text with no restrictive marker at all ("Order our
+        household groceries for delivery", "Thanks very much"). Produces nothing and
+        blocks nothing. Treating it as a restriction would make every mandate
+        unconfirmable, which is why the blocking set is keyed on MARKERS rather than
+        on "text we did not consume".
+    """
+
     hard_rules: list[HardRule] = field(default_factory=list)
     uncertainty_policy: UncertaintyPolicy = UncertaintyPolicy.ASK
     guidance: list[str] = field(default_factory=list)
     open_questions: list[str] = field(default_factory=list)
+    # Restrictive intent this compiler could not represent. Non-empty means the
+    # mandate must not be confirmed without the customer explicitly seeing these.
+    unsupported_restrictions: list[str] = field(default_factory=list)
 
 
 def compile_instruction(instruction: str) -> CompiledPolicy:
@@ -396,6 +443,8 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     for m in _AMOUNT_THEN_PERIOD_RE.finditer(text):
         if m.group("days"):
             days = int(m.group("days"))
+        elif m.group("daywords"):
+            days = _WORDS_TO_NUM[m.group("daywords").lower()]
         else:
             days = _PERIOD_WORD_DAYS[m.group("word").lower()]
         period_amounts.append((_parse_amount(m.group("amount")), days))
@@ -414,7 +463,8 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
 
     amount_matches = [
         v for v in (
-            _parse_amount(m.group("v1") or m.group("v2") or m.group("v3") or m.group("v4") or m.group("v5"))
+            _parse_amount(m.group("v1") or m.group("v2") or m.group("v3") or m.group("v4")
+                          or m.group("v5") or m.group("v6") or m.group("v7"))
             for m in _AMOUNT_RE.finditer(text)
         )
         if v not in period_amount_values and v not in total_amounts
@@ -674,9 +724,18 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
 
     # Named back to the customer LAST, so it sees the final rule set rather than a
     # partially-built one.
-    open_questions.extend(_coverage_questions(text, rules))
+    unsupported = _coverage_questions(text, rules)
+    if not rules:
+        # No executable rule at all is the strongest form of unsupported intent: the
+        # customer wrote an instruction and got a mandate that checks nothing.
+        unsupported.append(
+            "This instruction produced no spending rules at all, so nothing about a purchase "
+            "is checked against it."
+        )
+    open_questions.extend(unsupported)
 
     return CompiledPolicy(
+        unsupported_restrictions=unsupported,
         hard_rules=rules,
         uncertainty_policy=uncertainty_policy,
         guidance=guidance,
