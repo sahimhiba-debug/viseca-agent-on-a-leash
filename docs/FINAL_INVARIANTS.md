@@ -44,6 +44,8 @@ fail.
 | I19 | A run keeps its original snapshot for RULES | `live_worker` | `test_mandate_lifecycle` |
 | I20 | The platform's reported `mandate.status` is read **live** and may only narrow | `_run_binding_failures` | `test_a_mid_run_mandate_revocation_*` |
 | I21 | An event must belong to this run (`card_id`, `mandate_id`) | same | `test_run_binding` |
+| I47 | **A hostile, hallucinating or unavailable planner obtains no approval** — the reasoning is replaceable; the authority is not | `research.shopping_agent.Planner` seam + `decision_engine` | `test_a_hostile_or_broken_planner_never_obtains_an_approval` |
+| I48 | **The agent's proposals do not depend on the secret limit** — identical against two different ceilings until the wallet's own answers diverge | `agent_view` + the planner's class-only inputs | `test_the_agents_proposals_do_not_depend_on_the_secret_limit` |
 | I45 | **The agent is told the DECISION and the CLASS of constraint, never a policy value** — no rule numbers, no remaining budget, no evidence strings reach the agent-facing projection | `decision_engine.agent_view` | `test_agent_view_leaks_no_policy_values` |
 | I46 | **Adaptation consumes delegation, never widens it** — a revised basket is re-decided from scratch against the same mandate | `decision_engine.evaluate_authorization` (stateless re-evaluation) | `test_adaptation_cannot_create_authority` |
 | I40 | **Unsupported restrictive intent blocks confirmation** — a mandate whose restrictions we cannot enforce cannot be confirmed without naming each one back | `Mandate.confirm` + `CompiledPolicy.unsupported_restrictions` | `test_unsupported_restrictive_intent_blocks_confirmation` |

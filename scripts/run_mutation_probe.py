@@ -20,7 +20,7 @@ mandate status checks -- rather than generated over every operator in the tree.
 It cannot tell you about a mechanism nobody thought to mutate. It can tell you
 that the ones listed here are genuinely held.
 
-RESULT AT THE TIME OF WRITING: 38 mutants, 38 killed, 0 survived.
+RESULT AT THE TIME OF WRITING: 39 mutants, 39 killed, 0 survived.
 
 One survivor was found when this probe was first run: widening the rolling window's
 start from `end - window < ts` to `end - window <= ts` passed the entire suite.
@@ -110,6 +110,11 @@ MUTANTS: list[tuple[str, str, str, str]] = [
      "a drafted mandate silently drops the unsupported restrictions"),
     ("live_worker.py", "        if problems:", "        if False:",
      "a widened platform echo silently becomes the policy again"),
+
+    # --- agent planner boundary: I47 ------------------------------------------
+    ("decision_engine.py", "def agent_view(decision: \"EngineDecision\") -> dict[str, Any]:",
+     "def agent_view(decision: \"EngineDecision\") -> dict[str, Any]:\n    return {**decision.__dict__, \"blocked_by\": []}",
+     "the agent projection returns the whole decision object"),
 
     # --- agent explanation boundary: I45 --------------------------------------
     ("decision_engine.py", '        "blocked_by": classes,',

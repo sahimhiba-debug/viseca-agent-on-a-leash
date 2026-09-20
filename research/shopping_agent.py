@@ -77,11 +77,15 @@ class Episode:
     mission: str
     attempts: list[Attempt] = field(default_factory=list)
     outcome: str = "unresolved"
+    # Why the agent handed back to the customer, when it did. Distinct from an empty
+    # basket: "I cannot fix this by shopping" is a RESULT, not a failure.
+    handoff_reason: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "mission": self.mission,
             "outcome": self.outcome,
+            "handoff_reason": self.handoff_reason,
             "attempts": [
                 {
                     "revision": a.revision,
@@ -108,52 +112,159 @@ def catalogue(category: str | None = None) -> list[Line]:
     ]
 
 
-def plan(mission_category: str, target_lines: int = 5) -> list[Line]:
-    """Build an opening basket. Deliberately ambitious: the agent does not know the
-    customer's ceiling, so its first proposal is the one most likely to be refused --
-    which is the whole point of the demonstration."""
-    items = sorted(catalogue(mission_category), key=lambda l: l.unit_price, reverse=True)
-    return items[:target_lines]
+@dataclass(frozen=True)
+class Mission:
+    """What the customer actually wants, separate from any one basket.
 
-
-def revise(lines: list[Line], blocked_by: list[str]) -> tuple[list[Line], str] | None:
-    """One adaptation step, from the CLASS of constraint alone.
-
-    The agent never learns a threshold, so it cannot jump straight to the boundary --
-    it can only move in the right direction and try again. That is the difference
-    between adapting and extracting.
+    The agent plans against THIS, not against the last thing it happened to
+    propose. Without an explicit goal there is nothing to replan toward -- the
+    earlier version had only a basket and one rule for shrinking it, which is
+    why it gave up on five of nine adversarial episodes.
     """
-    if "amount" in blocked_by:
-        if len(lines) <= 1:
-            cheaper = sorted(catalogue(lines[0].category), key=lambda l: l.unit_price)
-            if cheaper and cheaper[0].unit_price < lines[0].unit_price:
-                return [cheaper[0]], f"swapped to the cheapest {lines[0].category} line"
-            return None
-        dropped = max(lines, key=lambda l: l.total)
-        return [l for l in lines if l is not dropped], f"dropped the most expensive line ({dropped.name})"
-    if "basket" in blocked_by or "item" in blocked_by:
-        wanted = lines[0].category if lines else None
-        kept = [l for l in lines if l.category == wanted]
+
+    description: str
+    category: str
+    target_lines: int = 5
+    unavailable: frozenset[str] = frozenset()   # item_ids the shop cannot supply
+    merchants: tuple[str, ...] = ("ME0001",)
+
+
+def plan(mission: Mission) -> list[Line]:
+    """Opening basket: the best available lines for the mission.
+
+    Deliberately ambitious. The agent does not know the customer's ceiling, so its
+    first proposal is the one most likely to be refused -- which is the point of the
+    demonstration and also the honest behaviour: nothing tells it to aim low.
+    """
+    available = [l for l in catalogue(mission.category) if l.item_id not in mission.unavailable]
+    return sorted(available, key=lambda l: l.unit_price, reverse=True)[: mission.target_lines]
+
+
+def _cheaper_substitute(line: Line, mission: Mission, in_basket: list[Line]) -> Line | None:
+    """The cheapest same-category item that is available and not already in the basket."""
+    held = {l.item_id for l in in_basket}
+    options = [
+        l for l in catalogue(line.category)
+        if l.item_id not in mission.unavailable and l.item_id not in held and l.unit_price < line.unit_price
+    ]
+    return min(options, key=lambda l: l.unit_price) if options else None
+
+
+# What the agent can actually do about each constraint class. A class it has no move
+# for is not a failure to plan -- it is a reason to involve the customer, which is a
+# different outcome and must not be collapsed into "gave up".
+_ACTIONABLE = {"amount", "item", "basket"}
+_NEEDS_CUSTOMER = {"order_terms", "session", "duplicate", "merchant", "other"}
+
+
+def replan(lines: list[Line], blocked_by: list[str], mission: Mission,
+           merchant_index: int) -> tuple[list[Line], str, int] | str:
+    """One replanning step toward the mission.
+
+    Returns a new (basket, rationale, merchant_index), or a STRING naming why the
+    agent is handing back to the customer. The strategy ladder is ordered so that the
+    agent gives up the least mission value it can:
+
+        1. substitute a cheaper line of the same kind   (keeps the mission intact)
+        2. drop the most expensive line                  (loses one item)
+        3. switch to another merchant it was told about  (keeps the whole basket)
+        4. ask the customer                              (cannot be fixed by shopping)
+
+    None of these uses a numeric threshold, because the agent is never given one.
+    It knows only the CLASS of constraint it hit, so it can move in the right
+    direction and try again -- which is the difference between adapting and probing.
+    """
+    if not blocked_by:
+        return "the wallet gave no reason the agent can act on"
+
+    unfixable = [c for c in blocked_by if c in _NEEDS_CUSTOMER]
+    actionable = [c for c in blocked_by if c in _ACTIONABLE]
+
+    if "item" in actionable or "basket" in actionable:
+        kept = [l for l in lines if l.category == mission.category]
         if kept and len(kept) < len(lines):
-            return kept, "removed lines outside the requested kind of item"
-    return None
+            return kept, "removed lines outside what the customer asked for", merchant_index
+
+    if "amount" in actionable:
+        dearest = max(lines, key=lambda l: l.total)
+        swap = _cheaper_substitute(dearest, mission, lines)
+        if swap is not None:
+            return ([l for l in lines if l is not dearest] + [swap],
+                    f"swapped {dearest.name} for the cheaper {swap.name}", merchant_index)
+        if len(lines) > 1:
+            return ([l for l in lines if l is not dearest],
+                    f"no cheaper substitute; dropped {dearest.name}", merchant_index)
+
+    if unfixable and merchant_index + 1 < len(mission.merchants) and "merchant" in unfixable:
+        return lines, f"trying {mission.merchants[merchant_index + 1]} instead", merchant_index + 1
+
+    if unfixable:
+        return f"only the customer can resolve this ({', '.join(sorted(unfixable))})"
+    return "no further change would help"
+
+
+@dataclass(frozen=True)
+class Planner:
+    """The replaceable half of the agent.
+
+    `plan` and `replan` are the only reasoning in this system, and they are injectable
+    precisely so that the architectural claim can be TESTED rather than asserted: a
+    model-based planner would slot in here, outside the authority boundary, and the
+    wallet's decisions must be identical whether the planner is the deterministic one,
+    a language model, a hallucinating stub, or an adversary.
+
+    We ship the deterministic planner. A model is deliberately NOT in the judged path:
+    `technical_details.md` requires a predictable response when the model is
+    unavailable, and a network call would make the demo irreproducible -- which is a
+    jury criterion we would rather win outright. What we do instead is prove the seam
+    holds against planners far worse than any real model
+    (`tests/test_agent_planner_boundary.py`).
+    """
+
+    plan: Callable[[Mission], list[Line]] = None          # type: ignore[assignment]
+    replan: Callable[..., Any] = None                      # type: ignore[assignment]
+
+    def opening(self, mission: Mission) -> list[Line]:
+        return (self.plan or plan)(mission)
+
+    def next_step(self, lines, blocked_by, mission, merchant_index):
+        return (self.replan or replan)(lines, blocked_by, mission, merchant_index)
+
+
+DETERMINISTIC = Planner()
 
 
 def shop(
-    mission: str,
-    mission_category: str,
-    propose: Callable[[list[Line], int], dict[str, Any]],
+    mission: Mission,
+    propose: Callable[[list[Line], int, str], dict[str, Any]],
     max_revisions: int = MAX_REVISIONS,
+    planner: Planner = DETERMINISTIC,
 ) -> Episode:
-    """Run the loop. `propose` submits a basket to the wallet and returns an
-    `agent_view` -- the ONLY channel through which the agent learns anything."""
-    episode = Episode(mission=mission)
-    lines = plan(mission_category)
-    rationale = f"opening basket: the {len(lines)} best {mission_category} lines"
+    """Plan, propose, observe, replan -- stopping on success, on a human, or when the
+    agent judges that no further basket change would help.
+
+    `propose` submits a basket to the wallet and returns an `agent_view`. That is the
+    ONLY channel through which the agent learns anything about the policy.
+    """
+    episode = Episode(mission=mission.description)
+    # A planner that raises, returns nothing, or returns nonsense must not take the
+    # wallet down with it: the agent degrades to asking the customer.
+    try:
+        lines = planner.opening(mission)
+    except Exception as exc:                                   # noqa: BLE001 -- any planner failure
+        episode.outcome = "asked_customer"
+        episode.handoff_reason = f"the planner failed to produce a basket ({type(exc).__name__})"
+        return episode
+    if not lines:
+        episode.outcome = "asked_customer"
+        episode.handoff_reason = "the planner produced no basket"
+        return episode
+    merchant_index = 0
+    rationale = f"opening basket: the {len(lines)} best available {mission.category} lines"
 
     for revision in range(max_revisions + 1):
         amount = sum((l.total for l in lines), Decimal("0"))
-        view = propose(lines, revision)
+        view = propose(lines, revision, mission.merchants[merchant_index])
         episode.attempts.append(Attempt(revision, tuple(lines), amount, view, rationale))
 
         if view["decision"] == "allow":
@@ -163,11 +274,22 @@ def shop(
             episode.outcome = "awaiting_customer"
             return episode
 
-        step = revise(lines, view.get("blocked_by", []))
-        if step is None:
-            episode.outcome = "gave_up"
+        try:
+            step = planner.next_step(lines, view.get("blocked_by", []), mission, merchant_index)
+        except Exception as exc:                               # noqa: BLE001
+            episode.outcome = "asked_customer"
+            episode.handoff_reason = f"the planner failed while replanning ({type(exc).__name__})"
             return episode
-        lines, rationale = step
+        if not isinstance(step, tuple) or len(step) != 3 or not step[0]:
+            episode.outcome = "asked_customer"
+            episode.handoff_reason = step if isinstance(step, str) else "the planner returned an unusable step"
+            return episode
+        if isinstance(step, str):
+            episode.outcome = "asked_customer"
+            episode.handoff_reason = step
+            return episode
+        lines, rationale, merchant_index = step
 
     episode.outcome = "gave_up"
+    episode.handoff_reason = "ran out of revisions"
     return episode

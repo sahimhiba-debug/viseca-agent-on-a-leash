@@ -357,10 +357,12 @@ const AG_ITEMS=[
   {item_id:'IT0011',name:'Pantry restock',category:'groceries',unit_price:60},
   {item_id:'IT0002',name:'Pantry staples',category:'groceries',unit_price:50},
   {item_id:'IT0012',name:'Family breakfast supplies',category:'groceries',unit_price:45},
-  {item_id:'IT0013',name:'Fresh produce order',category:'groceries',unit_price:42}];
+  {item_id:'IT0013',name:'Fresh produce order',category:'groceries',unit_price:42},
+  {item_id:'IT0002',name:'Pantry staples (small)',category:'groceries',unit_price:20},
+  {item_id:'IT0001',name:'Fresh produce selection',category:'groceries',unit_price:12}];
 async function runAgent(){
   const sid='ui_'+Date.now();
-  let lines=AG_ITEMS.slice(), out=[], why='opening basket: the 5 best grocery lines';
+  let lines=AG_ITEMS.slice(), out=[], why='opening basket: every grocery line the shop offers ('+AG_ITEMS.length+')';
   document.getElementById('ag-out').innerHTML='';
   document.getElementById('ag-sum').textContent='the agent is proposing…';
   for(let rev=0; rev<5; rev++){
@@ -371,14 +373,23 @@ async function runAgent(){
     const v=await r.json();
     out.push({rev,total,n:lines.length,v,why});
     if(v.decision==='allow'||v.awaiting_customer) break;
-    if(lines.length<=1) break;
-    const drop=lines.reduce((a,b)=>a.unit_price>=b.unit_price?a:b);
-    lines=lines.filter(l=>l!==drop);
-    why='dropped the most expensive line ('+drop.name+')';
+    const cls=v.blocked_by||[];
+    // The same strategy ladder the Python agent uses: substitute before dropping, so
+    // the customer loses as little of what they asked for as possible. This browser
+    // loop is a SECOND, independent client of the same agent-facing API -- which is
+    // the architecture, not a shortcut.
+    if(!cls.includes('amount')){ why='only you can resolve this ('+cls.join(', ')+')'; out[out.length-1].why=why; break; }
+    const dear=lines.reduce((a,b)=>a.unit_price>=b.unit_price?a:b);
+    const held=new Set(lines.map(l=>l.item_id));
+    const swap=AG_ITEMS.filter(i=>!held.has(i.item_id)&&i.unit_price<dear.unit_price)
+                       .sort((x,y)=>x.unit_price-y.unit_price)[0];
+    if(swap){ lines=lines.filter(l=>l!==dear).concat([swap]); why='swapped '+dear.name+' for the cheaper '+swap.name; }
+    else if(lines.length>1){ lines=lines.filter(l=>l!==dear); why='no cheaper substitute; dropped '+dear.name; }
+    else { why='no further change would help'; break; }
   }
   const last=out[out.length-1];
   document.getElementById('ag-sum').innerHTML = last.v.decision==='allow'
-    ? '<b>Approved after '+(out.length-1)+' refusal(s).</b> The agent never learned your limit — notice it stopped well below it.'
+    ? '<b>Approved after '+(out.length-1)+' refusal(s).</b> At no point was the agent told your limit — only <i>which kind</i> of rule it broke.'
     : 'The agent could not find a basket within your rules.';
   document.getElementById('ag-out').innerHTML = out.map(o=>`
     <div class="dec ${o.v.decision}">

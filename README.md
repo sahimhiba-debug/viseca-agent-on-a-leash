@@ -71,7 +71,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     965 tests
+tests/                     986 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -124,7 +124,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**965 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**986 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say
@@ -136,8 +136,8 @@ pytest -q
 - `tests/security/test_state_machine.py` -- a stateful model over the whole lifecycle.
 
 The count is not the argument. `python3 scripts/run_mutation_probe.py` deliberately
-breaks 38 security mechanisms in `src/wallet_control/`, one at a time, and checks the
-suite notices: **38 killed, 0 survived.** Its first run found a real gap and the
+breaks 39 security mechanisms in `src/wallet_control/`, one at a time, and checks the
+suite notices: **39 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
 Official replay: **45 events, 19 allow / 2 review / 24 block** -- a regression
@@ -168,6 +168,9 @@ behind every one of the 45 decisions.
 - [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
 - [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
+- [docs/FINAL_AGENTIC_AUDIT.md](docs/FINAL_AGENTIC_AUDIT.md) -- is the agent credible? The old one gave up on five of nine adversarial episodes; what replaced it, and why there is still no model in the loop
+- [docs/FINAL_AGENT_SECURITY_AUDIT.md](docs/FINAL_AGENT_SECURITY_AUDIT.md) -- every field the agent can reach, and the price of the oracle it cannot be denied
+- [docs/FINAL_DEMO_SCRIPT.md](docs/FINAL_DEMO_SCRIPT.md) · [docs/FINAL_JUDGE_QA.md](docs/FINAL_JUDGE_QA.md) · [docs/FINAL_CLAIMS_REGISTER.md](docs/FINAL_CLAIMS_REGISTER.md)
 - [docs/COMPETITION_READINESS.md](docs/COMPETITION_READINESS.md) -- honest assessment against the five jury criteria, the ten questions a judge could ask, and the strongest argument that this project is mediocre
 - [docs/CLAIMS_REGISTER.md](docs/CLAIMS_REGISTER.md) -- every public claim with its scope, evidence, test, and what must NOT be inferred from it
 - [docs/MASTER_ADVERSARIAL_VALIDATION.md](docs/MASTER_ADVERSARIAL_VALIDATION.md) -- validation of the agent boundary, including the invariant that caught my own design error
