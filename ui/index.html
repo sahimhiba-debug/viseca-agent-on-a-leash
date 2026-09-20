@@ -291,7 +291,7 @@
   <div class="card">
     <h2>Watch the agent get refused</h2>
     <p class="muted">An autonomous shopping agent proposes a basket, the wallet refuses it,
-      and the agent tries again — <b>without ever being told your limit</b>. The loop runs in
+      and the agent tries again — <b>without ever being told your rules</b>. The loop runs in
       this browser: the agent is a client of the wallet, not part of it.</p>
     <button class="act b-dark" onclick="runAgent()">Send the agent shopping</button>
     <p class="tiny" id="ag-sum" style="margin:9px 0 0"></p>
@@ -352,50 +352,136 @@ async function boot(){
     SCEN.map(s=>`<option value="${s.scenario_id}">${esc(s.scenario_name)}</option>`).join('');
   showInstr();
 }
-const AG_ITEMS=[
-  {item_id:'IT0010',name:'Weekly grocery basket',category:'groceries',unit_price:95},
-  {item_id:'IT0011',name:'Pantry restock',category:'groceries',unit_price:60},
-  {item_id:'IT0002',name:'Pantry staples',category:'groceries',unit_price:50},
-  {item_id:'IT0012',name:'Family breakfast supplies',category:'groceries',unit_price:45},
-  {item_id:'IT0013',name:'Fresh produce order',category:'groceries',unit_price:42},
-  {item_id:'IT0002',name:'Pantry staples (small)',category:'groceries',unit_price:20},
-  {item_id:'IT0001',name:'Fresh produce selection',category:'groceries',unit_price:12}];
+// The shop the browser agent can see. Two merchants, published return windows --
+// the same shape `research/shopping_agent.Offer` carries, because this loop is a
+// faithful port of that planner and `tests/test_ui_agent_parity.py` runs both over
+// this exact fixture and fails if they disagree.
+const AG_OFFERS=[
+  // Rhine Pantry is a real shop in the official merchant list that this card has
+  // never paid. It is also the cheapest, so the agent goes there first and is
+  // refused -- a refusal no amount of spending less can fix.
+  {item_id:'IT0001',name:'Fresh produce selection',category:'groceries',unit_price:15,merchant:'ME0005',ret:30},
+  {item_id:'IT0002',name:'Pantry staples',category:'groceries',unit_price:18,merchant:'ME0005',ret:30},
+  {item_id:'IT0003',name:'Milk and eggs',category:'groceries',unit_price:10,merchant:'ME0005',ret:30},
+  // Alpine Basket is familiar. Its cheapest line is a clearance box the seller will
+  // not take back, so the agent is refused a second time, on different grounds.
+  {item_id:'IT0004',name:'Clearance box (final sale)',category:'groceries',unit_price:12,merchant:'ME0001',ret:0},
+  {item_id:'IT0010',name:'Milk and eggs',category:'groceries',unit_price:20,merchant:'ME0001',ret:30},
+  {item_id:'IT0011',name:'Fresh produce order',category:'groceries',unit_price:28,merchant:'ME0001',ret:30},
+  {item_id:'IT0012',name:'Pantry restock',category:'groceries',unit_price:35,merchant:'ME0001',ret:30},
+  {item_id:'IT0013',name:'Family breakfast supplies',category:'groceries',unit_price:45,merchant:'ME0001',ret:30}];
+
+const AG_TARGET=3, AG_MAXBASKET=5, AG_SHOPPABLE=new Set(['amount','item','basket','merchant','order_terms']);
+
+// THE OBJECTIVE FUNCTION, in the same order as the Python agent states it:
+// do more of the errand, prefer goods that can be sent back once a refusal showed
+// that matters, and only then spend less. Price is last.
+function agScore(basket, beliefs){
+  const coverage=Math.min(basket.length,AG_TARGET);
+  const worst=beliefs.returnsMatter ? Math.min(...basket.map(o=>o.ret===null?-1:o.ret)) : 0;
+  return [coverage, worst, -basket.reduce((s,o)=>s+o.unit_price,0)];
+}
+const agCmp=(a,b)=>{ for(let i=0;i<a.length;i++){ if(a[i]!==b[i]) return a[i]<b[i]?-1:1; } return 0; };
+
+function agBest(beliefs){
+  const byM={};
+  for(const o of AG_OFFERS){
+    if(!(o.unit_price>0) || !o.item_id || o.category!=='groceries') continue;  // the shop is untrusted
+    if(beliefs.ruledOut.has(o.merchant)) continue;
+    (byM[o.merchant]=byM[o.merchant]||[]).push(o);
+  }
+  let best=null,bestKey=null;
+  for(const m of Object.keys(byM).sort()){
+    const offers=byM[m].slice().sort((x,y)=>x.unit_price-y.unit_price||(x.item_id<y.item_id?-1:1))
+                       .slice(0,12);
+    const limit=Math.min(AG_MAXBASKET,AG_TARGET,offers.length);
+    const walk=(start,combo)=>{
+      if(combo.length){
+        const ids=combo.map(o=>o.item_id).sort();
+        const total=combo.reduce((s,o)=>s+o.unit_price,0);
+        if(!beliefs.tried.has(ids.join('|')) && !(beliefs.ceiling!==null && total>=beliefs.ceiling)){
+          const key=[agScore(combo,beliefs),ids];
+          if(bestKey===null || agCmp(key[0],bestKey[0])>0 ||
+             (agCmp(key[0],bestKey[0])===0 && key[1].join('|')>bestKey[1].join('|'))){
+            best={lines:combo.slice(),merchant:m}; bestKey=key;
+          }
+        }
+      }
+      if(combo.length>=limit) return;
+      for(let i=start;i<offers.length;i++){ combo.push(offers[i]); walk(i+1,combo); combo.pop(); }
+    };
+    walk(0,[]);
+  }
+  return best;
+}
+
+function agLearn(beliefs, basket, merchant, blocked){
+  const before=[beliefs.ruledOut.size,beliefs.ceiling,beliefs.returnsMatter,beliefs.tried.size];
+  beliefs.tried.add(basket.map(o=>o.item_id).sort().join('|'));
+  const total=basket.reduce((s,o)=>s+o.unit_price,0);
+  if(blocked.includes('amount') && (beliefs.ceiling===null||total<beliefs.ceiling)) beliefs.ceiling=total;
+  if(blocked.includes('merchant')) beliefs.ruledOut.add(merchant);
+  if(blocked.includes('order_terms')) beliefs.returnsMatter=true;
+  return String(before)!==String([beliefs.ruledOut.size,beliefs.ceiling,beliefs.returnsMatter,beliefs.tried.size]);
+}
+
+function agWhy(oldLines,newLines,oldM,newM,blocked){
+  const was=new Set(oldLines.map(o=>o.item_id)), now=new Set(newLines.map(o=>o.item_id));
+  const bits=[];
+  if(newM!==oldM) bits.push('moved to '+newM);
+  const dropped=oldLines.filter(o=>!now.has(o.item_id)).map(o=>o.name);
+  const added=newLines.filter(o=>!was.has(o.item_id)).map(o=>o.name);
+  if(dropped.length) bits.push('dropped '+dropped.join(', '));
+  if(added.length) bits.push('took '+added.join(', '));
+  const because={amount:'the total was refused',merchant:'that shop was refused',
+    order_terms:'the return terms were refused',item:'an item was refused',basket:'the basket was refused'};
+  const r=blocked.filter(c=>because[c]).map(c=>because[c]);
+  return (bits.join(', ')||'kept the basket')+(r.length?' — '+r[0]:'');
+}
+
 async function runAgent(){
   const sid='ui_'+Date.now();
-  let lines=AG_ITEMS.slice(), out=[], why='opening basket: every grocery line the shop offers ('+AG_ITEMS.length+')';
+  const beliefs={ruledOut:new Set(),ceiling:null,returnsMatter:false,tried:new Set()};
+  let step=agBest(beliefs), out=[];
   document.getElementById('ag-out').innerHTML='';
   document.getElementById('ag-sum').textContent='the agent is proposing…';
-  for(let rev=0; rev<5; rev++){
-    const total=lines.reduce((s,l)=>s+l.unit_price*(l.quantity||1),0);
+  let why='opening basket: '+step.lines.length+' grocery line(s), the best '+step.merchant+' offers';
+  let stopped=null;
+  for(let rev=0; rev<5 && step; rev++){
+    // Send what was actually chosen -- shop and published return window included --
+    // so the wallet decides the purchase the agent proposed, not a tidied-up one.
+    const lines=step.lines.map(o=>({item_id:o.item_id,name:o.name,category:o.category,
+      unit_price:o.unit_price,quantity:1,merchant:o.merchant,return_days:o.ret}));
+    const total=lines.reduce((s,l)=>s+l.unit_price,0);
     // The agent sees ONLY this response. No limit, no remaining budget, no evidence.
     const r=await fetch('/api/agent/propose',{method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({session_id:sid,lines})});
     const v=await r.json();
-    out.push({rev,total,n:lines.length,v,why});
+    out.push({rev,total,n:lines.length,v,why,merchant:step.merchant});
     if(v.decision==='allow'||v.awaiting_customer) break;
     const cls=v.blocked_by||[];
-    // The same strategy ladder the Python agent uses: substitute before dropping, so
-    // the customer loses as little of what they asked for as possible. This browser
-    // loop is a SECOND, independent client of the same agent-facing API -- which is
-    // the architecture, not a shortcut.
-    if(!cls.includes('amount')){ why='only you can resolve this ('+cls.join(', ')+')'; out[out.length-1].why=why; break; }
-    const dear=lines.reduce((a,b)=>a.unit_price>=b.unit_price?a:b);
-    const held=new Set(lines.map(l=>l.item_id));
-    const swap=AG_ITEMS.filter(i=>!held.has(i.item_id)&&i.unit_price<dear.unit_price)
-                       .sort((x,y)=>x.unit_price-y.unit_price)[0];
-    if(swap){ lines=lines.filter(l=>l!==dear).concat([swap]); why='swapped '+dear.name+' for the cheaper '+swap.name; }
-    else if(lines.length>1){ lines=lines.filter(l=>l!==dear); why='no cheaper substitute; dropped '+dear.name; }
-    else { why='no further change would help'; break; }
+    const halt=cls.filter(c=>!AG_SHOPPABLE.has(c));
+    // A constraint on the PURCHASE is shoppable. A constraint on the AGENT is not:
+    // answering "you look like a runaway" with a different basket is the probing
+    // this whole interface exists to prevent.
+    if(halt.length){ stopped='the wallet raised something about this session rather than the goods ('+
+      halt.join(', ')+') — only you can resolve that'; break; }
+    if(!agLearn(beliefs, step.lines, step.merchant, cls)){
+      stopped='nothing was learned from that refusal, so trying again would only repeat it'; break; }
+    const next=agBest(beliefs);
+    if(!next){ stopped='no basket this shop can supply would satisfy what you asked for'; break; }
+    why=agWhy(step.lines,next.lines,step.merchant,next.merchant,cls);
+    step=next;
   }
   const last=out[out.length-1];
   document.getElementById('ag-sum').innerHTML = last.v.decision==='allow'
-    ? '<b>Approved after '+(out.length-1)+' refusal(s).</b> At no point was the agent told your limit — only <i>which kind</i> of rule it broke.'
-    : 'The agent could not find a basket within your rules.';
+    ? '<b>Approved after '+(out.length-1)+' refusal(s).</b> At no point was the agent told your rules — only <i>which kind</i> of rule it broke, and not one of these refusals was about money.'
+    : esc(stopped||'The agent could not find a basket within your rules.');
   document.getElementById('ag-out').innerHTML = out.map(o=>`
     <div class="dec ${o.v.decision}">
       <div class="badge">${o.v.decision==='allow'?'Allowed':'Blocked'}</div>
       <div class="amt">CHF ${o.total.toFixed(2)}</div>
-      <div class="muted">${esc(o.n)} line(s) · attempt ${o.rev+1}</div>
+      <div class="muted">${esc(o.n)} line(s) · ${esc(o.merchant)} · attempt ${o.rev+1}</div>
       <div class="why ${o.v.decision}"><div class="h">What the agent was told</div>
         <ul><li><code>decision: ${esc(o.v.decision)}</code></li>
             <li><code>blocked_by: [${(o.v.blocked_by||[]).map(esc).join(', ')}]</code></li></ul>

@@ -40,9 +40,15 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 _HISTORY = HistoryIndex.from_csv(history_csv_path())
 # Fixed simulated clock for the agent demo, so the trace is identical on every run.
 AGENT_DEMO_START = datetime(2026, 8, 12, 9, 0, tzinfo=timezone.utc)
+# Three restrictions, only one of them about money. A ceiling-only errand is a poor
+# demonstration of this agent: it aims low by design -- the objective spends as
+# little as it can once the errand is done -- so it lands inside a CHF 120 cap on
+# its first attempt and nothing is ever refused. The interesting behaviour is how it
+# answers a refusal that CANNOT be fixed by spending less.
 _AGENT_DEFAULT_INSTRUCTION = (
-    "Order our household groceries for delivery. Keep each order at or below CHF 120 "
-    "including delivery. Ask me when uncertain."
+    "Order our household groceries for delivery from a shop I have used before. "
+    "Keep each order at or below CHF 120 including delivery, and only if returnable "
+    "within 14 days. Ask me when uncertain."
 )
 _AGENT_SESSIONS: dict[str, "DemoRun"] = {}
 
@@ -158,11 +164,24 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
     amount = round(sum(float(l["unit_price"]) * int(l.get("quantity", 1)) for l in req.lines), 2)
     when = AGENT_DEMO_START + timedelta(minutes=90 * revision)
     stamp = when.isoformat().replace("+00:00", "Z")
+    # The event must describe the purchase the AGENT proposed, not a convenient one.
+    # This used to pin the merchant to ME0001 and the return window to 30 days no
+    # matter what came in, so the demo could only ever produce an `amount` refusal --
+    # the merchant and order-terms refusals that the page's planner knows how to
+    # answer were unreachable, and a jury would have been shown a narrower agent than
+    # the one we ship.
+    windows = [l.get("return_days") for l in req.lines]
     items = [{"line_no": i + 1, "item_id": l["item_id"], "item_name": l["name"],
               "item_category": l["category"], "quantity": int(l.get("quantity", 1)),
               "unit_price": float(l["unit_price"]), "currency": "CHF",
-              "item_details": "returns accepted within 30 days"}
+              "item_details": ("" if l.get("return_days") is None
+                               else f"returns accepted within {int(l['return_days'])} days")}
              for i, l in enumerate(req.lines)]
+    returnable = ("unknown" if any(w is None for w in windows)
+                  else "true" if all(int(w) > 0 for w in windows) else "false")
+    proposed = {str(l.get("merchant") or "ME0001") for l in req.lines}
+    merchant_id = sorted(proposed)[0] if len(proposed) == 1 else "ME0001"
+    merchant = load_merchants().get(merchant_id, {})
     event = {
         "type": "authorization.request", "request_id": f"req_agent_{revision}",
         "deadline_at": (when + timedelta(seconds=8)).isoformat().replace("+00:00", "Z"),
@@ -172,17 +191,21 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
             "scenario_id": "SCEN_AGENT", "replay_order": revision + 1,
             "mandate_id": snapshot.mandate_id, "profile_id": snapshot.profile_id,
             "card_id": snapshot.card_id, "initiator_type": "agent",
-            "merchant": {"merchant_id": "ME0001", "merchant_name": "Alpine Basket",
-                         "merchant_category": "groceries", "merchant_mcc": "5411",
-                         "merchant_country": "CH", "merchant_city": "Zurich",
-                         "availability": "online", "recurring_capable": "false"},
+            "merchant": {
+                "merchant_id": merchant_id,
+                "merchant_name": merchant.get("merchant_name", merchant_id),
+                "merchant_category": merchant.get("merchant_category", "groceries"),
+                "merchant_mcc": merchant.get("merchant_mcc", "5411"),
+                "merchant_country": merchant.get("merchant_country", "CH"),
+                "merchant_city": merchant.get("merchant_city", "Zurich"),
+                "availability": "online", "recurring_capable": "false"},
             "timestamp": stamp, "amount": amount, "currency": "CHF",
             "billing_amount_chf": amount, "items_subtotal": amount, "delivery_fee": 0.0,
             "channel": "ecommerce", "customer_device_id": "DVC-AGENT",
             "authority_status": "active", "card_status_at_attempt": "active",
             "spend_in_period_before_chf": None, "recent_attempt_count_10m": 0,
             "fulfillment_method": "delivery", "delivery_by": None,
-            "order_returnable": "true", "order_cancellable": "unknown",
+            "order_returnable": returnable, "order_cancellable": "unknown",
             "related_authorization_id": None, "related_authorization_status": None,
             "purchase_description": f"{len(items)} grocery lines", "items": items,
         },
