@@ -1,0 +1,72 @@
+{
+  "per_transaction_chf": 120.0,
+  "monthly_chf": 2000.0,
+  "allowed_mcc": [
+    "5411"
+  ],
+  "allowed_countries": [
+    "CH"
+  ],
+  "expressible": [
+    {
+      "question": "How much is this one purchase?",
+      "card": true,
+      "mandate": true
+    },
+    {
+      "question": "How much this month?",
+      "card": true,
+      "mandate": false
+    },
+    {
+      "question": "How much in any rolling 7 days?",
+      "card": false,
+      "mandate": true
+    },
+    {
+      "question": "What kind of SHOP is this?",
+      "card": true,
+      "mandate": true
+    },
+    {
+      "question": "Which country?",
+      "card": true,
+      "mandate": false
+    },
+    {
+      "question": "Have I bought from this seller before?",
+      "card": false,
+      "mandate": true
+    },
+    {
+      "question": "Is this the KIND of thing I asked for?",
+      "card": false,
+      "mandate": true
+    },
+    {
+      "question": "Is this the specific thing I asked for?",
+      "card": false,
+      "mandate": true
+    },
+    {
+      "question": "Is there anything in the basket I did not ask for?",
+      "card": false,
+      "mandate": true
+    },
+    {
+      "question": "Can I send it back?",
+      "card": false,
+      "mandate": true
+    },
+    {
+      "question": "Ask me when you are not sure",
+      "card": false,
+      "mandate": true
+    },
+    {
+      "question": "Stop everything, now",
+      "card": true,
+      "mandate": true
+    }
+  ]
+}

@@ -71,7 +71,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     1313 tests
+tests/                     1327 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -124,7 +124,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1313 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**1327 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say

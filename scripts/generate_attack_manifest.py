@@ -16,8 +16,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from research.adversarial_planner import ATTACKS  # noqa: E402
+from research.card_limit_control import EXPRESSIBLE, CardLimitControl  # noqa: E402
 
 MANIFEST = Path(__file__).resolve().parents[1] / "ui" / "attacks.json"
+CARD = Path(__file__).resolve().parents[1] / "ui" / "card-control.json"
 
 
 def manifest() -> list[dict]:
@@ -25,9 +27,24 @@ def manifest() -> list[dict]:
              "expected": a.expected, "repeat": a.repeat} for a in ATTACKS]
 
 
+def card_control() -> dict:
+    """The competing control's parameters, so the page can show what it would have
+    said without keeping its own copy of the numbers."""
+    control = CardLimitControl()
+    return {
+        "per_transaction_chf": float(control.per_transaction_chf),
+        "monthly_chf": float(control.monthly_chf),
+        "allowed_mcc": sorted(control.allowed_mcc),
+        "allowed_countries": sorted(control.allowed_countries),
+        "expressible": [{"question": q, "card": c, "mandate": w} for q, c, w in EXPRESSIBLE],
+    }
+
+
 def main() -> int:
     MANIFEST.write_text(json.dumps(manifest(), indent=2) + "\n")
+    CARD.write_text(json.dumps(card_control(), indent=2) + "\n")
     print(f"wrote {len(ATTACKS)} attacks to {MANIFEST.relative_to(MANIFEST.parents[1])}")
+    print(f"wrote the card control to {CARD.relative_to(CARD.parents[1])}")
     return 0
 
 

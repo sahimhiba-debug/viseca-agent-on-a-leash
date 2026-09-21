@@ -98,6 +98,9 @@
                 background:var(--block-bg); color:var(--block); border-radius:7px; padding:3px 9px; }
   .atkline .n.neutral { background:var(--ask-bg); color:var(--ask); }
   .atkline .g { font-size:13px; color:var(--ink2); }
+  .shadow { margin:0 15px 14px; border-radius:11px; padding:11px 13px; font-size:13px;
+            background:#f6f7f9; border:1px dashed var(--line); color:var(--ink2); }
+  .shadow b { color:var(--ink); display:block; margin-bottom:2px; }
   .plan { padding:12px 15px 0; display:flex; flex-wrap:wrap; align-items:baseline; gap:7px; }
   .plan .chip { background:var(--brand); color:#fff; border-radius:7px; padding:3px 9px;
                 font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
@@ -355,7 +358,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const chf = n => 'CHF ' + Number(n).toLocaleString('en-CH', {minimumFractionDigits:2, maximumFractionDigits:2});
 let RUN=null, SCEN=[], CONFIRMED=null, REVOKED=false, LASTRULES=null, CONFIRMED_TEXT=null, AGENT_SESSION=null;
-let BRAIN='deterministic', ATTACKS=null;
+let BRAIN='deterministic', ATTACKS=null, CARD=null;
 
 function go(p){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
@@ -588,6 +591,22 @@ function renderAdversarial(out){
     </div>`;}).join('');
 }
 
+// What a conventional card control would have said about the same purchase.
+// Parameters come from ui/card-control.json, generated from
+// research/card_limit_control.py, so the page cannot quietly disagree with the
+// thing the tests measure. tests/test_card_shadow_parity.py checks both agree.
+async function cardShadow(lines){
+  if(!CARD) CARD = await (await fetch('card-control.json')).json();
+  const amount = lines.reduce((s,l)=>s+l.unit_price*(l.quantity||1),0);
+  const refused = [];
+  if (amount > CARD.per_transaction_chf) refused.push('per_transaction_limit');
+  if (amount <= 0) refused.push('not_a_purchase');
+  // A card sees the MERCHANT's category, never what is in the basket. Both demo
+  // shops are grocers in the official merchant list, so MCC always passes here --
+  // which is exactly how a hotel room inside a grocery basket gets through.
+  return {decision: refused.length ? 'block' : 'allow', refused};
+}
+
 async function runAgent(){
   // One session PER MANDATE, not per click. Every press of the button used to open
   // a fresh session, and a session is where rolling spend is counted -- so a judge
@@ -620,7 +639,8 @@ async function runAgent(){
     const r=await fetch('/api/agent/propose',{method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({session_id:sid,lines})});
     const v=await r.json();
-    out.push({rev,total,n:lines.length,v,why,merchant:step.merchant,
+    const shadow = await cardShadow(lines);
+    out.push({rev,total,n:lines.length,v,why,shadow,merchant:step.merchant,
               mname:(step.lines[0]&&step.lines[0].mname)||step.merchant,
               basket:step.lines.map(o=>({name:o.name,price:o.unit_price,ret:o.ret}))});
     if(v.decision==='allow'||v.awaiting_customer) break;
@@ -669,6 +689,13 @@ async function runAgent(){
         <ul><li><code>decision: ${esc(o.v.decision)}</code></li>
             <li><code>blocked_by: [${(o.v.blocked_by||[]).map(esc).join(', ')}]</code></li></ul>
         <p class="tiny" style="margin:6px 0 0">No amount. No limit. No remaining budget.</p></div>
+      ${o.shadow && o.shadow.decision==='allow' && o.v.decision!=='allow' ? `
+      <div class="shadow"><b>A card spending limit would have allowed this.</b>
+        It can ask how much, and what kind of shop. It has no way to ask
+        ${(o.v.blocked_by||[]).includes('merchant') ? '&ldquo;from a seller I have used before&rdquo;'
+          : (o.v.blocked_by||[]).includes('order_terms') ? '&ldquo;only if I can send it back&rdquo;'
+          : (o.v.blocked_by||[]).includes('budget_window') ? '&ldquo;how much across any seven days&rdquo;'
+          : '&ldquo;only the thing I actually asked for&rdquo;'}.</div>` : ''}
     </div>`).join('');
 }
 async function pickSecurityScenario(){
