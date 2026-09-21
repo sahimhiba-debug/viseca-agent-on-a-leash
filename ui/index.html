@@ -894,7 +894,19 @@ async function compile(){
   // empty in a new session. Saying only the first half would be the kind of
   // half-truth this panel exists to avoid.
   if(per) unbounded.push(`Spending across separate errand sessions — the ${chf(per.value)} counter starts again in each one`);
-  $('#deleg').innerHTML = `<div class="card"><h2>What you are delegating</h2>${rows}
+  // What has actually been approved across every delegation on this card. A
+  // disclosure, not a bound: nothing caps the sum across delegations, because the
+  // rule format has no scope above one mandate. Showing it is the difference
+  // between an unbounded total and an invisible one.
+  let across = '';
+  try {
+    const d = await (await fetch('/api/customer/delegations')).json();
+    if (d.delegations.length) across = `<div class="warn" style="margin-top:12px">
+      <b>Approved so far across ${d.delegations.length} delegation(s): ${chf(d.approved_total_chf)}</b>
+      <p class="tiny" style="margin:4px 0 0">Each delegation is paced by its own rolling
+      limit. This total is <b>shown, not enforced</b> — ${esc(d.note)}</p></div>`;
+  } catch(e) {}
+  $('#deleg').innerHTML = `<div class="card"><h2>What you are delegating</h2>${rows}${across}
     <div class="warn" style="margin-top:12px"><b>Not limited by anything you wrote</b>
       <ul>${unbounded.map(u=>`<li>${esc(u)}</li>`).join('')}</ul></div>
     <p class="tiny" style="margin-top:9px">Your account also has a monthly limit set by your bank.
