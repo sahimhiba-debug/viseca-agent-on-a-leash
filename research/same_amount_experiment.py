@@ -1,21 +1,52 @@
-"""Five purchases. One amount. Five different answers.
+"""Four purchases. One amount. One shop. Three different answers.
 
-The strongest expression of the distinction, because it removes the variable
-everyone assumes is doing the work.
+THE THESIS ARTIFACT. Everything else in this repository exists to make this
+credible; this is the thing itself.
 
 Whenever someone says "a spending limit already does that", the unspoken model is
-that a bad purchase is an EXPENSIVE purchase -- so a well-set limit catches it. That
-model is wrong, and the cleanest way to show it is to hold the amount constant and
-vary only the intent.
+that a bad purchase is an EXPENSIVE purchase, so a well-set limit catches it. The
+cleanest refutation holds the amount constant and varies only the intent.
 
-Every basket below costs exactly CHF 62. Every item is a real row of
-`data/official/items.csv` priced inside its own published band. Every merchant is a
-real grocer from `merchants.csv`, and which of them this card has paid before comes
-from the real authorization history.
+WHAT IS HELD CONSTANT -- everything a card can see
+    amount        CHF 62.00, exactly, in every case
+    merchant      ME0001, Alpine Basket, in EVERY case
+    country       CH, in every case
+    MCC           5411, a grocer, in every case
+    card          CA0001 throughout
+    time          every case is the FIRST decision of its own fresh session, so no
+                  case can be explained by what another case did
+    catalogue     every id, name and category is `data/official/items.csv`, every
+                  price inside that item's own published band
 
-A card limit sees one number, five times, and says yes five times. It is not being
-stupid: CHF 62 IS within the limit, at a grocer, in Switzerland. There is nothing
-about the number to object to. The objection is about everything else.
+WHAT VARIES
+    only the customer's intent -- and in cases 1 and 2 not even the goods. Those two
+    are the IDENTICAL basket at the IDENTICAL shop for the IDENTICAL price,
+    differing solely in what the seller said about returns.
+
+    On every input a card control can observe, all four purchases are the same
+    purchase.
+
+TWO CASES WERE REMOVED FROM THE HEADLINE, AND WHY
+
+    The rolling window. An earlier version used it as the fifth case under the claim
+    "none of these refusals is about the amount". That claim was false: a rolling
+    window bounds a SUM OF AMOUNTS, and a card with a monthly cap bounds one too. It
+    was the weakest case wearing the strongest label. The old test missed it by
+    grepping for the literal string "amount" after the class had been renamed to
+    `budget_window` -- a rename that hid the problem from the test written to catch
+    it.
+
+    The unfamiliar merchant. "A shop I have used before" is the most intuitive
+    constraint here and it is genuinely inexpressible on a card. It is still not
+    airtight AS AN ISOLATED EXPERIMENT, because in the official data card CA0001 has
+    paid every Swiss grocery merchant -- ME0001 through ME0004 -- and the only
+    grocer it has never paid, ME0005 Rhine Pantry, is in GERMANY. A card control
+    with a country allow-list would therefore also refuse it, for a reason that has
+    nothing to do with the customer's intent. The dimension that cannot be held
+    constant is the country, and the reason is the shape of the official data.
+
+    Both appear below as disclosed counterexamples. Removing them costs one row each
+    and buys an argument with no way in.
 
     A limit is a number. Intent is a sentence.
     You cannot enforce a sentence with a number.
@@ -24,6 +55,7 @@ about the number to object to. The objection is about everything else.
 from __future__ import annotations
 
 import sys
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -40,105 +72,158 @@ AMOUNT = 62.0
 FAMILIAR, STRANGER = "ME0001", "ME0005"
 
 
-def _line(item_id, name, category, price, merchant, return_days=30):
+def _line(item_id, name, category, price, merchant=FAMILIAR, return_days=30):
     return {"item_id": item_id, "name": name, "category": category,
             "unit_price": price, "quantity": 1, "merchant": merchant,
             "return_days": return_days}
 
 
-#  id       name                        category       price  returns
-PRODUCE = ("IT0018", "Fresh produce order",       "groceries",   30, 30)
-BREAKFA = ("IT0020", "Family breakfast supplies", "groceries",   32, 30)
-CLEARAN = ("IT0004", "Weekly grocery basket",     "groceries",   45,  0)   # final sale
-SUPPLIE = ("IT0003", "Breakfast supplies",        "groceries",   17, 30)
-CHARGER = ("IT0047", "Phone charger",             "electronics", 32, 30)   # not groceries
+def _groceries(merchant=FAMILIAR, return_days=30):
+    """The reference basket: CHF 30 + CHF 32."""
+    return [_line("IT0018", "Fresh produce order", "groceries", 30, merchant, return_days),
+            _line("IT0020", "Family breakfast supplies", "groceries", 32, merchant, return_days)]
+
 
 CASES = [
     ("exactly what was asked for",
-     "everything the customer's sentence permits",
-     [_line(*PRODUCE[:4], FAMILIAR, PRODUCE[4]), _line(*BREAKFA[:4], FAMILIAR, BREAKFA[4])]),
+     "groceries, from a shop this card has paid 27 times, returnable",
+     "allow", _groceries()),
 
-    ("from a shop this card has never paid",
-     "the customer said 'a shop I have used before'",
-     [_line(*PRODUCE[:4], STRANGER, PRODUCE[4]), _line(*BREAKFA[:4], STRANGER, BREAKFA[4])]),
+    ("the same basket, with the seller silent on returns",
+     "identical goods, identical shop, identical price - the seller just did not say",
+     "review", _groceries(return_days=None)),
 
-    ("holding a line the seller will not take back",
+    ("a line the seller will not take back",
      "the customer said 'only if returnable within 14 days'",
-     [_line(*CLEARAN[:4], FAMILIAR, CLEARAN[4]), _line(*SUPPLIE[:4], FAMILIAR, SUPPLIE[4])]),
+     "block", [_line("IT0004", "Weekly grocery basket", "groceries", 45, FAMILIAR, 0),
+               _line("IT0003", "Breakfast supplies", "groceries", 17)]),
 
-    ("with something the customer never asked for",
+    ("something the customer never asked for",
      "a phone charger, carried in on a grocery basket at a grocer",
-     [_line(*PRODUCE[:4], FAMILIAR, PRODUCE[4]), _line(*CHARGER[:4], FAMILIAR, CHARGER[4])]),
+     "block", [_line("IT0018", "Fresh produce order", "groceries", 30),
+               _line("IT0047", "Phone charger", "electronics", 32)]),
 
-    ("after the week's allowance is used up",
-     "identical to the first basket, proposed once too often",
-     [_line(*PRODUCE[:4], FAMILIAR, PRODUCE[4]), _line(*BREAKFA[:4], FAMILIAR, BREAKFA[4])]),
+]
+
+# Disclosed counterexamples. Kept OUT of the headline because an amount-only control
+# could also refuse each of them -- one for the right reason, one for the wrong one.
+COUNTEREXAMPLES = [
+    ("the week's allowance, used up",
+     "a rolling sum of amounts - a card with a periodic cap bounds one too",
+     "the card can express this", _groceries()),
+    ("a shop this card has never paid",
+     "inexpressible on a card - but the only unfamiliar grocer in the data is in Germany",
+     "the card would refuse it for the wrong reason", _groceries(merchant=STRANGER)),
 ]
 
 
-def run() -> list[dict]:
-    """Both controls, five baskets, one FRESH session so the allowance fills exactly
-    once.
+def _merchant_row(merchant_id: str) -> dict:
+    import csv
+    path = Path(__file__).resolve().parents[1] / "data" / "official" / "merchants.csv"
+    with path.open(encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if row["merchant_id"] == merchant_id:
+                return row
+    raise KeyError(merchant_id)
 
-    The session id is unique per call. An earlier version reused one id, so calling
-    `run()` twice in a process started the second run with the window already full
-    and the first basket -- the compliant one -- came back refused. The experiment
-    has to be self-contained or it is not an experiment.
+
+def _card_says(lines, card=None):
+    """A card sees the MERCHANT's own row -- its MCC and its country -- and never the
+    basket. That is how a phone charger bought at a grocer reads as groceries.
+
+    The real row, not a convenient one. An earlier version passed `country="CH"`
+    regardless of where the shop actually was, which UNDERSTATED the card: Rhine
+    Pantry is in Germany and a country allow-list would refuse it. Modelling the
+    competitor as weaker than it is would have been the easiest way to lose this
+    argument on stage.
     """
-    import uuid
+    row = _merchant_row(lines[0]["merchant"])
+    total = sum(l["unit_price"] * l["quantity"] for l in lines)
+    return (card or CardLimitControl()).decide(
+        {"amount_chf": total, "mcc": row["merchant_mcc"],
+         "country": row["merchant_country"]})["decision"]
 
-    session = f"same_amount_{uuid.uuid4().hex[:10]}"
-    card = CardLimitControl()
-    results = []
-    for index, (title, why, lines) in enumerate(CASES):
+
+def _wallet_says(lines, session):
+    response = client.post("/api/agent/propose",
+                           json={"session_id": session, "lines": lines})
+    if response.status_code != 200:
+        return {"decision": "block", "blocked_by": ["malformed"]}
+    return response.json()
+
+
+def run(shuffle_seed: int | None = None) -> list[dict]:
+    """Every case in its OWN fresh session, so none can be explained by another.
+
+    `shuffle_seed` runs them in a different order. A result that depends on order
+    is not a result, and `tests/test_same_amount_experiment.py` checks 20 orderings.
+    """
+    order = list(range(len(CASES)))
+    if shuffle_seed is not None:
+        import random
+        random.Random(shuffle_seed).shuffle(order)
+
+    results: dict[int, dict] = {}
+    for index in order:
+        title, why, expected, lines = CASES[index]
         total = sum(l["unit_price"] * l["quantity"] for l in lines)
         assert total == AMOUNT, f"{title}: CHF {total}, not CHF {AMOUNT}"
+        body = _wallet_says(lines, f"sa_{uuid.uuid4().hex[:10]}")
+        results[index] = {
+            "title": title, "why": why, "amount": total,
+            "merchant": lines[0]["merchant"],
+            "card": _card_says(lines),
+            "wallet": body["decision"], "expected": expected,
+            "blocked_by": body.get("blocked_by", []),
+            "awaiting_customer": body.get("awaiting_customer", False),
+        }
+    return [results[i] for i in range(len(CASES))]
 
-        # A card sees the MERCHANT's category, never the basket. Both shops are
-        # grocers, so a phone charger bought at a grocer reads as groceries.
-        card_verdict = card.decide({"amount_chf": total, "mcc": "5411", "country": "CH"})
 
-        # The last case must be judged after the earlier ones have spent the window,
-        # which is why every case shares one session.
-        if index == len(CASES) - 1:
-            filler = [_line(*PRODUCE[:4], FAMILIAR, PRODUCE[4]),
-                      _line(*BREAKFA[:4], FAMILIAR, BREAKFA[4])]
+def run_counterexamples() -> list[dict]:
+    """The two cases held out of the headline, each judged and each labelled."""
+    out = []
+    for title, why, note, lines in COUNTEREXAMPLES:
+        session = f"sa_ctr_{uuid.uuid4().hex[:8]}"
+        if "allowance" in title:                    # this one needs a filled window
             for _ in range(4):
-                client.post("/api/agent/propose",
-                            json={"session_id": session, "lines": filler})
+                _wallet_says(lines, session)
+        body = _wallet_says(lines, session)
+        out.append({"title": title, "why": why, "note": note, "amount": AMOUNT,
+                    "card": _card_says(lines), "wallet": body["decision"],
+                    "blocked_by": body.get("blocked_by", [])})
+    return out
 
-        response = client.post("/api/agent/propose",
-                               json={"session_id": session, "lines": lines})
-        body = response.json() if response.status_code == 200 else {
-            "decision": "block", "blocked_by": ["malformed"]}
 
-        results.append({"title": title, "why": why, "amount": total,
-                        "card": card_verdict["decision"],
-                        "wallet": body["decision"],
-                        "blocked_by": body.get("blocked_by", [])})
-    return results
+_SYMBOL = {"allow": "YES", "review": "ASK", "block": "NO"}
 
 
 def main() -> int:
     results = run()
-    print(f"FIVE PURCHASES. ALL EXACTLY CHF {AMOUNT:.2f}. ALL AT A SWISS GROCER.\n")
-    print(f"  {'':52s} {'card':>6s} {'wallet':>8s}   why")
+    print(f"FOUR PURCHASES. ALL CHF {AMOUNT:.2f}. ALL AT THE SAME SHOP. SAME CARD.\n")
+    print("  On every input a card control can see, these are the same purchase.\n")
+    print(f"  {'':56s} {'card':>5s} {'wallet':>7s}   why")
     for r in results:
-        print(f"  {r['title']:52s} {r['card']:>6s} {r['wallet']:>8s}   "
+        print(f"  {r['title']:56s} {_SYMBOL[r['card']]:>5s} {_SYMBOL[r['wallet']]:>7s}   "
               f"{','.join(r['blocked_by']) or '-'}")
 
-    card_yes = sum(r["card"] == "allow" for r in results)
-    wallet_yes = sum(r["wallet"] == "allow" for r in results)
-    print(f"\n  A card limit says yes {card_yes} times out of {len(results)}.")
-    print(f"  The wallet says yes {wallet_yes}.")
-    print("""
-  The card is not being careless. CHF 62 is inside the limit, the merchant is a
-  grocer, the country is Switzerland. There is nothing about the NUMBER to object
-  to in any of the five -- and four of them are still not what the customer asked
-  for.
+    print(f"\n  A card limit says YES {sum(r['card'] == 'allow' for r in results)} times out of {len(results)}.")
+    print("  The wallet says YES once, ASKS once, and refuses twice -- for two")
+    print("  different reasons, neither of which is the amount.")
+    print("\n  Cases 1 and 2 are the SAME BASKET at the SAME SHOP for the SAME PRICE.")
+    print("  The only difference is what the seller said about returns.")
 
-  A limit is a number. Intent is a sentence.
-  You cannot enforce a sentence with a number.""")
+    print("\n\nTWO CASES HELD OUT OF THE HEADLINE, AND WHY\n")
+    for c in run_counterexamples():
+        print(f"  {c['title']:56s} {_SYMBOL[c['card']]:>5s} {_SYMBOL[c['wallet']]:>7s}   "
+              f"{','.join(c['blocked_by'])}")
+        print(f"      {c['note']}: {c['why']}")
+
+    print("""
+  WHAT THIS PROVES, EXACTLY: that an amount-only control cannot encode these
+  intent constraints. Not that it prevents fraud, not that it is universally
+  better, and not that a card control is badly designed -- CHF 62 at a Swiss
+  grocer is, on the only evidence a card has, a perfectly ordinary purchase.""")
     return 0
 
 

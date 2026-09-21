@@ -69,6 +69,7 @@
            border-radius:7px; padding:4px 8px; white-space:nowrap; }
   .sa .v.y { background:var(--allow-bg); color:var(--allow); }
   .sa .v.n { background:var(--block-bg); color:var(--block); }
+  .sa .v.a { background:var(--ask-bg); color:var(--ask); }
   .asks { margin:0; padding:0; list-style:none; }
   .asks li { display:flex; gap:10px; align-items:flex-start; padding:7px 0;
              border-bottom:1px solid var(--line); font-size:14px; }
@@ -263,11 +264,13 @@
   </div>
 
   <div class="card">
-    <h2 id="sa-h">Five purchases. One amount.</h2>
-    <p class="muted">Every basket below costs <b>exactly the same</b>, at a Swiss grocer,
-      from the official catalogue. Nothing here is pre-computed — press the button and
-      the wallet decides all five, live.</p>
-    <button class="act b-dark" onclick="runSameAmount()">Judge all five</button>
+    <h2 id="sa-h">Four purchases. One amount.</h2>
+    <p class="lede2" style="margin:0 0 8px">Same price.<br>Same shop. Same card.</p>
+    <p class="muted">On every input a card can see, these are <b>the same purchase</b>:
+      CHF 62.00 at Alpine Basket, a Swiss grocer, on card ···0001. Only the
+      <b>intent</b> differs. Nothing here is pre-computed — press the button and the
+      real wallet decides all four.</p>
+    <button class="act b-dark" onclick="runSameAmount()">Judge all four</button>
     <div id="sa-out"></div>
   </div>
 
@@ -435,20 +438,55 @@ async function runSameAmount(){
     const v = r.ok ? await r.json() : {decision:'block', blocked_by:['malformed']};
     rows.push({c, v, card: (await cardShadow(c.lines)).decision});
   }
+  // the two cases held out of the headline, judged and labelled
+  const extra = [];
+  for (const c of (data.counterexamples||[])) {
+    const s2 = sid + '_x' + extra.length;
+    if (/allowance/.test(c.title))
+      for (let k=0;k<4;k++) await fetch('/api/agent/propose',{method:'POST',
+        headers:{'content-type':'application/json'},
+        body: JSON.stringify({session_id:s2, lines:data.cases[0].lines})});
+    const r = await fetch('/api/agent/propose',{method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify({session_id:s2, lines:c.lines})});
+    const v = r.ok ? await r.json() : {decision:'block', blocked_by:['malformed']};
+    extra.push({c, v, card:(await cardShadow(c.lines)).decision});
+  }
   const yes = rows.filter(r=>r.v.decision==='allow').length;
+  const ask = rows.filter(r=>r.v.decision==='review').length;
+  const mark = d => d==='allow' ? 'YES' : d==='review' ? 'ASK' : 'NO';
+  const cls  = d => d==='allow' ? 'y' : d==='review' ? 'a' : 'n';
   out.innerHTML = `<ul class="sa">${rows.map(r=>`
     <li class="${r.v.decision==='allow'?'ok':'no'}">
       <span class="amt2">${chf(data.amount_chf)}</span>
       <span class="txt"><b>${esc(r.c.title)}</b><span>${esc(r.c.why)}</span></span>
       <span class="verdicts">
-        <span class="v card ${r.card==='allow'?'y':'n'}">card ${r.card==='allow'?'✓':'✗'}</span>
-        <span class="v ours ${r.v.decision==='allow'?'y':'n'}">wallet ${r.v.decision==='allow'?'✓':'✗'}</span>
+        <span class="v ${cls(r.card)}">card ${mark(r.card)}</span>
+        <span class="v ${cls(r.v.decision)}">wallet ${mark(r.v.decision)}</span>
       </span></li>`).join('')}</ul>
-    <p class="muted" style="margin:12px 0 0">A card limit said yes to
-      <b>all ${rows.length}</b>. The wallet said yes to <b>${yes}</b>.
-      The card is not being careless — ${chf(data.amount_chf)} is inside the limit, at a
-      grocer, in Switzerland. There is nothing about the <i>number</i> to object to.</p>
-    <p class="lede2" style="margin:12px 0 0">A limit is a number.<br>Intent is a sentence.</p>`;
+    <p class="muted" style="margin:12px 0 0">A card limit said <b>yes to all ${rows.length}</b>.
+      The wallet said yes to ${yes}, asked you about ${ask}, and refused the rest — for
+      reasons that are not the amount. The card is not being careless:
+      ${chf(data.amount_chf)} at a Swiss grocer is, on the only evidence it has, an
+      ordinary purchase.</p>
+    <p class="tiny" style="margin:8px 0 0"><b>Rows 1 and 2 are the same basket</b> — same
+      items, same price, same shop. The only difference is that the seller did not say
+      whether it can be sent back.</p>
+    <p class="lede2" style="margin:14px 0 0">A limit is a number.<br>Intent is a sentence.</p>
+    <details style="margin:12px 0 0"><summary>Two cases we left out, and why</summary>
+      <ul class="sa" style="margin-top:8px">${extra.map(e=>`
+        <li class="${e.v.decision==='allow'?'ok':'no'}">
+          <span class="amt2">${chf(data.amount_chf)}</span>
+          <span class="txt"><b>${esc(e.c.title)}</b><span>${esc(e.c.note)} — ${esc(e.c.why)}</span></span>
+          <span class="verdicts">
+            <span class="v ${cls(e.card)}">card ${mark(e.card)}</span>
+            <span class="v ${cls(e.v.decision)}">wallet ${mark(e.v.decision)}</span>
+          </span></li>`).join('')}</ul>
+      <p class="tiny" style="margin:8px 0 0">Both are real refusals. Neither belongs in the
+        headline: a rolling allowance <i>is</i> a rule about money, and the only grocer this
+        card has never paid happens to be abroad — so a card would refuse it too, for a
+        reason that has nothing to do with what the customer asked for.</p>
+    </details>`;
 }
 
 async function renderAskTable(){

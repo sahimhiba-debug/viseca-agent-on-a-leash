@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from research.adversarial_planner import ATTACKS  # noqa: E402
 from research.card_limit_control import EXPRESSIBLE, CardLimitControl  # noqa: E402
-from research.same_amount_experiment import AMOUNT, CASES  # noqa: E402
+from research.same_amount_experiment import AMOUNT, CASES, COUNTEREXAMPLES  # noqa: E402
 
 MANIFEST = Path(__file__).resolve().parents[1] / "ui" / "attacks.json"
 CARD = Path(__file__).resolve().parents[1] / "ui" / "card-control.json"
@@ -46,8 +46,12 @@ def same_amount() -> dict:
     """The five baskets, for the page to submit LIVE. Only the baskets are
     generated -- never the verdicts. A demo that shipped its own answers would be
     exactly the thing this project refuses to build."""
-    return {"amount_chf": AMOUNT,
-            "cases": [{"title": t, "why": w, "lines": l} for t, w, l in CASES]}
+    return {
+        "amount_chf": AMOUNT,
+        "cases": [{"title": t, "why": w, "lines": l} for t, w, _e, l in CASES],
+        "counterexamples": [{"title": t, "why": w, "note": n, "lines": l}
+                            for t, w, n, l in COUNTEREXAMPLES],
+    }
 
 
 def main() -> int:

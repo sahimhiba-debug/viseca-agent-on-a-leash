@@ -3,7 +3,7 @@
   "cases": [
     {
       "title": "exactly what was asked for",
-      "why": "everything the customer's sentence permits",
+      "why": "groceries, from a shop this card has paid 27 times, returnable",
       "lines": [
         {
           "item_id": "IT0018",
@@ -26,8 +26,8 @@
       ]
     },
     {
-      "title": "from a shop this card has never paid",
-      "why": "the customer said 'a shop I have used before'",
+      "title": "the same basket, with the seller silent on returns",
+      "why": "identical goods, identical shop, identical price - the seller just did not say",
       "lines": [
         {
           "item_id": "IT0018",
@@ -35,8 +35,8 @@
           "category": "groceries",
           "unit_price": 30,
           "quantity": 1,
-          "merchant": "ME0005",
-          "return_days": 30
+          "merchant": "ME0001",
+          "return_days": null
         },
         {
           "item_id": "IT0020",
@@ -44,13 +44,13 @@
           "category": "groceries",
           "unit_price": 32,
           "quantity": 1,
-          "merchant": "ME0005",
-          "return_days": 30
+          "merchant": "ME0001",
+          "return_days": null
         }
       ]
     },
     {
-      "title": "holding a line the seller will not take back",
+      "title": "a line the seller will not take back",
       "why": "the customer said 'only if returnable within 14 days'",
       "lines": [
         {
@@ -74,7 +74,7 @@
       ]
     },
     {
-      "title": "with something the customer never asked for",
+      "title": "something the customer never asked for",
       "why": "a phone charger, carried in on a grocery basket at a grocer",
       "lines": [
         {
@@ -96,10 +96,13 @@
           "return_days": 30
         }
       ]
-    },
+    }
+  ],
+  "counterexamples": [
     {
-      "title": "after the week's allowance is used up",
-      "why": "identical to the first basket, proposed once too often",
+      "title": "the week's allowance, used up",
+      "why": "a rolling sum of amounts - a card with a periodic cap bounds one too",
+      "note": "the card can express this",
       "lines": [
         {
           "item_id": "IT0018",
@@ -117,6 +120,31 @@
           "unit_price": 32,
           "quantity": 1,
           "merchant": "ME0001",
+          "return_days": 30
+        }
+      ]
+    },
+    {
+      "title": "a shop this card has never paid",
+      "why": "inexpressible on a card - but the only unfamiliar grocer in the data is in Germany",
+      "note": "the card would refuse it for the wrong reason",
+      "lines": [
+        {
+          "item_id": "IT0018",
+          "name": "Fresh produce order",
+          "category": "groceries",
+          "unit_price": 30,
+          "quantity": 1,
+          "merchant": "ME0005",
+          "return_days": 30
+        },
+        {
+          "item_id": "IT0020",
+          "name": "Family breakfast supplies",
+          "category": "groceries",
+          "unit_price": 32,
+          "quantity": 1,
+          "merchant": "ME0005",
           "return_days": 30
         }
       ]
