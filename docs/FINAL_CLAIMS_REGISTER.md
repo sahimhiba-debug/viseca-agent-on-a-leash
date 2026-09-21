@@ -118,3 +118,34 @@ for under pressure. Each word, and whether we may use it.
 | "`GET /api/agent/sessions/{id}` is not reachable by the agent's protocol" | It was keyed on the session id the agent chooses. One GET returned the whole policy. Moved off the agent namespace; the claim is now "nothing the agent is **given** contains a policy value or the view's identifier". |
 | "The demo shows official catalogue data" | It showed official item **ids** with fabricated names, categories and prices. Now true and enforced by `tests/test_demo_data_is_real.py`. |
 | "SCEN0002 shows security overruling policy" | It does not. Its review is a *policy* review. The case is SCEN0004/AU0036, and the demo now derives it rather than naming it. |
+
+---
+
+## Economic claims, after the pre-jury audit
+
+The single most likely way to lose a jury is to say "CHF 120 limit" and have
+someone spend CHF 6,480 under it. These rows exist to make that impossible.
+
+| claim | class | evidence |
+| --- | --- | --- |
+| "Each order is capped at the amount you wrote" | **PROVEN** | every decision evaluates the `scope="purchase"` rule |
+| "A rolling window paces spending within a session" | **PROVEN** | 60 identical proposals → 2 allowed, 58 blocked, CHF 216 vs CHF 300 |
+| "A pending step-up reserves nothing" | **PROVEN** | measured 0; the defence is a re-check at resolution, not a reservation |
+| "Sequential step-up approvals cannot breach the window" | **PROVEN** | `_period_rules_breached_now`; second approval blocked |
+| "A blocked or declined purchase consumes no budget" | **PROVEN** | measured |
+| "A duplicate `authorization_id` is counted once" | **PROVEN** | measured |
+| "Spent money survives revocation; nothing further is approved" | **PROVEN** | measured |
+| "The agent adapts to a remaining budget it was never told" | **SUPPORTED** | errand 3 buys CHF 62 after being refused at CHF 108 |
+| **"CHF 120 is the limit"** | **DO NOT CLAIM** | it is CHF 120 **per order**. Sixty orders of CHF 108 are all valid, and saying otherwise is the one sentence that loses the room |
+| **"CHF 300 over 7 days caps total spending"** | **DO NOT CLAIM** | a rolling window re-opens over time and restarts in a new session. Both are on screen under "not limited by anything you wrote" |
+| **"Spending is bounded across sessions"** | **DO NOT CLAIM** | measured: CHF 2,160 across ten sessions against a stated CHF 300/7 days |
+| **"Cross-session enforcement is impossible"** | **DO NOT CLAIM** | a choice under uncertainty; team-scoped records plausibly exist |
+| **"The customer approved it"** as a security property | **DO NOT CLAIM** | there is no identity on the step-up path. Say "the answer is bound to this purchase and to nothing else" |
+
+## Claims retired in this audit
+
+| claim | why |
+| --- | --- |
+| "An agent cannot influence the policy it is judged against" (implicit) | it could, through `instruction`, until this pass. Now true and schema-enforced |
+| "Audit timestamps are authoritative" (implicit) | `confirmed_at` was caller-supplied and attributed to the customer. Now server-stamped |
+| "The rolling window is visible in the demo" (implied by the panel) | it was not — every click reset the session. Now it is |

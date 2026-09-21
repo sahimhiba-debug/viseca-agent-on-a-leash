@@ -15,6 +15,13 @@ benchmark, against the deterministic planner. Adopt it only if it demonstrates a
 concrete capability the deterministic planner cannot provide. If the experiment is
 inconclusive or worse, keep the deterministic planner.
 
+## Re-checked during the zero-surprise audit
+
+Re-tested, not assumed: `ANTHROPIC_API_KEY` still unset, the API still returns
+**401**, and the `claude` CLI still reports *"OAuth session expired and could not be
+refreshed"*. Conclusion unchanged: the experiment did not run and the deterministic
+planner is kept.
+
 ## What was tried
 
 | route | result |

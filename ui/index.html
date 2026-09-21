@@ -590,10 +590,16 @@ async function compile(){
   let rows = '';
   if(cap) rows += row('Maximum per purchase', chf(cap.value), true, 'Checked on every purchase.');
   if(per) rows += row(`Maximum per ${per.period_days} days`, chf(per.value), true,
-      'This paces spending. It does not cap the total — the window re-opens.');
+      'This paces spending within one errand session. It does not cap the total — the window re-opens.');
   const unbounded = ['Total amount — the rule format cannot express one',
                      'End date — the rule format cannot express one'];
   if(!per) unbounded.push('Rate of spend — you set no rolling limit');
+  // The more surprising half of the rolling cap, and the one nothing on screen said
+  // until a pre-jury audit measured it: CHF 2,160 across ten sessions against a
+  // stated CHF 300 / 7 days. The window re-opens over TIME, and it also starts
+  // empty in a new session. Saying only the first half would be the kind of
+  // half-truth this panel exists to avoid.
+  if(per) unbounded.push(`Spending across separate errand sessions — the ${chf(per.value)} counter starts again in each one`);
   $('#deleg').innerHTML = `<div class="card"><h2>What you are delegating</h2>${rows}
     <div class="warn" style="margin-top:12px"><b>Not limited by anything you wrote</b>
       <ul>${unbounded.map(u=>`<li>${esc(u)}</li>`).join('')}</ul></div>

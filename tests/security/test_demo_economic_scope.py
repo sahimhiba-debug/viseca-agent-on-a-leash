@@ -158,3 +158,17 @@ def test_the_page_keeps_one_session_per_mandate_not_per_click():
     assert "if (!AGENT_SESSION) AGENT_SESSION = 'ui_' + Date.now();" in page, (
         "the page opens a fresh session per click again, so rolling spend resets "
         "every time and the cap in the mandate can never be reached on screen")
+
+
+def test_the_page_discloses_that_a_new_session_restarts_the_counter():
+    """The rolling cap is per RUN. A customer reading "Maximum per 7 days: CHF 300"
+    would not guess that starting another errand session resets it to zero, and
+    until a pre-jury audit measured it -- CHF 2,160 across ten sessions against a
+    stated CHF 300 -- nothing on screen said so. The panel said the window re-opens
+    over TIME, which is the less surprising half."""
+    from pathlib import Path
+
+    page = (Path(__file__).resolve().parents[2] / "ui" / "index.html").read_text()
+    assert "counter starts again in each one" in page, (
+        "the delegation panel no longer discloses that spend is scoped to one session")
+    assert "within one errand session" in page
