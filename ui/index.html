@@ -56,6 +56,19 @@
   .card > h2 { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink3); margin:0 0 10px; font-weight:750; }
   .lede2 { font-size:21px; font-weight:750; line-height:1.28; letter-spacing:-.02em;
            margin:0 0 10px; }
+  .sa { margin:14px 0 0; padding:0; list-style:none; }
+  .sa li { display:flex; gap:11px; align-items:center; padding:11px 0;
+           border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .sa li:last-child { border-bottom:none; }
+  .sa .amt2 { font-size:15px; font-weight:750; flex:0 0 78px; letter-spacing:-.01em; }
+  .sa .txt { flex:1 1 150px; display:flex; flex-direction:column; gap:1px; }
+  .sa .txt b { font-size:14px; font-weight:650; }
+  .sa .txt span { font-size:12px; color:var(--ink3); }
+  .sa .verdicts { display:flex; gap:6px; flex:0 0 auto; }
+  .sa .v { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
+           border-radius:7px; padding:4px 8px; white-space:nowrap; }
+  .sa .v.y { background:var(--allow-bg); color:var(--allow); }
+  .sa .v.n { background:var(--block-bg); color:var(--block); }
   .asks { margin:0; padding:0; list-style:none; }
   .asks li { display:flex; gap:10px; align-items:flex-start; padding:7px 0;
              border-bottom:1px solid var(--line); font-size:14px; }
@@ -250,6 +263,15 @@
   </div>
 
   <div class="card">
+    <h2 id="sa-h">Five purchases. One amount.</h2>
+    <p class="muted">Every basket below costs <b>exactly the same</b>, at a Swiss grocer,
+      from the official catalogue. Nothing here is pre-computed — press the button and
+      the wallet decides all five, live.</p>
+    <button class="act b-dark" onclick="runSameAmount()">Judge all five</button>
+    <div id="sa-out"></div>
+  </div>
+
+  <div class="card">
     <h2>What each control can ask</h2>
     <p class="muted">Both are real. The card side is modelled generously — per-transaction
       cap, monthly cap, merchant category, country — and it wins two of these rows.</p>
@@ -389,6 +411,45 @@ function go(p){
   if (p==='attacks' && !$('#atks').children.length) loadAttacks(false);
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));
+
+async function runSameAmount(){
+  const data = await (await fetch('same-amount.json')).json();
+  if(!CARD) CARD = await (await fetch('card-control.json')).json();
+  const sid = 'sa_' + Date.now();
+  const out = document.getElementById('sa-out');
+  out.innerHTML = '<p class="spin">the wallet is deciding…</p>';
+  const rows = [];
+  for (let i = 0; i < data.cases.length; i++) {
+    const c = data.cases[i];
+    // The last basket is identical to the first. It is refused because by then the
+    // week's allowance is gone -- so the earlier ones have to be spent first.
+    if (i === data.cases.length - 1) {
+      for (let k = 0; k < 4; k++)
+        await fetch('/api/agent/propose', {method:'POST',
+          headers:{'content-type':'application/json'},
+          body: JSON.stringify({session_id: sid, lines: data.cases[0].lines})});
+    }
+    const r = await fetch('/api/agent/propose', {method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify({session_id: sid, lines: c.lines})});
+    const v = r.ok ? await r.json() : {decision:'block', blocked_by:['malformed']};
+    rows.push({c, v, card: (await cardShadow(c.lines)).decision});
+  }
+  const yes = rows.filter(r=>r.v.decision==='allow').length;
+  out.innerHTML = `<ul class="sa">${rows.map(r=>`
+    <li class="${r.v.decision==='allow'?'ok':'no'}">
+      <span class="amt2">${chf(data.amount_chf)}</span>
+      <span class="txt"><b>${esc(r.c.title)}</b><span>${esc(r.c.why)}</span></span>
+      <span class="verdicts">
+        <span class="v card ${r.card==='allow'?'y':'n'}">card ${r.card==='allow'?'✓':'✗'}</span>
+        <span class="v ours ${r.v.decision==='allow'?'y':'n'}">wallet ${r.v.decision==='allow'?'✓':'✗'}</span>
+      </span></li>`).join('')}</ul>
+    <p class="muted" style="margin:12px 0 0">A card limit said yes to
+      <b>all ${rows.length}</b>. The wallet said yes to <b>${yes}</b>.
+      The card is not being careless — ${chf(data.amount_chf)} is inside the limit, at a
+      grocer, in Switzerland. There is nothing about the <i>number</i> to object to.</p>
+    <p class="lede2" style="margin:12px 0 0">A limit is a number.<br>Intent is a sentence.</p>`;
+}
 
 async function renderAskTable(){
   try{

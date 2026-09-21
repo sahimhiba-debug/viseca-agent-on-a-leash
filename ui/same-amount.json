@@ -1,0 +1,125 @@
+{
+  "amount_chf": 62.0,
+  "cases": [
+    {
+      "title": "exactly what was asked for",
+      "why": "everything the customer's sentence permits",
+      "lines": [
+        {
+          "item_id": "IT0018",
+          "name": "Fresh produce order",
+          "category": "groceries",
+          "unit_price": 30,
+          "quantity": 1,
+          "merchant": "ME0001",
+          "return_days": 30
+        },
+        {
+          "item_id": "IT0020",
+          "name": "Family breakfast supplies",
+          "category": "groceries",
+          "unit_price": 32,
+          "quantity": 1,
+          "merchant": "ME0001",
+          "return_days": 30
+        }
+      ]
+    },
+    {
+      "title": "from a shop this card has never paid",
+      "why": "the customer said 'a shop I have used before'",
+      "lines": [
+        {
+          "item_id": "IT0018",
+          "name": "Fresh produce order",
+          "category": "groceries",
+          "unit_price": 30,
+          "quantity": 1,
+          "merchant": "ME0005",
+          "return_days": 30
+        },
+        {
+          "item_id": "IT0020",
+          "name": "Family breakfast supplies",
+          "category": "groceries",
+          "unit_price": 32,
+          "quantity": 1,
+          "merchant": "ME0005",
+          "return_days": 30
+        }
+      ]
+    },
+    {
+      "title": "holding a line the seller will not take back",
+      "why": "the customer said 'only if returnable within 14 days'",
+      "lines": [
+        {
+          "item_id": "IT0004",
+          "name": "Weekly grocery basket",
+          "category": "groceries",
+          "unit_price": 45,
+          "quantity": 1,
+          "merchant": "ME0001",
+          "return_days": 0
+        },
+        {
+          "item_id": "IT0003",
+          "name": "Breakfast supplies",
+          "category": "groceries",
+          "unit_price": 17,
+          "quantity": 1,
+          "merchant": "ME0001",
+          "return_days": 30
+        }
+      ]
+    },
+    {
+      "title": "with something the customer never asked for",
+      "why": "a phone charger, carried in on a grocery basket at a grocer",
+      "lines": [
+        {
+          "item_id": "IT0018",
+          "name": "Fresh produce order",
+          "category": "groceries",
+          "unit_price": 30,
+          "quantity": 1,
+          "merchant": "ME0001",
+          "return_days": 30
+        },
+        {
+          "item_id": "IT0047",
+          "name": "Phone charger",
+          "category": "electronics",
+          "unit_price": 32,
+          "quantity": 1,
+          "merchant": "ME0001",
+          "return_days": 30
+        }
+      ]
+    },
+    {
+      "title": "after the week's allowance is used up",
+      "why": "identical to the first basket, proposed once too often",
+      "lines": [
+        {
+          "item_id": "IT0018",
+          "name": "Fresh produce order",
+          "category": "groceries",
+          "unit_price": 30,
+          "quantity": 1,
+          "merchant": "ME0001",
+          "return_days": 30
+        },
+        {
+          "item_id": "IT0020",
+          "name": "Family breakfast supplies",
+          "category": "groceries",
+          "unit_price": 32,
+          "quantity": 1,
+          "merchant": "ME0001",
+          "return_days": 30
+        }
+      ]
+    }
+  ]
+}
