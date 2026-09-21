@@ -181,3 +181,49 @@ def anthropic_completer(model: str = "claude-haiku-4-5-20251001",
         return "".join(block.get("text", "") for block in payload.get("content", []))
 
     return complete
+
+
+def apertus_completer(model: str = "swiss-ai/Apertus-70B-Instruct",
+                      base_url: str = "https://api.publicai.co/v1",
+                      max_tokens: int = 256, temperature: float = 0.0):
+    """The same seam, pointed at Apertus 1.5 70B.
+
+    A second adapter exists for a reason beyond completeness: it is the cheapest
+    possible demonstration that the planner really is model-independent. If adding
+    one had required touching anything below the seam, the seam would not be real.
+
+    OpenAI-compatible chat completions, stdlib only, and it raises rather than
+    degrading to a stub when the key is absent -- for the same reason as
+    `anthropic_completer`. A stub silently standing in for a model is the confusion
+    this file exists to prevent.
+
+    NOT RUN. No Apertus key was available on this machine and none was sought. See
+    `docs/FINAL_LLM_EXPERIMENT.md`; nothing in this repository reports a number
+    produced by any real model.
+    """
+    import json as _json
+    import os
+    import urllib.request
+
+    key = os.environ.get("APERTUS_API_KEY") or os.environ.get("PUBLICAI_API_KEY")
+    if not key:
+        raise RuntimeError(
+            "APERTUS_API_KEY is not set. This is a real-model arm of the comparison "
+            "and it needs a key; see docs/FINAL_LLM_EXPERIMENT.md for what was and "
+            "was not run.")
+
+    def complete(prompt: str) -> str:
+        request = urllib.request.Request(
+            f"{base_url.rstrip('/')}/chat/completions",
+            data=_json.dumps({
+                "model": model, "max_tokens": max_tokens, "temperature": temperature,
+                "messages": [{"role": "user", "content": prompt}],
+            }).encode(),
+            headers={"content-type": "application/json",
+                     "authorization": f"Bearer {key}"},
+        )
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = _json.load(response)
+        return payload["choices"][0]["message"]["content"]
+
+    return complete

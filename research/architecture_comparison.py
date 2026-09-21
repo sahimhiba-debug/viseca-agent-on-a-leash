@@ -102,14 +102,20 @@ ARCHS = [
 def _real_model_arms():
     """The real-model arms, when a key is present. Empty otherwise, loudly."""
     import os
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("  (no ANTHROPIC_API_KEY: the real-model arms were NOT run. "
-              "See docs/FINAL_LLM_EXPERIMENT.md.)\n")
-        return []
-    from research.model_planner import anthropic_completer
-    complete = anthropic_completer()
-    return [("REAL MODEL, no fallback", complete, False),
-            ("REAL MODEL, hybrid", complete, True)]
+    from research.model_planner import anthropic_completer, apertus_completer
+
+    arms = []
+    for label, factory, env in (("Claude", anthropic_completer, "ANTHROPIC_API_KEY"),
+                                ("Apertus", apertus_completer, "APERTUS_API_KEY")):
+        if not os.environ.get(env):
+            print(f"  (no {env}: the {label} arms were NOT run.)")
+            continue
+        complete = factory()
+        arms += [(f"REAL {label}, no fallback", complete, False),
+                 (f"REAL {label}, hybrid", complete, True)]
+    if not arms:
+        print("  See docs/FINAL_LLM_EXPERIMENT.md for what was and was not run.\n")
+    return arms
 
 
 def main() -> int:
