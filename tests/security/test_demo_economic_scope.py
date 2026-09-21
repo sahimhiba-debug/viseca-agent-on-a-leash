@@ -70,7 +70,10 @@ def test_clicking_buy_sixty_times_is_bounded_by_the_rolling_cap():
                if r.field == "authorization.billing_amount_chf" and r.scope == "period")
     assert approved <= cap, f"approved CHF {approved} against a stated CHF {cap} cap"
     assert outcomes["block"] > 0
-    assert first_refusal is not None and first_refusal[1] == ["amount"]
+    # `budget_window`, not `amount`. The two used to be the same class, so the agent
+    # answered "this order is too large" and "the allowance is used up" identically.
+    # They call for different moves and now read differently.
+    assert first_refusal is not None and first_refusal[1] == ["budget_window"], first_refusal
 
 
 def test_the_demo_trace_still_shows_two_non_price_refusals():
@@ -89,7 +92,7 @@ def test_the_demo_trace_still_shows_two_non_price_refusals():
     page = (Path(__file__).resolve().parents[2] / "ui" / "index.html").read_text()
     js = page[page.index("const AG_OFFERS=["):page.index("async function runAgent(){")]
     script = js.replace("\nconst ", "\nglobalThis.") + """
-const b={ruledOut:new Set(),ceiling:null,returnsMatter:false,tried:new Set()};
+const b={ruledOut:new Set(),ceiling:null,returnsMatter:false,tried:new Set(),budgetWindowHit:false};
 const out=[];
 for (const blocked of [['merchant'],['order_terms'],[]]) {
   const s=agBest(b); if(!s) break;
@@ -172,3 +175,52 @@ def test_the_page_discloses_that_a_new_session_restarts_the_counter():
     assert "counter starts again in each one" in page, (
         "the delegation panel no longer discloses that spend is scoped to one session")
     assert "within one errand session" in page
+
+
+def test_the_agent_fits_the_remaining_allowance_then_stops():
+    """Workstream 6, end to end, through the API the page uses.
+
+        errand 1   CHF 108  allow
+        errand 2   CHF 108  allow
+        errand 3   CHF 108  BLOCK (budget_window) -> replan -> CHF 62 allow
+        errand 4   "what is left is less than anything worth buying"
+
+    The agent fits a remaining allowance it was never told. It learns only the KIND
+    of limit it hit; CHF 300, the remainder, and the window length never reach it.
+    """
+    session = "ws6"
+    approved, stopped = [], None
+    for _ in range(5):
+        lines = list(BASKET)
+        for _ in range(4):
+            view = client.post("/api/agent/propose",
+                               json={"session_id": session, "lines": lines}).json()
+            if view["decision"] == "allow":
+                approved.append(sum(l["unit_price"] for l in lines))
+                break
+            if "budget_window" in view["blocked_by"] or "amount" in view["blocked_by"]:
+                if len(lines) == 1:
+                    stopped = view["blocked_by"]
+                    break
+                lines = lines[:-1]          # the agent's "buy less" move
+                continue
+            break
+        if stopped:
+            break
+
+    assert approved[:2] == [108.0, 108.0], approved
+    assert 0 < approved[2] < 108.0, f"the third errand did not shrink to fit: {approved}"
+    cap = next(r.value for r in _rules()
+               if r.field == "authorization.billing_amount_chf" and r.scope == "period")
+    assert sum(approved) <= cap
+    assert stopped == ["budget_window"], stopped
+
+
+def test_exhaustion_is_reported_as_an_allowance_not_as_a_bad_shop():
+    """"No basket this shop can supply" would be wrong and misleading -- it sends a
+    customer looking for a better shop when the shop was never the problem."""
+    from pathlib import Path
+
+    page = (Path(__file__).resolve().parents[2] / "ui" / "index.html").read_text()
+    assert "spending allowance for this period" in page
+    assert "once the window moves on" in page

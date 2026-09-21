@@ -7,14 +7,14 @@ this repository, start here.
 | --- | --- |
 | commit | see `git log -1` on `rnd/productization` |
 | `main` | `1aa3bac`, untouched — all work is on the R&D branch |
-| tests | 1289 collected, 5 of them reported skips |
+| tests | 1292 collected, 5 of them reported skips |
 | official replay | **45 events — 19 allow / 2 review / 24 block**, unchanged across every pass |
 | runtime | 5,086 lines / 19 modules · research apparatus separated into `research/` |
 | dependencies | 4 runtime (fastapi, uvicorn, httpx, pydantic), 3 dev |
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
-python3 -m pytest -q                      # 1289 collected
+python3 -m pytest -q                      # 1292 collected
 python3 scripts/run_replay.py             # 45 / 19 / 2 / 24
 python3 scripts/run_red_team_corpus.py    # 133/133
 python3 scripts/run_red_team.py           # 17/17

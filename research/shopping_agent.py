@@ -113,7 +113,7 @@ class Episode:
 # to do -- it would be an agent that responds to "you look like a runaway" by
 # rephrasing itself until the wallet stops noticing. Those go to the human, always,
 # even when a perfectly good alternative basket is sitting right there.
-_SHOPPABLE = {"amount", "item", "basket", "merchant", "order_terms"}
+_SHOPPABLE = {"amount", "budget_window", "item", "basket", "merchant", "order_terms"}
 _STOP = {"session", "duplicate", "other"}
 
 
@@ -242,19 +242,34 @@ class Beliefs:
     ceiling: Decimal | None = None          # strictly below this total
     returns_matter: bool = False            # a refusal mentioned the order's terms
     tried: set[frozenset[str]] = field(default_factory=set)
+    # Whether the last refusal was about the ROLLING ALLOWANCE rather than this one
+    # order. The two need different moves and used to be indistinguishable: "this
+    # order is too large" is fixed by a cheaper basket of any size, while "the
+    # allowance is used up" is fixed only by fitting the remainder -- and once the
+    # remainder is smaller than anything on sale, not by shopping at all.
+    #
+    # The agent still learns no number. It learns that the ceiling it is converging
+    # on is a shared, shrinking one rather than a per-order one, which is exactly
+    # the difference between "buy something cheaper" and "buy less".
+    budget_window_hit: bool = False
 
     def learn(self, basket: list[Line], merchant: str, blocked_by: list[str]) -> bool:
         """Fold one refusal into what the agent believes. True if anything is new."""
-        before = (len(self.ruled_out_merchants), self.ceiling, self.returns_matter, len(self.tried))
+        before = (len(self.ruled_out_merchants), self.ceiling, self.returns_matter,
+                  len(self.tried), self.budget_window_hit)
         self.tried.add(frozenset(l.item_id for l in basket))
         total = sum((l.total for l in basket), Decimal("0"))
-        if "amount" in blocked_by and (self.ceiling is None or total < self.ceiling):
+        if "budget_window" in blocked_by:
+            self.budget_window_hit = True
+        if ({"amount", "budget_window"} & set(blocked_by)
+                and (self.ceiling is None or total < self.ceiling)):
             self.ceiling = total
         if "merchant" in blocked_by:
             self.ruled_out_merchants.add(merchant)
         if "order_terms" in blocked_by:
             self.returns_matter = True
-        after = (len(self.ruled_out_merchants), self.ceiling, self.returns_matter, len(self.tried))
+        after = (len(self.ruled_out_merchants), self.ceiling, self.returns_matter,
+                 len(self.tried), self.budget_window_hit)
         return before != after
 
 
@@ -290,6 +305,13 @@ def score(basket: list[Offer], mission: "Mission", beliefs: Beliefs) -> tuple:
     coverage = min(len(basket), mission.target_lines)
     worst_window = min((o.stated_return_days if o.stated_return_days is not None else -1)
                        for o in basket) if beliefs.returns_matter else 0
+    # NOT re-ordered when the rolling allowance is binding, though an earlier draft
+    # of this phase did exactly that -- "spend least first" -- and made the agent buy
+    # ONE line for CHF 30 where two lines for CHF 62 also fit. The candidate search
+    # already filters to baskets under what the agent believes it may spend, so every
+    # option here fits; among options that fit, doing more of the errand is still the
+    # point. What `budget_window` changes is where the agent looks and when it stops,
+    # not what it wants.
     return (coverage, worst_window, -sum((o.unit_price for o in basket), Decimal("0")))
 
 
@@ -396,6 +418,14 @@ def replan(lines: list[Line], blocked_by: list[str], mission: Mission,
 
     found = best_basket(shop, mission, beliefs)
     if found is None:
+        if beliefs.budget_window_hit:
+            # A shared allowance is not a property of the shop, so "no basket this
+            # shop can supply" would be both wrong and the kind of wrong that sends a
+            # customer looking for a better shop. The agent knows the KIND of limit
+            # it hit; it still does not know the number, and says neither.
+            return ("what is left of the spending allowance for this period is less "
+                    "than anything worth buying; the errand can continue once the "
+                    "window moves on")
         return "no basket this shop can supply would satisfy what the customer asked for"
 
     offers, new_merchant = found
@@ -419,7 +449,9 @@ def _why(old: list[Line], new: list[Offer], old_merchant: str, new_merchant: str
         bits.append("dropped " + ", ".join(dropped))
     if added:
         bits.append("took " + ", ".join(added))
-    because = {"amount": "the total was refused", "merchant": "that shop was refused",
+    because = {"amount": "the total was refused",
+               "budget_window": "the rolling allowance is used up",
+               "merchant": "that shop was refused",
                "order_terms": "the return terms were refused", "item": "an item was refused",
                "basket": "the basket was refused"}
     reasons = [because[c] for c in blocked_by if c in because]

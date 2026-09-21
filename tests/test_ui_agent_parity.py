@@ -96,7 +96,7 @@ _NODE = shutil.which("node")
 def test_the_page_plans_exactly_as_the_python_agent_does(sequence):
     script = _page_js() + """
 const seq = JSON.parse(process.argv[1]);
-const b = {ruledOut:new Set(), ceiling:null, returnsMatter:false, tried:new Set()};
+const b = {ruledOut:new Set(), ceiling:null, returnsMatter:false, tried:new Set(), budgetWindowHit:false};
 let found = agBest(b), trace = [];
 for (const blocked of seq) {
   if (!found) break;

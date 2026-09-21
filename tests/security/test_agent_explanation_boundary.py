@@ -106,9 +106,27 @@ def test_the_customer_by_contrast_does_see_the_policy():
     assert any("billing_amount_chf" in e for e in decision.evidence)
 
 
-def test_a_period_breach_and_an_oversized_order_look_identical_to_the_agent():
-    """Both read "amount". If they differed, the agent would learn WHICH bound it hit
-    and could probe the two independently -- twice the information per purchase."""
+def test_a_period_breach_and_an_oversized_order_are_told_apart():
+    """They used to read the same, and this test used to assert that they must.
+
+    The justification on record was that separating them "would let the agent learn
+    WHICH bound it hit and probe the two independently -- twice the information per
+    purchase". That was an assertion, and when it was finally measured it did not
+    hold. A hostile agent binary-searching the per-order cap while a window cap also
+    exists converges IDENTICALLY under both schemes -- 11 probes, a final gap of
+    CHF 0.20, CHF 100 of the customer's money spent -- because the agent chooses the
+    amount it proposes and can therefore isolate the two bounds by construction. It
+    never needed the wallet to tell it apart.
+
+    Measured with one probing strategy, not proved over all of them. What it does
+    show is that the stated cost of separating these classes was overstated.
+
+    The benefit is not in doubt: "this one order is too large" and "the rolling
+    allowance is used up" call for different moves. The first is fixed by a cheaper
+    basket of any size; the second only by fitting what remains, and once the
+    remainder is smaller than anything on sale, not by shopping at all. Collapsing
+    them made the agent answer two different economic situations identically.
+    """
     mandate, state = _mandate(), _state()
     _decide(mandate, state, 100.0, aid="A", hours=0)
     _decide(mandate, state, 100.0, aid="B", hours=1)
@@ -116,7 +134,24 @@ def test_a_period_breach_and_an_oversized_order_look_identical_to_the_agent():
     oversized = _decide(_mandate(), _state(), 9999.0, aid="D")
 
     assert period.decision == "block" and oversized.decision == "block"
-    assert agent_view(period)["blocked_by"] == agent_view(oversized)["blocked_by"] == ["amount"]
+    assert agent_view(period)["blocked_by"] == ["budget_window"]
+    assert "amount" in agent_view(oversized)["blocked_by"]
+
+
+def test_the_budget_window_class_still_carries_no_number():
+    """Naming the KIND of bound must not become naming the bound. The agent may
+    learn that a rolling allowance exists and is currently binding; never the cap,
+    never the remainder, never the window length."""
+    mandate, state = _mandate(), _state()
+    for hours, aid in ((0, "W1"), (1, "W2")):
+        _decide(mandate, state, 100.0, aid=aid, hours=hours)
+    view = agent_view(_decide(mandate, state, 100.0, aid="W3", hours=2))
+
+    assert view["blocked_by"] == ["budget_window"]
+    blob = json.dumps(view)
+    assert not re.search(r"\d+\.\d+", blob), blob
+    for leak in ("300", "period", "7", "days", "remaining", "spent", "window_days"):
+        assert leak not in blob.replace("budget_window", ""), f"{leak!r} leaked: {blob}"
 
 
 def test_the_agent_is_told_when_a_human_is_deciding_but_not_why():

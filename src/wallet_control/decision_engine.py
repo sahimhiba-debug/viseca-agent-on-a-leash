@@ -459,6 +459,17 @@ _AGENT_CONSTRAINT_CLASS = {
 }
 
 
+def _agent_constraint_class(rule: "HardRule") -> str:
+    """Which CLASS of constraint refused, from the rule's field and its scope.
+
+    Scope matters here and nowhere else in this table: the same field means two
+    different problems depending on whether it bounds one purchase or a window.
+    """
+    if (rule.field == "authorization.billing_amount_chf" and rule.scope == "period"):
+        return "budget_window"
+    return _AGENT_CONSTRAINT_CLASS.get(rule.field, "other")
+
+
 def agent_view(decision: "EngineDecision") -> dict[str, Any]:
     """What the SHOPPING AGENT may be told about a decision. Deliberately not what the
     customer is told.
@@ -475,15 +486,28 @@ def agent_view(decision: "EngineDecision") -> dict[str, Any]:
     to the agent would be handing it the policy.
 
     So this projection carries the decision and the CLASS of constraint that failed,
-    and nothing numeric. A period breach and an over-limit order both read "amount" --
-    the agent learns to propose less, not how much less. `test_agent_view_leaks_no_policy_values`
-    fails if a number, a rule field name, or an evidence string ever reaches it.
+    and nothing numeric. `test_agent_view_leaks_no_policy_values` fails if a number, a
+    rule field name, or an evidence string ever reaches it.
 
     Naming the class adds no bits the agent could not already get: varying one
     dimension at a time costs exactly one probe per dimension either way.
+
+    A PERIOD BREACH AND AN OVER-LIMIT ORDER USED TO READ THE SAME. Both were
+    "amount", on the reasoning that the agent should learn to propose less and not
+    how much less. That is still true of the magnitude -- and it made the agent
+    answer two economically different situations identically. "This one order is too
+    large" is fixed by a cheaper basket of any size. "The rolling allowance is used
+    up" is fixed by fitting what remains, or by waiting, and cannot be fixed by
+    shopping at all once the remainder is smaller than anything on sale.
+
+    So a period breach now reads `budget_window`. By the docstring's own argument
+    this costs nothing: an agent could already separate the two in one probe by
+    re-proposing an identical basket and seeing it refused the second time. What it
+    still cannot learn from either class is the cap, the remainder, or the window
+    length -- and `test_agent_view_leaks_no_policy_values` keeps it that way.
     """
     classes = sorted({
-        _AGENT_CONSTRAINT_CLASS.get(e.rule.field, "other")
+        _agent_constraint_class(e.rule)
         for e in decision.rule_evaluations
         if e.outcome in ("fail", "unknown")
     })

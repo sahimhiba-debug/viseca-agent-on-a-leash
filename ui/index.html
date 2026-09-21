@@ -388,7 +388,7 @@ const AG_OFFERS=[
   {item_id:'IT0004',name:'Weekly grocery basket',category:'groceries',unit_price:45,merchant:'ME0001',mname:'Alpine Basket',ret:0},
   {item_id:'IT0019',name:'Pantry restock',category:'groceries',unit_price:46,merchant:'ME0001',mname:'Alpine Basket',ret:30}];
 
-const AG_TARGET=3, AG_MAXBASKET=5, AG_SHOPPABLE=new Set(['amount','item','basket','merchant','order_terms']);
+const AG_TARGET=3, AG_MAXBASKET=5, AG_SHOPPABLE=new Set(['amount','budget_window','item','basket','merchant','order_terms']);
 
 // THE OBJECTIVE FUNCTION, in the same order as the Python agent states it:
 // do more of the errand, prefer goods that can be sent back once a refusal showed
@@ -396,6 +396,10 @@ const AG_TARGET=3, AG_MAXBASKET=5, AG_SHOPPABLE=new Set(['amount','item','basket
 function agScore(basket, beliefs){
   const coverage=Math.min(basket.length,AG_TARGET);
   const worst=beliefs.returnsMatter ? Math.min(...basket.map(o=>o.ret===null?-1:o.ret)) : 0;
+  // Deliberately NOT re-ordered when the allowance is binding: the candidate search
+  // already filters to baskets that fit, and among those, doing more of the errand
+  // is still the point. An earlier draft spent least first and bought one line for
+  // CHF 30 where two lines for CHF 62 also fit.
   return [coverage, worst, -basket.reduce((s,o)=>s+o.unit_price,0)];
 }
 const agCmp=(a,b)=>{ for(let i=0;i<a.length;i++){ if(a[i]!==b[i]) return a[i]<b[i]?-1:1; } return 0; };
@@ -433,13 +437,16 @@ function agBest(beliefs){
 }
 
 function agLearn(beliefs, basket, merchant, blocked){
-  const before=[beliefs.ruledOut.size,beliefs.ceiling,beliefs.returnsMatter,beliefs.tried.size];
+  const snap=b=>[b.ruledOut.size,b.ceiling,b.returnsMatter,b.tried.size,b.budgetWindowHit].join(',');
+  const before=snap(beliefs);
   beliefs.tried.add(basket.map(o=>o.item_id).sort().join('|'));
   const total=basket.reduce((s,o)=>s+o.unit_price,0);
-  if(blocked.includes('amount') && (beliefs.ceiling===null||total<beliefs.ceiling)) beliefs.ceiling=total;
+  if(blocked.includes('budget_window')) beliefs.budgetWindowHit=true;
+  if((blocked.includes('amount')||blocked.includes('budget_window'))
+     && (beliefs.ceiling===null||total<beliefs.ceiling)) beliefs.ceiling=total;
   if(blocked.includes('merchant')) beliefs.ruledOut.add(merchant);
   if(blocked.includes('order_terms')) beliefs.returnsMatter=true;
-  return String(before)!==String([beliefs.ruledOut.size,beliefs.ceiling,beliefs.returnsMatter,beliefs.tried.size]);
+  return before!==snap(beliefs);
 }
 
 // Name the STRATEGY the agent switched to, not just the diff it produced. A jury
@@ -477,7 +484,7 @@ async function runAgent(){
   // place the rolling window is visible on screen.
   if (!AGENT_SESSION) AGENT_SESSION = 'ui_' + Date.now();
   const sid = AGENT_SESSION;
-  const beliefs={ruledOut:new Set(),ceiling:null,returnsMatter:false,tried:new Set()};
+  const beliefs={ruledOut:new Set(),ceiling:null,returnsMatter:false,tried:new Set(),budgetWindowHit:false};
   let step=agBest(beliefs), out=[];
   document.getElementById('ag-out').innerHTML='';
   document.getElementById('ag-sum').textContent='the agent is proposing…';
@@ -513,7 +520,9 @@ async function runAgent(){
     if(!agLearn(beliefs, step.lines, step.merchant, cls)){
       stopped='nothing was learned from that refusal, so trying again would only repeat it'; break; }
     const next=agBest(beliefs);
-    if(!next){ stopped='no basket this shop can supply would satisfy what you asked for'; break; }
+    if(!next){ stopped = beliefs.budgetWindowHit
+      ? 'what is left of your spending allowance for this period is less than anything worth buying — the errand can continue once the window moves on'
+      : 'no basket this shop can supply would satisfy what you asked for'; break; }
     why=agWhy(step.lines,next.lines,step.merchant,next.merchant,cls);
     step=next;
   }
