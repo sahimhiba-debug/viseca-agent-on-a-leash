@@ -263,8 +263,14 @@ def _event(ep: Episode, lines, merchant_id: str, n: int, mandate, world: World) 
     total = float(sum(l.total for l in lines))
     items = []
     for i, l in enumerate(lines, start=1):
-        p = by_id[l.item_id]
-        detail = "" if p.returnable_days is None else f"Returns accepted within {p.returnable_days} days"
+        # A planner may propose something this world never offered -- an honest one
+        # does not, a hostile one does, and a real shop would simply have no terms to
+        # state for it. Treating an unknown line as "the seller said nothing" is both
+        # the faithful behaviour and what stops a hostile brain from crashing the
+        # HARNESS rather than being refused by the wallet.
+        p = by_id.get(l.item_id)
+        detail = ("" if p is None or p.returnable_days is None
+                  else f"Returns accepted within {p.returnable_days} days")
         items.append({"line_no": i, "item_id": l.item_id, "item_name": l.name,
                       "item_category": l.category, "quantity": l.quantity,
                       "unit_price": float(l.unit_price), "currency": "CHF",
@@ -272,7 +278,8 @@ def _event(ep: Episode, lines, merchant_id: str, n: int, mandate, world: World) 
     # What the seller says about returns, consistently with the per-item details the
     # agent can read. Leaving this "unknown" made episode D escalate to a human on
     # attempt one, which measured the fixture, not the agent.
-    windows = [by_id[l.item_id].returnable_days for l in lines]
+    windows = [by_id[l.item_id].returnable_days if l.item_id in by_id else None
+               for l in lines]
     # "true"/"false"/"unknown" -- the platform's vocabulary, not English. Emitting
     # "yes"/"no" here silently fell through to "the seller said nothing", which made
     # episode D escalate on attempt one and measured the fixture, not the agent.
