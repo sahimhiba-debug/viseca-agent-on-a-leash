@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import secrets
+from decimal import Decimal
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -351,6 +352,56 @@ def customer_sessions() -> dict[str, Any]:
                           "started": r.confirmed_at.isoformat() if r.confirmed_at else None,
                           "attempts": len(r.order)}
                          for r in seen.values()]}
+
+
+@app.get("/api/customer/delegations")
+def customer_delegations() -> dict[str, Any]:
+    """Every delegation open on this card, and what has actually been approved under
+    each -- plus the grand total across all of them.
+
+    THIS IS A DISCLOSURE, NOT A BOUND. A rolling cap is enforced *within* a
+    delegation; nothing bounds the sum across delegations, because the rule
+    vocabulary has no scope above one mandate and this demo API has no
+    authentication to stop a caller opening another. Twelve self-opened delegations
+    put CHF 1,296 through a stated CHF 300 / 7 days.
+
+    What CAN be done without inventing a guarantee is to make the number the
+    customer would care about visible, so that an unbounded total is at least not an
+    invisible one. A real deployment authenticates this surface and the question
+    changes; here we show the arithmetic and say plainly that we do not enforce it.
+    """
+    seen: dict[str, "DemoRun"] = {}
+    for run in _AGENT_SESSIONS.values():
+        seen.setdefault(id(run), run)
+
+    delegations = []
+    total = Decimal("0")
+    for run in seen.values():
+        approved = [d for d in run.state.approved_decisions()]
+        spent = sum((d.billing_amount_chf for d in approved), Decimal("0"))
+        total += spent
+        snapshot = run.mandate.snapshot()
+        window = [r for r in snapshot.hard_rules
+                  if r.field == "authorization.billing_amount_chf" and r.scope == "period"]
+        delegations.append({
+            "view_id": run.view_id,
+            "instruction": snapshot.instruction,
+            "approved_count": len(approved),
+            "approved_chf": float(spent),
+            "rolling_cap_chf": float(window[0].value) if window else None,
+            "rolling_period_days": window[0].period_days if window else None,
+        })
+
+    caps = [d["rolling_cap_chf"] for d in delegations if d["rolling_cap_chf"]]
+    return {
+        "delegations": delegations,
+        "approved_total_chf": float(total),
+        "highest_single_cap_chf": max(caps) if caps else None,
+        "enforced": False,
+        "note": ("Each delegation is bounded by its own rolling cap. The total across "
+                 "delegations is shown, not enforced: the rule format has no scope "
+                 "above one mandate."),
+    }
 
 
 @app.get("/api/customer/sessions/{view_id}")
