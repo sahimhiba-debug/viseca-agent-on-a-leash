@@ -213,14 +213,54 @@ def test_the_card_is_modelled_from_the_real_merchant_row():
         "control is being modelled too weakly")
 
 
-def test_the_sharpest_pair_differs_only_in_what_the_seller_said():
-    """Cases 1 and 2: identical items, prices, shop and total. One is approved, the
-    other asks the customer. This is the experiment at its narrowest."""
-    allowed, asked = CASES[0][3], CASES[1][3]
-    assert [(l["item_id"], l["unit_price"], l["merchant"]) for l in allowed] == \
-           [(l["item_id"], l["unit_price"], l["merchant"]) for l in asked]
-    assert RESULTS[0]["wallet"] == "allow" and RESULTS[1]["wallet"] == "review"
+def test_the_controlled_triple_is_one_basket_with_one_variable():
+    """The experiment at its narrowest, and the strongest thing in the repository.
+
+    Rows 1-3 are the SAME GOODS at the SAME PRICES from the SAME SHOP. The only
+    thing that differs is what the seller says about sending them back, and that
+    one fact produces three different authorizations: allow, ask, block.
+    """
+    triple = [CASES[i][3] for i in range(3)]
+    signature = lambda lines: [(l["item_id"], l["unit_price"], l["merchant"]) for l in lines]
+    assert signature(triple[0]) == signature(triple[1]) == signature(triple[2]), (
+        "rows 1-3 are no longer the identical basket")
+
+    # the one variable
+    assert [l["return_days"] for l in triple[0]] == [30, 30]
+    assert [l["return_days"] for l in triple[1]] == [None, None]
+    assert [l["return_days"] for l in triple[2]] == [0, 0]
+
+    assert [RESULTS[i]["wallet"] for i in range(3)] == ["allow", "review", "block"]
     assert RESULTS[1]["awaiting_customer"] is True
+
+
+def test_the_triple_shares_one_timestamp():
+    """"Same second" is a claim on the first screen, so it is checked rather than
+    assumed. Each case is the first decision of its own fresh session, and the demo
+    clock starts every session at the same simulated instant."""
+    from wallet_control.api import _AGENT_SESSIONS, app
+    from fastapi.testclient import TestClient
+
+    client = TestClient(app)
+    stamps = set()
+    for index in range(3):
+        session = f"ts_probe_{index}"
+        client.post("/api/agent/propose",
+                    json={"session_id": session, "lines": CASES[index][3]})
+        event = next(iter(_AGENT_SESSIONS[session].events_by_authorization.values()))
+        stamps.add(event["authorization"]["timestamp"])
+    assert len(stamps) == 1, f"the triple spans {len(stamps)} timestamps: {stamps}"
+
+
+def test_nothing_a_card_can_see_differs_across_all_four():
+    """Amount, merchant, country and MCC are the card's entire input. If any of them
+    varied, a card could in principle tell the cases apart and the experiment would
+    not isolate intent."""
+    for _title, _why, _expected, lines in CASES:
+        assert sum(l["unit_price"] * l["quantity"] for l in lines) == AMOUNT
+        assert {l["merchant"] for l in lines} == {FAMILIAR}
+    row = MERCHANTS[FAMILIAR]
+    assert (row["merchant_mcc"], row["merchant_country"]) == ("5411", "CH")
 
 
 # =================================================== 4. the counterexample stays honest

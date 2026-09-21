@@ -264,13 +264,13 @@
   </div>
 
   <div class="card">
-    <h2 id="sa-h">Four purchases. One amount.</h2>
-    <p class="lede2" style="margin:0 0 8px">Same price.<br>Same shop. Same card.</p>
-    <p class="muted">On every input a card can see, these are <b>the same purchase</b>:
-      CHF 62.00 at Alpine Basket, a Swiss grocer, on card ···0001. Only the
-      <b>intent</b> differs. Nothing here is pre-computed — press the button and the
-      real wallet decides all four.</p>
-    <button class="act b-dark" onclick="runSameAmount()">Judge all four</button>
+    <h2 id="sa-h">The same basket, three times</h2>
+    <p class="lede2" style="margin:0 0 8px">Same goods. Same shop.<br>Same card. Same second.</p>
+    <p class="muted">The first three rows are the <b>identical basket</b> — same two items,
+      CHF 30 and CHF 32, from Alpine Basket, on card ···0001, at the same instant.
+      The only thing that changes is <b>what the seller says about sending it back</b>.
+      Nothing here is pre-computed: press the button and the real wallet decides.</p>
+    <button class="act b-dark" onclick="runSameAmount()">Judge them</button>
     <div id="sa-out"></div>
   </div>
 
@@ -469,9 +469,9 @@ async function runSameAmount(){
       reasons that are not the amount. The card is not being careless:
       ${chf(data.amount_chf)} at a Swiss grocer is, on the only evidence it has, an
       ordinary purchase.</p>
-    <p class="tiny" style="margin:8px 0 0"><b>Rows 1 and 2 are the same basket</b> — same
-      items, same price, same shop. The only difference is that the seller did not say
-      whether it can be sent back.</p>
+    <p class="tiny" style="margin:8px 0 0"><b>Rows 1–3 are one basket.</b> Nothing a card
+      can see differs between them — not the amount, not the shop, not the goods, not the
+      clock. One sentence from the seller produces three different answers.</p>
     <p class="lede2" style="margin:14px 0 0">A limit is a number.<br>Intent is a sentence.</p>
     <details style="margin:12px 0 0"><summary>Two cases we left out, and why</summary>
       <ul class="sa" style="margin-top:8px">${extra.map(e=>`

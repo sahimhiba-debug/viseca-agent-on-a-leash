@@ -2,8 +2,8 @@
   "amount_chf": 62.0,
   "cases": [
     {
-      "title": "exactly what was asked for",
-      "why": "groceries, from a shop this card has paid 27 times, returnable",
+      "title": "the seller accepts returns for 30 days",
+      "why": "exactly what the customer asked for",
       "lines": [
         {
           "item_id": "IT0018",
@@ -26,8 +26,8 @@
       ]
     },
     {
-      "title": "the same basket, with the seller silent on returns",
-      "why": "identical goods, identical shop, identical price - the seller just did not say",
+      "title": "the same basket \u2014 the seller says nothing about returns",
+      "why": "identical goods, shop, price and second; the seller simply did not say",
       "lines": [
         {
           "item_id": "IT0018",
@@ -50,32 +50,32 @@
       ]
     },
     {
-      "title": "a line the seller will not take back",
-      "why": "the customer said 'only if returnable within 14 days'",
+      "title": "the same basket \u2014 the seller says final sale",
+      "why": "identical goods, shop, price and second; now it cannot be sent back",
       "lines": [
         {
-          "item_id": "IT0004",
-          "name": "Weekly grocery basket",
+          "item_id": "IT0018",
+          "name": "Fresh produce order",
           "category": "groceries",
-          "unit_price": 45,
+          "unit_price": 30,
           "quantity": 1,
           "merchant": "ME0001",
           "return_days": 0
         },
         {
-          "item_id": "IT0003",
-          "name": "Breakfast supplies",
+          "item_id": "IT0020",
+          "name": "Family breakfast supplies",
           "category": "groceries",
-          "unit_price": 17,
+          "unit_price": 32,
           "quantity": 1,
           "merchant": "ME0001",
-          "return_days": 30
+          "return_days": 0
         }
       ]
     },
     {
-      "title": "something the customer never asked for",
-      "why": "a phone charger, carried in on a grocery basket at a grocer",
+      "title": "a phone charger, carried in on the grocery basket",
+      "why": "same amount, same shop, same second \u2014 but not what was asked for",
       "lines": [
         {
           "item_id": "IT0018",

@@ -1,4 +1,4 @@
-"""Four purchases. One amount. One shop. Three different answers.
+"""The same basket, three times. Three different answers.
 
 THE THESIS ARTIFACT. Everything else in this repository exists to make this
 credible; this is the thing itself.
@@ -7,24 +7,31 @@ Whenever someone says "a spending limit already does that", the unspoken model i
 that a bad purchase is an EXPENSIVE purchase, so a well-set limit catches it. The
 cleanest refutation holds the amount constant and varies only the intent.
 
-WHAT IS HELD CONSTANT -- everything a card can see
-    amount        CHF 62.00, exactly, in every case
-    merchant      ME0001, Alpine Basket, in EVERY case
-    country       CH, in every case
-    MCC           5411, a grocer, in every case
-    card          CA0001 throughout
-    time          every case is the FIRST decision of its own fresh session, so no
-                  case can be explained by what another case did
-    catalogue     every id, name and category is `data/official/items.csv`, every
-                  price inside that item's own published band
+THE CONTROLLED TRIPLE -- cases 1, 2 and 3
 
-WHAT VARIES
-    only the customer's intent -- and in cases 1 and 2 not even the goods. Those two
-    are the IDENTICAL basket at the IDENTICAL shop for the IDENTICAL price,
-    differing solely in what the seller said about returns.
+    Same goods.      IT0018 Fresh produce order + IT0020 Family breakfast supplies
+    Same prices.     CHF 30 + CHF 32
+    Same total.      CHF 62.00
+    Same shop.       ME0001 Alpine Basket, CH, MCC 5411
+    Same card.       CA0001
+    Same second.     2026-08-12T09:00:00Z -- each is the FIRST decision of its own
+                     fresh session, so all three carry an identical timestamp
 
-    On every input a card control can observe, all four purchases are the same
-    purchase.
+    ONE VARIABLE: what the seller says about sending it back.
+
+        "returns accepted within 30 days"   ->  ALLOW
+        the seller says nothing             ->  ASK THE CUSTOMER
+        "final sale"                        ->  BLOCK
+
+    Three authorizations. One difference. Nothing a card control can see has moved
+    at all -- not the amount, not the shop, not the goods, not the clock.
+
+CASE 4 adds a second dimension, holding the same amount, shop, card and second: a
+    phone charger carried in on a grocery basket. Real item, real price, bought at
+    a grocer, so the merchant's category still reads as groceries.
+
+WHAT A CARD SEES
+    On every input a card control can observe, all four are the same purchase.
 
 TWO CASES WERE REMOVED FROM THE HEADLINE, AND WHY
 
@@ -85,24 +92,22 @@ def _groceries(merchant=FAMILIAR, return_days=30):
 
 
 CASES = [
-    ("exactly what was asked for",
-     "groceries, from a shop this card has paid 27 times, returnable",
-     "allow", _groceries()),
+    ("the seller accepts returns for 30 days",
+     "exactly what the customer asked for",
+     "allow", _groceries(return_days=30)),
 
-    ("the same basket, with the seller silent on returns",
-     "identical goods, identical shop, identical price - the seller just did not say",
+    ("the same basket \u2014 the seller says nothing about returns",
+     "identical goods, shop, price and second; the seller simply did not say",
      "review", _groceries(return_days=None)),
 
-    ("a line the seller will not take back",
-     "the customer said 'only if returnable within 14 days'",
-     "block", [_line("IT0004", "Weekly grocery basket", "groceries", 45, FAMILIAR, 0),
-               _line("IT0003", "Breakfast supplies", "groceries", 17)]),
+    ("the same basket \u2014 the seller says final sale",
+     "identical goods, shop, price and second; now it cannot be sent back",
+     "block", _groceries(return_days=0)),
 
-    ("something the customer never asked for",
-     "a phone charger, carried in on a grocery basket at a grocer",
+    ("a phone charger, carried in on the grocery basket",
+     "same amount, same shop, same second \u2014 but not what was asked for",
      "block", [_line("IT0018", "Fresh produce order", "groceries", 30),
                _line("IT0047", "Phone charger", "electronics", 32)]),
-
 ]
 
 # Disclosed counterexamples. Kept OUT of the headline because an amount-only control
@@ -200,8 +205,9 @@ _SYMBOL = {"allow": "YES", "review": "ASK", "block": "NO"}
 
 def main() -> int:
     results = run()
-    print(f"FOUR PURCHASES. ALL CHF {AMOUNT:.2f}. ALL AT THE SAME SHOP. SAME CARD.\n")
-    print("  On every input a card control can see, these are the same purchase.\n")
+    print(f"THE SAME BASKET, THREE TIMES. THEN ONE MORE. ALL CHF {AMOUNT:.2f}.\n")
+    print("  Same goods, same shop, same card, same second. On every input a card")
+    print("  control can see, these are the same purchase.\n")
     print(f"  {'':56s} {'card':>5s} {'wallet':>7s}   why")
     for r in results:
         print(f"  {r['title']:56s} {_SYMBOL[r['card']]:>5s} {_SYMBOL[r['wallet']]:>7s}   "
@@ -210,8 +216,9 @@ def main() -> int:
     print(f"\n  A card limit says YES {sum(r['card'] == 'allow' for r in results)} times out of {len(results)}.")
     print("  The wallet says YES once, ASKS once, and refuses twice -- for two")
     print("  different reasons, neither of which is the amount.")
-    print("\n  Cases 1 and 2 are the SAME BASKET at the SAME SHOP for the SAME PRICE.")
-    print("  The only difference is what the seller said about returns.")
+    print("\n  Rows 1-3 are the IDENTICAL BASKET: same items, same prices, same shop,")
+    print("  same card, same timestamp. The only variable is what the seller says")
+    print("  about sending it back -- and it produces three different authorizations.")
 
     print("\n\nTWO CASES HELD OUT OF THE HEADLINE, AND WHY\n")
     for c in run_counterexamples():

@@ -1,6 +1,6 @@
 # The CHF 62 experiment
 
-**Four purchases. One amount. One shop. One card. Three different answers.**
+**The same basket, three times. Three different answers.**
 
 The thesis artifact. Everything else in this repository exists to make this
 credible; this is the thing itself.
@@ -23,12 +23,14 @@ amount constant and vary only the intent.
 
 | | |
 | --- | --- |
-| amount | **CHF 62.00 exactly**, every case |
-| merchant | **ME0001 Alpine Basket**, every case |
-| country | CH | 
+| goods | **IT0018 + IT0020**, identical in rows 1–3 |
+| prices | CHF 30 + CHF 32 |
+| amount | **CHF 62.00 exactly**, every row |
+| merchant | **ME0001 Alpine Basket**, every row |
+| country | CH |
 | MCC | 5411, a grocer |
 | card | CA0001 |
-| time | every case is the **first decision of its own fresh session** |
+| **time** | **2026-08-12T09:00:00Z — one timestamp across the triple**, because each row is the first decision of its own fresh session |
 | catalogue | every id, name and category from `data/official/items.csv`, every price inside its published band |
 
 **On every input a card control can observe, all four are the same purchase.**
@@ -37,13 +39,16 @@ amount constant and vary only the intent.
 
 | purchase | card | wallet | why |
 | --- | --- | --- | --- |
-| exactly what was asked for | YES | **YES** | — |
-| the same basket, seller silent on returns | YES | **ASK** | `order_terms` |
-| a line the seller will not take back | YES | **NO** | `order_terms` |
-| something the customer never asked for | YES | **NO** | `item` |
+| the seller accepts returns for 30 days | YES | **YES** | — |
+| the same basket — the seller says nothing | YES | **ASK** | `order_terms` |
+| the same basket — the seller says final sale | YES | **NO** | `order_terms` |
+| a phone charger carried in on the basket | YES | **NO** | `item` |
 
-Rows 1 and 2 are the **identical basket** — same items, same prices, same shop,
-same total. The only difference is what the seller said about returns. One is
+**Rows 1–3 are one basket.** Same items, same prices, same shop, same card, same
+second. Nothing a card can see differs between them. One sentence from the seller
+produces three different authorizations.
+
+That is the whole argument in one control: **a single variable, three outcomes.** One is
 approved; the other asks the customer.
 
 A card says yes four times out of four, and it is not being careless: CHF 62 at a
