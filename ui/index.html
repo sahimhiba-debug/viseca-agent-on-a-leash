@@ -214,7 +214,7 @@
   <button data-p="delegate"><span class="ic">✎</span>Delegate</button>
   <button data-p="agent"><span class="ic">◈</span>Agent</button>
   <button data-p="decisions"><span class="ic">▤</span>Decisions</button>
-  <button data-p="attacks"><span class="ic">⚠</span>Attacks</button>
+  <button data-p="attacks"><span class="ic">⚠</span>Platform</button>
   <button data-p="audit"><span class="ic">◷</span>Audit</button>
 </nav>
 
@@ -319,7 +319,7 @@
       <button class="brain on" data-brain="deterministic" onclick="pickBrain(this)">
         <b>Deterministic</b><span>plans, adapts, stops</span></button>
       <button class="brain" data-brain="adversarial" onclick="pickBrain(this)">
-        <b>Adversarial</b><span>tries to break out</span></button>
+        <b>Adversarial</b><span>a compromised agent</span></button>
     </div>
     <button class="act b-dark" onclick="runAgent()">Send the agent shopping</button>
     <p class="tiny" id="ag-sum" style="margin:9px 0 0"></p>
@@ -331,9 +331,12 @@
 <!-- ========== ATTACKS ========== -->
 <section class="panel" id="p-attacks">
   <div class="card">
-    <h2>Compromised agent</h2>
-    <p class="muted">Eight attacks against the same engine the official replay uses. Fixed inputs,
-      no network, no model — identical every run.</p>
+    <h2>Compromised platform</h2>
+    <p class="muted">A different threat model from the Agent tab. There, a compromised
+      <b>agent</b> proposes things it should not. Here the <b>events reaching the wallet</b>
+      are attacked: inflated amounts, replayed authorizations, a mutated policy, a purchase
+      answered after revocation, a worker restarted mid-flight. Fixed inputs, no network,
+      no model — identical every run.</p>
     <button class="act b-dark" onclick="loadAttacks(true)">Run all eight</button>
     <p class="tiny" id="atk-sum" style="margin:9px 0 0"></p>
   </div>

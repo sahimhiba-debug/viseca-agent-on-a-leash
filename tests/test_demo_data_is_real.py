@@ -195,3 +195,15 @@ def test_the_page_claims_tighten_only_and_the_mandate_enforces_it():
         "the agent can name a policy again, so the page's promise is false")
     assert hasattr(Mandate, "tighten_hard_rules"), (
         "the tighten-only contract moved; re-check the claim on the page")
+
+
+def test_the_two_attack_surfaces_name_different_threat_models():
+    """The Agent tab's adversarial brain and the Platform tab test DIFFERENT things,
+    and both used to be called "attacks" with the Platform tab additionally
+    mislabelled "Compromised agent" while testing replays, restarts and policy
+    mutation. Two surfaces with one name reads as redundancy; a judge asks why you
+    built the same demo twice."""
+    page = PAGE.read_text()
+    assert "Compromised platform" in page
+    assert "a compromised agent" in page
+    assert page.index("Compromised platform") != page.index("a compromised agent")

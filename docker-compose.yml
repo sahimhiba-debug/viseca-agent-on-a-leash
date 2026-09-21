@@ -1,0 +1,36 @@
+# docker compose up --build
+#
+# One service, deliberately. An earlier draft of this file split the wallet, the
+# agent and a mock PSP into three containers, which looked more like an
+# architecture diagram and was less true: the agent is a CLIENT that runs in the
+# browser, and the PSP boundary is an in-process simulation we label as one. Three
+# containers would have implied a process boundary that does not exist.
+#
+# What IS separate is separate: the agent never imports the wallet, the wallet
+# never imports the agent, and the only channel between them is HTTP.
+
+services:
+  wallet:
+    build: .
+    image: agent-on-a-leash
+    ports:
+      - "8420:8420"
+    environment:
+      # Optional. With neither set, the system runs on the deterministic planner --
+      # which is what every test and every published number used.
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      APERTUS_API_KEY: "${APERTUS_API_KEY:-}"
+    restart: unless-stopped
+
+  # Everything that must be true before a demo. Runs once and exits non-zero if the
+  # official replay has drifted, the planner benchmark regressed, or any test fails.
+  verify:
+    build: .
+    image: agent-on-a-leash
+    profiles: ["verify"]
+    command: >
+      sh -c "pip install --no-cache-dir '.[dev]' >/dev/null &&
+             python3 -m pytest -q &&
+             python3 scripts/run_replay.py &&
+             python3 research/planning_benchmark.py &&
+             python3 research/control_comparison.py"
