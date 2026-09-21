@@ -1,5 +1,23 @@
 # Limitations audit
 
+> **Superseded in part by the limitations-elimination campaign.** Sections marked
+> **RE-ATTACKED** below were re-opened and attacked rather than re-described; one
+> of them turned out not to be a limitation at all. The per-attack detail is in
+> `LIMITATION_ATTACK_MATRIX.md`; the plain-language version is `JURY_LIMITATIONS.md`.
+
+## What changed when each was attacked
+
+| limitation | was | now | why |
+| --- | --- | --- | --- |
+| **L1** cross-run aggregation | PROTOCOL-LIMITED | **CLOSED**, then **EXTERNAL-DEPENDENCY-LIMITED** | it was never a protocol limit. `session_id` is agent-chosen and scoped the budget, so the agent reset its own allowance: CHF 1,296 vs CHF 300/7d. Closed. The remaining hole is that the customer endpoint is unauthenticated, and the total is now disclosed |
+| **L3** step-up identity | STRUCTURAL | **STRUCTURAL, narrowed** | five binding properties now tested; the residual is one sentence: we know an answer arrived, not whose |
+| **L4** at-most-once | STRUCTURAL | **STRUCTURAL, proved** | a crash matrix over every instruction boundary, plus the limit asserted: two processes from one checkpoint each consume once |
+| **L10** verdict composition | asserted | **PROVEN** | 4,662 exhaustive combinations; the one hazard (a third `source`) made unreachable by an AST guard, mutant killed |
+| **L11** economic belief | disclosed in words | **REDUCED** | the cross-delegation total is now shown live, marked *shown, not enforced* |
+| **L5** oracle | STRUCTURAL | **STRUCTURAL, priced** | and measured: separating `budget_window` from `amount` gave a prober no advantage |
+| **L6** real LLM | not run | **EXTERNAL-DEPENDENCY-LIMITED** | credentials re-checked exhaustively: none |
+
+
 Five known limitations, each asked: **can we close it safely now?** Two were
 narrowed. Three cannot be closed and are bounded precisely instead.
 

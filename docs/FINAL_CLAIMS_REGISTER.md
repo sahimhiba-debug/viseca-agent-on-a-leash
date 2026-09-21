@@ -149,3 +149,21 @@ someone spend CHF 6,480 under it. These rows exist to make that impossible.
 | "An agent cannot influence the policy it is judged against" (implicit) | it could, through `instruction`, until this pass. Now true and schema-enforced |
 | "Audit timestamps are authoritative" (implicit) | `confirmed_at` was caller-supplied and attributed to the customer. Now server-stamped |
 | "The rolling window is visible in the demo" (implied by the panel) | it was not — every click reset the session. Now it is |
+
+---
+
+## Updated by the limitations-elimination campaign
+
+| claim | class | evidence |
+| --- | --- | --- |
+| An agent cannot reset its own rolling budget | **PROVEN** | it could, by naming sessions: CHF 1,296 vs CHF 300/7d. Closed; mutant killed |
+| Spending is bounded across delegations | **DO NOT CLAIM** | the customer endpoint is unauthenticated. Twelve self-opened delegations still reach CHF 1,296. Now **disclosed** on screen |
+| A step-up answer binds to one purchase and nothing else | **PROVEN** | five properties tested: no bleed, idempotent replay, contradiction refused, dead after revocation, cannot breach a filled window |
+| We know who answered a step-up | **DO NOT CLAIM** | no identity exists on this path; a signature test asserts none is faked |
+| One approval yields at most one charge | **PROVEN, per process** | crash matrix; 8 concurrent consumers → 1 charge |
+| Exactly-once payment | **DO NOT CLAIM** | two processes from one checkpoint each consume once — asserted in a test so it cannot be mistaken |
+| The decision is the stricter of policy and security | **PROVEN** | 4,662 exhaustive combinations across three uncertainty policies |
+| A third evidence source could break that composition | **CLOSED** | AST guard on every `RuleEvaluation(source=)`; mutant killed |
+| A human approval can clear a policy failure | **DO NOT CLAIM** | a hard failure never offers a step-up |
+| Telling the agent `budget_window` costs privacy | **DO NOT CLAIM** | measured: a prober converges identically either way — 11 probes, CHF 0.20 gap |
+| We benchmarked a real language model | **DO NOT CLAIM** | credentials re-checked exhaustively; none exist on this machine |
