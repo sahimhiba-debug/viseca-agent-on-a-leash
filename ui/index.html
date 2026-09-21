@@ -469,17 +469,22 @@ function agWhy(oldLines,newLines,oldM,newM,blocked){
 }
 
 async function runAgent(){
-  // Reuse the session the customer's confirmation opened, so the agent shops under
-  // THEIR mandate. With no confirmation, a fresh session gets the built-in one.
-  const sid = AGENT_SESSION || ('ui_'+Date.now());
-  AGENT_SESSION = null;
+  // One session PER MANDATE, not per click. Every press of the button used to open
+  // a fresh session, and a session is where rolling spend is counted -- so a judge
+  // pressing the button repeatedly was approved without bound, and the seven-day
+  // cap in the mandate could never be reached. Keeping the session makes repeated
+  // errands accumulate against it, which is the honest behaviour and also the only
+  // place the rolling window is visible on screen.
+  if (!AGENT_SESSION) AGENT_SESSION = 'ui_' + Date.now();
+  const sid = AGENT_SESSION;
   const beliefs={ruledOut:new Set(),ceiling:null,returnsMatter:false,tried:new Set()};
   let step=agBest(beliefs), out=[];
   document.getElementById('ag-out').innerHTML='';
   document.getElementById('ag-sum').textContent='the agent is proposing…';
-  document.getElementById('ag-under').textContent = CONFIRMED_TEXT
+  document.getElementById('ag-under').textContent = (CONFIRMED_TEXT
     ? 'Shopping under your mandate: “'+CONFIRMED_TEXT+'”'
-    : 'No mandate confirmed on the Delegate tab, so this runs under the built-in demo mandate.';
+    : 'No mandate confirmed on the Delegate tab, so this runs under the built-in demo mandate.')
+    + ' Press again to send it on another errand — spending accumulates against the same rolling limit.';
   let why={strategy:'Opening plan',
     detail:'the best '+step.lines.length+' grocery lines one shop can supply',
     delta:''};
@@ -609,7 +614,7 @@ async function confirmMandate(){
   // Establishing the mandate is a CUSTOMER action on a customer endpoint. It used
   // to travel on the agent's propose call, which meant an agent could author the
   // policy it was about to be judged against.
-  AGENT_SESSION = 'ui_' + Date.now();
+  AGENT_SESSION = 'ui_' + Date.now();   // a new mandate is a new session
   if (CONFIRMED_TEXT) {
     try {
       await fetch('/api/customer/mandates', {method:'POST',

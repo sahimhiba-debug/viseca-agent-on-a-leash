@@ -48,8 +48,9 @@ AGENT_DEMO_START = datetime(2026, 8, 12, 9, 0, tzinfo=timezone.utc)
 # answers a refusal that CANNOT be fixed by spending less.
 _AGENT_DEFAULT_INSTRUCTION = (
     "Order our household groceries for delivery from a shop I have used before. "
-    "Keep each order at or below CHF 120 including delivery, and only if returnable "
-    "within 14 days. Ask me when uncertain."
+    "Keep each order at or below CHF 120 including delivery, and keep the total "
+    "across any seven days at or below CHF 300, and only if returnable within 14 "
+    "days. Ask me when uncertain."
 )
 _AGENT_SESSIONS: dict[str, "DemoRun"] = {}
 
@@ -80,12 +81,26 @@ class CompileRequest(BaseModel):
 
 
 class RunRequest(BaseModel):
-    confirmed_at: str | None = None   # ISO time the customer confirmed the rules
+    """Deliberately empty of anything the server can determine itself.
+
+    `confirmed_at` used to be here, and it reached the audit timeline as an entry
+    attributed to `actor="customer"`. A record asserting when the CUSTOMER confirmed
+    their rules, carrying a timestamp the CALLER chose, is not evidence of anything
+    -- a caller could and did stamp it 1999-01-01. The server stamps it now.
+    """
 
 
 class ResolveRequest(BaseModel):
+    """What a step-up answer may carry: the answer, and nothing else.
+
+    `customer_message` used to sit here. Nothing ever read it, which is precisely
+    why it was worth removing: a caller-controlled field that the server accepts and
+    ignores is one careless commit away from being wired up, and the last red-team
+    pass found exactly that shape -- `instruction` on the agent's endpoint -- after
+    it HAD been wired up and was letting an agent write its own mandate.
+    """
+
     decision: str  # "allow" | "block"
-    customer_message: str | None = None
 
 
 @app.get("/api/health")
@@ -447,17 +462,12 @@ def start_scenario_run(scenario_id: str, req: RunRequest | None = None) -> dict[
         order.append(row["authorization_id"])
         decisions.append(_decision_summary(event, result))
 
-    confirmed_at: datetime | None = None
-    # The identifier the CUSTOMER view is served under. Minted here, never returned
-    # to the agent, and deliberately not the `session_id` the agent chose -- see
-    # `customer_session_view` for why that distinction is the whole point.
-    view_id: str = ""
-    if req is not None and req.confirmed_at:
-        try:
-            confirmed_at = datetime.fromisoformat(req.confirmed_at.replace("Z", "+00:00"))
-        except ValueError:
-            confirmed_at = None
-    _RUNS[run_id] = DemoRun(run_id, mandate, state, events_by_authorization, order, confirmed_at)
+    # Stamped here, by the server, at the moment this run's mandate is confirmed.
+    # Never accepted from the caller: the audit records this as an act of the
+    # CUSTOMER, and a customer-attributed fact whose timestamp any caller can choose
+    # is not evidence of anything. A caller could and did stamp it 1999-01-01.
+    _RUNS[run_id] = DemoRun(run_id, mandate, state, events_by_authorization, order,
+                            datetime.now(timezone.utc))
     return {
         "run_id": run_id,
         "scenario_id": scenario_id,
