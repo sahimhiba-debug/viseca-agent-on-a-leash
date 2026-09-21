@@ -29,6 +29,16 @@ def manifest() -> list[dict]:
              "expected": a.expected, "repeat": a.repeat} for a in ATTACKS]
 
 
+def _merchant_rows() -> dict:
+    import csv
+    path = Path(__file__).resolve().parents[1] / "data" / "official" / "merchants.csv"
+    with path.open(encoding="utf-8") as f:
+        return {r["merchant_id"]: {"mcc": r["merchant_mcc"],
+                                   "country": r["merchant_country"],
+                                   "name": r["merchant_name"]}
+                for r in csv.DictReader(f)}
+
+
 def card_control() -> dict:
     """The competing control's parameters, so the page can show what it would have
     said without keeping its own copy of the numbers."""
@@ -39,6 +49,11 @@ def card_control() -> dict:
         "allowed_mcc": sorted(control.allowed_mcc),
         "allowed_countries": sorted(control.allowed_countries),
         "expressible": [{"question": q, "card": c, "mandate": w} for q, c, w in EXPRESSIBLE],
+        # The merchant rows a card control actually reads. Without these the page
+        # judged every shop as Swiss and said a card would ALLOW the German grocer,
+        # while the Python control correctly refused it on country -- the page
+        # understating the competitor is the same defect as a strawman.
+        "merchants": _merchant_rows(),
     }
 
 

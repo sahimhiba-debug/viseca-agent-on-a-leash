@@ -149,6 +149,30 @@ def _card_says(lines, card=None):
          "country": row["merchant_country"]})["decision"]
 
 
+DEMO_INSTRUCTION = (
+    "Order our household groceries for delivery from a shop I have used before. "
+    "Keep each order at or below CHF 120 including delivery, and keep the total "
+    "across any seven days at or below CHF 300, and only if returnable within 14 "
+    "days. Ask me when uncertain."
+)
+
+
+def _fresh_delegation() -> str:
+    """Open a delegation as the CUSTOMER, and return its session id.
+
+    Not merely a fresh session id. An agent inventing session ids lands in one
+    shared delegation on purpose -- that is what stops it resetting its own rolling
+    budget -- so isolation has to come from the customer's side, which is the only
+    side entitled to open a budget. The experiment acts as the customer here, and
+    that asymmetry is itself part of what is being demonstrated.
+    """
+    session = f"sa_{uuid.uuid4().hex[:10]}"
+    response = client.post("/api/customer/mandates",
+                           json={"session_id": session, "instruction": DEMO_INSTRUCTION})
+    assert response.status_code == 200, response.text
+    return session
+
+
 def _wallet_says(lines, session):
     response = client.post("/api/agent/propose",
                            json={"session_id": session, "lines": lines})
@@ -173,7 +197,7 @@ def run(shuffle_seed: int | None = None) -> list[dict]:
         title, why, expected, lines = CASES[index]
         total = sum(l["unit_price"] * l["quantity"] for l in lines)
         assert total == AMOUNT, f"{title}: CHF {total}, not CHF {AMOUNT}"
-        body = _wallet_says(lines, f"sa_{uuid.uuid4().hex[:10]}")
+        body = _wallet_says(lines, _fresh_delegation())
         results[index] = {
             "title": title, "why": why, "amount": total,
             "merchant": lines[0]["merchant"],
@@ -189,7 +213,7 @@ def run_counterexamples() -> list[dict]:
     """The two cases held out of the headline, each judged and each labelled."""
     out = []
     for title, why, note, lines in COUNTEREXAMPLES:
-        session = f"sa_ctr_{uuid.uuid4().hex[:8]}"
+        session = _fresh_delegation()
         if "allowance" in title:                    # this one needs a filled window
             for _ in range(4):
                 _wallet_says(lines, session)

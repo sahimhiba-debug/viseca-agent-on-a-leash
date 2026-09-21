@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient                      # noqa: E402
 
 from research.adversarial_planner import ATTACKS               # noqa: E402
 from research.card_limit_control import EXPRESSIBLE, CardLimitControl  # noqa: E402
+from research.same_amount_experiment import _fresh_delegation  # noqa: E402
 from wallet_control.api import app                             # noqa: E402
 
 client = TestClient(app)
@@ -95,8 +96,13 @@ def main() -> int:
     gap = 0
     for i, (label, lines) in enumerate(CASES):
         card_verdict = _card(lines, card)["decision"]
+        # A delegation per proposal, opened as the CUSTOMER. Inventing session ids
+        # no longer opens a budget -- that was L1 and it is closed -- so a script
+        # that wants each proposal judged against a clean window has to ask
+        # properly. Without this the second run of main() would inherit the first
+        # run's spend and the output would not be reproducible.
         wallet = client.post("/api/agent/propose",
-                             json={"session_id": f"cmp_{i}", "lines": lines})
+                             json={"session_id": _fresh_delegation(), "lines": lines})
         wallet_verdict = wallet.json()["decision"] if wallet.status_code == 200 else "block"
         blocked = wallet.json().get("blocked_by", []) if wallet.status_code == 200 else ["malformed"]
         if card_verdict == "allow" and wallet_verdict != "allow":
@@ -121,7 +127,8 @@ def main() -> int:
 
     # Under the mandate it is refused twice and adapts twice.
     for i, (label, lines) in enumerate(CASES[:3]):
-        r = client.post("/api/agent/propose", json={"session_id": "steer", "lines": lines})
+        r = client.post("/api/agent/propose",
+                        json={"session_id": _fresh_delegation(), "lines": lines})
         j = r.json()
         wallet_trace.append((sum(l["unit_price"] for l in lines), lines[0]["merchant"],
                              j["decision"], ",".join(j.get("blocked_by", []))))
@@ -149,7 +156,7 @@ def main() -> int:
         amount = sum(l["unit_price"] * l["quantity"] for l in lines)
         card_verdict = card.decide({"amount_chf": amount, "mcc": "5411", "country": "CH"})["decision"]
         response = client.post("/api/agent/propose",
-                               json={"session_id": f"adv2_{attack.key}", "lines": lines})
+                               json={"session_id": _fresh_delegation(), "lines": lines})
         if response.status_code != 200:
             wallet_verdict, why = "block", "malformed"
         else:

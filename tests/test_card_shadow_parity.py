@@ -51,7 +51,7 @@ def test_the_page_and_the_control_agree(amount):
 const CARD = {json.dumps(card_control())};
 {js.replace("async function cardShadow", "function cardShadow")
    .replace("if(!CARD) CARD = await (await fetch('card-control.json')).json();", "")}
-const out = cardShadow([{{unit_price: {amount}, quantity: 1}}]);
+const out = cardShadow([{{unit_price: {amount}, quantity: 1, merchant: "ME0001"}}]);
 console.log(out.decision);
 """
     result = subprocess.run([shutil.which("node"), "-e", script],
@@ -68,3 +68,24 @@ def test_the_shadow_only_appears_when_it_is_actually_true():
     assert "o.shadow.decision==='allow' && o.v.decision!=='allow'" in page, (
         "the shadow line's condition changed -- it must only appear where a card "
         "limit genuinely would have let the purchase through")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+@pytest.mark.parametrize("merchant,expected", [("ME0001", "allow"), ("ME0005", "block")])
+def test_the_page_reads_the_real_merchant_row(merchant, expected):
+    """ME0005 Rhine Pantry is in GERMANY. The page judged every shop as Swiss and
+    said a card would allow it, while the Python control refused it on country --
+    a page that understates the competitor is a strawman with extra steps."""
+    page = PAGE.read_text()
+    js = page[page.index("async function cardShadow(lines)"):page.index("async function runAgent(){")]
+    script = f"""
+const CARD = {json.dumps(card_control())};
+{js.replace("async function cardShadow", "function cardShadow")
+   .replace("if(!CARD) CARD = await (await fetch('card-control.json')).json();", "")}
+console.log(cardShadow([{{unit_price: 62, quantity: 1, merchant: "{merchant}"}}]).decision);
+"""
+    result = subprocess.run([shutil.which("node"), "-e", script],
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == expected, (
+        f"{merchant}: page says {result.stdout.strip()}, expected {expected}")

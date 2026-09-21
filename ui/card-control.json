@@ -68,5 +68,297 @@
       "card": true,
       "mandate": true
     }
-  ]
+  ],
+  "merchants": {
+    "ME0001": {
+      "mcc": "5411",
+      "country": "CH",
+      "name": "Alpine Basket"
+    },
+    "ME0002": {
+      "mcc": "5411",
+      "country": "CH",
+      "name": "Neighbour Pantry"
+    },
+    "ME0003": {
+      "mcc": "5411",
+      "country": "CH",
+      "name": "Lakeview Grocer"
+    },
+    "ME0004": {
+      "mcc": "5411",
+      "country": "CH",
+      "name": "Sunrise Provisions"
+    },
+    "ME0005": {
+      "mcc": "5411",
+      "country": "DE",
+      "name": "Rhine Pantry"
+    },
+    "ME0006": {
+      "mcc": "4111",
+      "country": "CH",
+      "name": "RailNest"
+    },
+    "ME0007": {
+      "mcc": "4111",
+      "country": "CH",
+      "name": "MetroHop"
+    },
+    "ME0008": {
+      "mcc": "4111",
+      "country": "CH",
+      "name": "LakeLine Mobility"
+    },
+    "ME0009": {
+      "mcc": "5541",
+      "country": "CH",
+      "name": "RoadPine Energy"
+    },
+    "ME0010": {
+      "mcc": "5541",
+      "country": "IT",
+      "name": "Alto Charge"
+    },
+    "ME0011": {
+      "mcc": "5812",
+      "country": "CH",
+      "name": "Cedar Table"
+    },
+    "ME0012": {
+      "mcc": "5812",
+      "country": "CH",
+      "name": "Basil and Board"
+    },
+    "ME0013": {
+      "mcc": "5812",
+      "country": "CH",
+      "name": "Noon Spoon"
+    },
+    "ME0014": {
+      "mcc": "5812",
+      "country": "DE",
+      "name": "Riverside Plate"
+    },
+    "ME0015": {
+      "mcc": "5812",
+      "country": "CH",
+      "name": "MealWing"
+    },
+    "ME0016": {
+      "mcc": "5812",
+      "country": "CH",
+      "name": "NightOwl Kitchen"
+    },
+    "ME0017": {
+      "mcc": "5815",
+      "country": "CH",
+      "name": "StoryArc Media"
+    },
+    "ME0018": {
+      "mcc": "5815",
+      "country": "GB",
+      "name": "NorthTone Digital"
+    },
+    "ME0019": {
+      "mcc": "5942",
+      "country": "CH",
+      "name": "CloudShelf Books"
+    },
+    "ME0020": {
+      "mcc": "5942",
+      "country": "CH",
+      "name": "BrightPage Learning"
+    },
+    "ME0021": {
+      "mcc": "5942",
+      "country": "GB",
+      "name": "London Leaf Books"
+    },
+    "ME0022": {
+      "mcc": "5732",
+      "country": "CH",
+      "name": "PixelHarbor"
+    },
+    "ME0023": {
+      "mcc": "5732",
+      "country": "CH",
+      "name": "Circuit and Pine"
+    },
+    "ME0024": {
+      "mcc": "5732",
+      "country": "US",
+      "name": "HarborByte"
+    },
+    "ME0025": {
+      "mcc": "5651",
+      "country": "CH",
+      "name": "Loom and Pine"
+    },
+    "ME0026": {
+      "mcc": "5651",
+      "country": "CH",
+      "name": "RainThread"
+    },
+    "ME0027": {
+      "mcc": "5651",
+      "country": "IT",
+      "name": "Milano Weave"
+    },
+    "ME0028": {
+      "mcc": "5941",
+      "country": "CH",
+      "name": "TrailSpark"
+    },
+    "ME0029": {
+      "mcc": "5941",
+      "country": "CH",
+      "name": "Summit Thread"
+    },
+    "ME0030": {
+      "mcc": "5941",
+      "country": "AT",
+      "name": "AlpenWerk Sport"
+    },
+    "ME0031": {
+      "mcc": "5211",
+      "country": "CH",
+      "name": "HomeMend Market"
+    },
+    "ME0032": {
+      "mcc": "5211",
+      "country": "CH",
+      "name": "Tool and Timber"
+    },
+    "ME0033": {
+      "mcc": "5211",
+      "country": "FR",
+      "name": "Atelier Fixe"
+    },
+    "ME0034": {
+      "mcc": "5945",
+      "country": "CH",
+      "name": "Little Lantern"
+    },
+    "ME0035": {
+      "mcc": "5945",
+      "country": "CH",
+      "name": "Growing Steps"
+    },
+    "ME0036": {
+      "mcc": "5995",
+      "country": "CH",
+      "name": "Paw and Whisker"
+    },
+    "ME0037": {
+      "mcc": "5995",
+      "country": "CH",
+      "name": "Happy Trail Pets"
+    },
+    "ME0038": {
+      "mcc": "5912",
+      "country": "CH",
+      "name": "HealthBridge Pharmacy"
+    },
+    "ME0039": {
+      "mcc": "5912",
+      "country": "CH",
+      "name": "MotionCare"
+    },
+    "ME0040": {
+      "mcc": "7011",
+      "country": "CH",
+      "name": "SummitStay"
+    },
+    "ME0041": {
+      "mcc": "7011",
+      "country": "DE",
+      "name": "IsarNest Hotel"
+    },
+    "ME0044": {
+      "mcc": "4722",
+      "country": "NL",
+      "name": "FlyNorth Europe"
+    },
+    "ME0045": {
+      "mcc": "4722",
+      "country": "DE",
+      "name": "EuroTrail Tickets"
+    },
+    "ME0046": {
+      "mcc": "7221",
+      "country": "CH",
+      "name": "LensTrail"
+    },
+    "ME0047": {
+      "mcc": "7221",
+      "country": "FR",
+      "name": "SilverFrame"
+    },
+    "ME0048": {
+      "mcc": "7929",
+      "country": "CH",
+      "name": "EventForge"
+    },
+    "ME0049": {
+      "mcc": "7929",
+      "country": "CH",
+      "name": "ScreenGarden"
+    },
+    "ME0051": {
+      "mcc": "7372",
+      "country": "NL",
+      "name": "WorkCanvas"
+    },
+    "ME0052": {
+      "mcc": "7372",
+      "country": "CH",
+      "name": "PlainLedger"
+    },
+    "ME0053": {
+      "mcc": "5399",
+      "country": "CH",
+      "name": "GreenLoop"
+    },
+    "ME0054": {
+      "mcc": "5399",
+      "country": "CH",
+      "name": "Repair and Reuse"
+    },
+    "ME0055": {
+      "mcc": "5399",
+      "country": "CH",
+      "name": "Parcel and Pine"
+    },
+    "ME0056": {
+      "mcc": "5399",
+      "country": "CH",
+      "name": "RoomKind"
+    },
+    "ME0057": {
+      "mcc": "6011",
+      "country": "CH",
+      "name": "CashPoint Central"
+    },
+    "ME0058": {
+      "mcc": "5651",
+      "country": "CH",
+      "name": "Cobalt Coatworks"
+    },
+    "ME0059": {
+      "mcc": "5732",
+      "country": "CH",
+      "name": "PixelHarbour"
+    },
+    "ME0060": {
+      "mcc": "5651",
+      "country": "GB",
+      "name": "Thames Weave"
+    },
+    "ME0061": {
+      "mcc": "5941",
+      "country": "US",
+      "name": "Cascade Outfitters"
+    }
+  }
 }

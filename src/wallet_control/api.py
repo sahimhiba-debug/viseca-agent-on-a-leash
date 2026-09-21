@@ -53,7 +53,16 @@ _AGENT_DEFAULT_INSTRUCTION = (
     "across any seven days at or below CHF 300, and only if returnable within 14 "
     "days. Ask me when uncertain."
 )
+# session_id -> the DELEGATION that session shops under. Several session ids may
+# point at one delegation; that is the whole point.
+#
+# These used to be the same map, so a session WAS a delegation and the agent --
+# which chooses `session_id` -- chose the scope of its own rolling budget. Inventing
+# a new string reset the week's allowance: twelve errands under a stated CHF 300 / 7
+# days came to CHF 1,296. A delegation is something the CUSTOMER establishes, and
+# the agent must not be able to mint one by naming it.
 _AGENT_SESSIONS: dict[str, "DemoRun"] = {}
+_DEFAULT_DELEGATION = "__default__"
 
 
 @dataclass
@@ -198,6 +207,8 @@ def establish_mandate(req: MandateForSession) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=(
             "this session already has a mandate; start a new session rather than "
             "changing the rules under a running agent"))
+    if req.session_id == _DEFAULT_DELEGATION:
+        raise HTTPException(status_code=400, detail="reserved session id")
     session = _new_agent_session(req.session_id, req.instruction)
     compiled = compile_instruction(req.instruction)
     return {
@@ -238,9 +249,14 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
 
     session = _AGENT_SESSIONS.get(req.session_id)
     if session is None:
-        # An unknown session gets the BUILT-IN demo mandate, never one the caller
-        # chose. A customer establishes their own through POST /api/customer/mandates.
-        session = _new_agent_session(req.session_id, _AGENT_DEFAULT_INSTRUCTION)
+        # An unknown session joins the ONE built-in delegation -- it does not create
+        # a delegation of its own. Every session id the agent invents therefore lands
+        # in the same rolling window, which is what makes the window a bound rather
+        # than a suggestion. The mandate is the built-in one, never a caller's.
+        session = _AGENT_SESSIONS.get(_DEFAULT_DELEGATION)
+        if session is None:
+            session = _new_agent_session(_DEFAULT_DELEGATION, _AGENT_DEFAULT_INSTRUCTION)
+        _AGENT_SESSIONS[req.session_id] = session
 
     snapshot = session.mandate.snapshot()
     revision = len(session.order)
@@ -327,9 +343,14 @@ def customer_sessions() -> dict[str, Any]:
     A real deployment authenticates this. The demo does not, and we say so rather
     than implying otherwise -- see `docs/AGENT_VISIBLE_DATA.md`.
     """
-    return {"sessions": [{"view_id": s.view_id, "started": s.confirmed_at.isoformat()
-                          if s.confirmed_at else None, "attempts": len(s.order)}
-                         for s in _AGENT_SESSIONS.values() if s.view_id]}
+    seen: dict[str, "DemoRun"] = {}
+    for run in _AGENT_SESSIONS.values():
+        if run.view_id:
+            seen.setdefault(run.view_id, run)
+    return {"sessions": [{"view_id": r.view_id,
+                          "started": r.confirmed_at.isoformat() if r.confirmed_at else None,
+                          "attempts": len(r.order)}
+                         for r in seen.values()]}
 
 
 @app.get("/api/customer/sessions/{view_id}")

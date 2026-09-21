@@ -406,6 +406,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 const chf = n => 'CHF ' + Number(n).toLocaleString('en-CH', {minimumFractionDigits:2, maximumFractionDigits:2});
 let RUN=null, SCEN=[], CONFIRMED=null, REVOKED=false, LASTRULES=null, CONFIRMED_TEXT=null, AGENT_SESSION=null;
 let BRAIN='deterministic', ATTACKS=null, CARD=null;
+const SA_INSTRUCTION = "Order our household groceries for delivery from a shop I have used before. Keep each order at or below CHF 120 including delivery, and keep the total across any seven days at or below CHF 300, and only if returnable within 14 days. Ask me when uncertain.";
 
 function go(p){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
@@ -415,33 +416,40 @@ function go(p){
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));
 
+// Open a delegation the way a CUSTOMER does. Inventing a session id no longer
+// opens a budget -- unknown ids join one shared delegation, which is what stops an
+// agent resetting its own rolling allowance -- so anything needing a clean window
+// has to ask properly. Without this the first screen silently spent the Agent
+// tab's allowance, and pressing "judge them" degraded the demo two tabs away.
+async function freshDelegation(tag){
+  const sid = tag + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+  await fetch('/api/customer/mandates', {method:'POST',
+    headers:{'content-type':'application/json'},
+    body: JSON.stringify({session_id: sid, instruction: SA_INSTRUCTION})});
+  return sid;
+}
+
 async function runSameAmount(){
   const data = await (await fetch('same-amount.json')).json();
   if(!CARD) CARD = await (await fetch('card-control.json')).json();
-  const sid = 'sa_' + Date.now();
   const out = document.getElementById('sa-out');
   out.innerHTML = '<p class="spin">the wallet is deciding…</p>';
   const rows = [];
   for (let i = 0; i < data.cases.length; i++) {
     const c = data.cases[i];
-    // The last basket is identical to the first. It is refused because by then the
-    // week's allowance is gone -- so the earlier ones have to be spent first.
-    if (i === data.cases.length - 1) {
-      for (let k = 0; k < 4; k++)
-        await fetch('/api/agent/propose', {method:'POST',
-          headers:{'content-type':'application/json'},
-          body: JSON.stringify({session_id: sid, lines: data.cases[0].lines})});
-    }
+    // Every headline row is the FIRST decision of its own delegation, so none can
+    // be explained by what another row spent. The rolling-window case used to live
+    // here and needed the budget filled first; it is a counterexample now, below.
     const r = await fetch('/api/agent/propose', {method:'POST',
       headers:{'content-type':'application/json'},
-      body: JSON.stringify({session_id: sid, lines: c.lines})});
+      body: JSON.stringify({session_id: await freshDelegation('sa'), lines: c.lines})});
     const v = r.ok ? await r.json() : {decision:'block', blocked_by:['malformed']};
     rows.push({c, v, card: (await cardShadow(c.lines)).decision});
   }
   // the two cases held out of the headline, judged and labelled
   const extra = [];
   for (const c of (data.counterexamples||[])) {
-    const s2 = sid + '_x' + extra.length;
+    const s2 = await freshDelegation('sax');
     if (/allowance/.test(c.title))
       for (let k=0;k<4;k++) await fetch('/api/agent/propose',{method:'POST',
         headers:{'content-type':'application/json'},
@@ -734,9 +742,12 @@ async function cardShadow(lines){
   const refused = [];
   if (amount > CARD.per_transaction_chf) refused.push('per_transaction_limit');
   if (amount <= 0) refused.push('not_a_purchase');
-  // A card sees the MERCHANT's category, never what is in the basket. Both demo
-  // shops are grocers in the official merchant list, so MCC always passes here --
-  // which is exactly how a hotel room inside a grocery basket gets through.
+  // A card sees the MERCHANT's own row -- its MCC and its country -- and never what
+  // is inside the basket. That is how a hotel room bought at a grocer gets through,
+  // and also how the German grocer gets refused for a reason unrelated to intent.
+  const shop = CARD.merchants[(lines[0]||{}).merchant] || {};
+  if (shop.mcc && !CARD.allowed_mcc.includes(shop.mcc)) refused.push('merchant_category');
+  if (shop.country && !CARD.allowed_countries.includes(shop.country)) refused.push('merchant_country');
   return {decision: refused.length ? 'block' : 'allow', refused};
 }
 

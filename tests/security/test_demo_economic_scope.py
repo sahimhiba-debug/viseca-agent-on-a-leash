@@ -54,12 +54,43 @@ def test_the_demo_mandate_paces_spending_as_well_as_bounding_each_order():
     assert per_period[0].period_days == 7
 
 
+def _customer_delegation(name: str) -> str:
+    """Open a delegation the way a CUSTOMER does. An agent inventing session ids now
+    lands in one shared delegation, which is what stops it resetting its own budget,
+    so a test that wants an isolated budget has to ask for one properly."""
+    from research.same_amount_experiment import DEMO_INSTRUCTION
+    response = client.post("/api/customer/mandates",
+                           json={"session_id": name, "instruction": DEMO_INSTRUCTION})
+    assert response.status_code == 200, response.text
+    return name
+
+
+def test_an_agent_cannot_open_a_budget_by_inventing_a_session_id():
+    """L1, closed. `session_id` is chosen by the AGENT and used to scope the rolling
+    window, so inventing a new string reset the week's allowance: twelve errands
+    under a stated CHF 300 / 7 days came to CHF 1,296.
+
+    A delegation is something the customer establishes. Unknown session ids now join
+    one built-in delegation rather than each creating their own."""
+    spent = 0.0
+    for attempt in range(12):
+        view = client.post("/api/agent/propose",
+                           json={"session_id": f"evade_{attempt}", "lines": BASKET}).json()
+        if view["decision"] == "allow":
+            spent += 108.0
+    cap = next(r.value for r in _rules()
+               if r.field == "authorization.billing_amount_chf" and r.scope == "period")
+    assert spent <= cap, (
+        f"an agent reset its own budget by naming sessions: CHF {spent} against CHF {cap}")
+
+
 def test_clicking_buy_sixty_times_is_bounded_by_the_rolling_cap():
     """The exact jury attack: hammer the button and watch the total."""
+    session = _customer_delegation("econ_hammer")
     approved, outcomes, first_refusal = 0.0, {}, None
     for attempt in range(60):
         view = client.post("/api/agent/propose",
-                           json={"session_id": "econ_hammer", "lines": BASKET}).json()
+                           json={"session_id": session, "lines": BASKET}).json()
         outcomes[view["decision"]] = outcomes.get(view["decision"], 0) + 1
         if view["decision"] == "allow":
             approved += 108.0
@@ -131,7 +162,7 @@ def test_repeated_errands_accumulate_against_the_rolling_cap():
     CHF 300, and the third errand is SMALLER because the agent was refused and
     fitted itself to a remaining budget it was never told.
     """
-    session = "econ_accumulate"
+    session = _customer_delegation("econ_accumulate")
     approved = []
     for _ in range(4):
         for _ in range(4):
@@ -188,7 +219,7 @@ def test_the_agent_fits_the_remaining_allowance_then_stops():
     The agent fits a remaining allowance it was never told. It learns only the KIND
     of limit it hit; CHF 300, the remainder, and the window length never reach it.
     """
-    session = "ws6"
+    session = _customer_delegation("ws6")
     approved, stopped = [], None
     for _ in range(5):
         lines = list(BASKET)
