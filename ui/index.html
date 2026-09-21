@@ -54,6 +54,15 @@
   /* ---------- cards ---------- */
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; }
   .card > h2 { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink3); margin:0 0 10px; font-weight:750; }
+  .lede2 { font-size:21px; font-weight:750; line-height:1.28; letter-spacing:-.02em;
+           margin:0 0 10px; }
+  .asks { margin:0; padding:0; list-style:none; }
+  .asks li { display:flex; gap:10px; align-items:flex-start; padding:7px 0;
+             border-bottom:1px solid var(--line); font-size:14px; }
+  .asks li:last-child { border-bottom:none; }
+  .asks .mark { flex:0 0 58px; display:flex; gap:6px; font-size:10px; font-weight:800;
+                letter-spacing:.04em; padding-top:2px; }
+  .asks .y { color:var(--allow); } .asks .n { color:var(--ink3); }
   .lede { font-size:19px; font-weight:700; line-height:1.3; margin:0 0 8px; letter-spacing:-.015em; }
   .muted { color:var(--ink2); font-size:14px; margin:0 0 8px; }
   .tiny { color:var(--ink3); font-size:12px; }
@@ -224,6 +233,7 @@
 <section class="panel on" id="p-home">
   <div class="card">
     <p class="lede">Your agent can shop for you — without holding your payment authority.</p>
+    <p class="lede2">A spending limit asks <b>how much</b>.<br>This asks <b>what for</b>.</p>
     <p class="muted">It proposes purchases. It never decides whether money moves. This wallet
       decides, from rules built out of your own words, and tells you why.</p>
   </div>
@@ -237,6 +247,15 @@
       <div class="arrow">↓</div>
       <div class="step out ok"><div class="lbl">The wallet decides</div>Allow · Ask you · Block</div>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>What each control can ask</h2>
+    <p class="muted">Both are real. The card side is modelled generously — per-transaction
+      cap, monthly cap, merchant category, country — and it wins two of these rows.</p>
+    <div id="ask-table"><p class="spin">…</p></div>
+    <p class="tiny" style="margin:10px 0 0">Measured, not asserted:
+      <code>python3 research/control_comparison.py</code></p>
   </div>
 
   <div class="card">
@@ -371,6 +390,17 @@ function go(p){
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));
 
+async function renderAskTable(){
+  try{
+    const card = await (await fetch('card-control.json')).json();
+    const rows = card.expressible.map(r=>`<li>
+      <span class="mark"><span class="${r.card?'y':'n'}">${r.card?'CARD':'—'}</span>
+        <span class="${r.mandate?'y':'n'}">${r.mandate?'US':'—'}</span></span>
+      <span>${esc(r.question)}</span></li>`).join('');
+    document.getElementById('ask-table').innerHTML = `<ul class="asks">${rows}</ul>`;
+  }catch(e){ document.getElementById('ask-table').innerHTML=''; }
+}
+
 async function boot(){
   try{
     const h = await (await fetch('/api/health')).json(), r = h.official_replay;
@@ -389,6 +419,7 @@ async function boot(){
   $('#preset').innerHTML = '<option value="">Or load an official scenario…</option>' +
     SCEN.map(s=>`<option value="${s.scenario_id}">${esc(s.scenario_name)}</option>`).join('');
   showInstr();
+  renderAskTable();
 }
 // The shop the browser agent can see. Two merchants, published return windows --
 // the same shape `research/shopping_agent.Offer` carries, because this loop is a
