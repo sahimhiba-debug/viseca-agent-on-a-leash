@@ -542,9 +542,31 @@ def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], fac
     describes as "facts supporting the result".
     """
     amount = f"CHF {facts.billing_amount_chf}"
-    if decision == "allow":
-        return f"Approved: {amount} at {facts.merchant_name} matches the rules you set."
     problems = [e for e in evaluations if e.outcome in ("fail", "unknown")]
+    if decision == "allow":
+        # AN APPROVAL ON EVIDENCE AND AN APPROVAL ON THE ABSENCE OF EVIDENCE ARE NOT
+        # THE SAME EVENT, and this sentence used to render them identically.
+        #
+        # With `uncertainty_policy = approve`, a rule the wallet COULD NOT CHECK is
+        # allowed through by the customer's own fallback. The engine knows: its
+        # `reason_codes` read `uncertain:order.return_window_days` rather than
+        # `all_hard_rules_satisfied`. But the one field a person actually reads said
+        # "matches the rules you set" -- of a purchase whose return terms were never
+        # established. The customer asked for a 14-day return window and was told
+        # their rule had matched, about a seller who said nothing at all.
+        #
+        # That is worse than unhelpful. It is the only sentence that could have told
+        # them their fallback, not their rule, is what approved this; and a customer
+        # who cannot see when uncertainty is being spent cannot decide to stop
+        # spending it. Same defect class as I39: a representation that is correct in
+        # the record and false in the rendering.
+        unknowns = [e for e in evaluations if e.outcome == "unknown"]
+        if unknowns:
+            reasons = "; ".join(dict.fromkeys(_plain_reason(e) for e in unknowns))
+            return (f"Approved: {amount} at {facts.merchant_name}. Not because the rules "
+                    f"were met -- {reasons}. You told the wallet to go ahead when it "
+                    f"cannot be sure.")
+        return f"Approved: {amount} at {facts.merchant_name} matches the rules you set."
     reasons = list(dict.fromkeys(_plain_reason(e) for e in problems))
     detail = "; ".join(reasons) if reasons else "a check did not pass"
     if decision == "block":

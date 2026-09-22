@@ -32,17 +32,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
-from .decision_engine import evaluate_authorization
-from .mandate import HardRule, Mandate, MandateSnapshot, UncertaintyPolicy
+from .mandate import HardRule, UncertaintyPolicy
 from .policy_compiler import compile_instruction
-from .state import HistoryIndex, RunState
-
-_MERCHANT = "ME_WITNESS"
-_CARD = "CA_WITNESS"
-_AT = datetime(2026, 8, 12, 9, 0, tzinfo=timezone.utc)
+from .witness import Purchase, judge
 
 
 @dataclass(frozen=True)
@@ -112,75 +106,16 @@ READINGS: tuple[Reading, ...] = (
 )
 
 
-def _snapshot(rules: list[HardRule], uncertainty: UncertaintyPolicy,
-              unsupported: list[str] | None = None) -> MandateSnapshot:
-    """A throwaway mandate for judging one hypothetical purchase.
-
-    Nobody confirms this; it exists for the length of a decision. It still carries
-    the compiled `unsupported_restrictions` and acknowledges them, because the
-    anti-rot test that enforces that plumbing caught this module the moment it was
-    written -- and a candidate reading built from a different policy than the real
-    one would be measuring the wrong thing anyway.
-    """
-    unsupported = list(unsupported or [])
-    mandate = Mandate.draft("candidate reading", list(rules), uncertainty,
-                            None, None, unsupported)
-    mandate.confirm(confirmed=True, customer_id="CU_WITNESS", card_id=_CARD,
-                    profile_id="PR_WITNESS",
-                    acknowledged_unsupported=tuple(unsupported))
-    return mandate.snapshot()
-
-
-def _event(snapshot: MandateSnapshot, index: int, amount: float, category: str) -> dict[str, Any]:
-    when = _AT + timedelta(hours=index * 6)
-    stamp = when.isoformat().replace("+00:00", "Z")
-    return {
-        "type": "authorization.request", "request_id": f"req_w{index}",
-        "deadline_at": (when + timedelta(seconds=8)).isoformat().replace("+00:00", "Z"),
-        "authorization": {
-            "authorization_id": f"AU_W{index}", "source_authorization_id": f"AU_W{index}",
-            "scenario_id": "SCEN_WITNESS", "replay_order": index + 1,
-            "mandate_id": snapshot.mandate_id, "profile_id": snapshot.profile_id,
-            "card_id": _CARD, "initiator_type": "agent",
-            "merchant": {"merchant_id": _MERCHANT, "merchant_name": "Witness Shop",
-                         "merchant_category": category, "merchant_mcc": "5411",
-                         "merchant_country": "CH", "merchant_city": "Zurich",
-                         "availability": "online", "recurring_capable": "false"},
-            "timestamp": stamp, "amount": amount, "currency": "CHF",
-            "billing_amount_chf": amount, "items_subtotal": amount, "delivery_fee": 0.0,
-            "channel": "ecommerce", "customer_device_id": "DVC-W",
-            "authority_status": "active", "card_status_at_attempt": "active",
-            "spend_in_period_before_chf": None, "recent_attempt_count_10m": 0,
-            "fulfillment_method": "delivery", "delivery_by": None,
-            "order_returnable": "true", "order_cancellable": "unknown",
-            "related_authorization_id": None, "related_authorization_status": None,
-            "purchase_description": "witness basket",
-            "items": [{"line_no": 1, "item_id": f"IT_W{index}", "item_name": f"item {index}",
-                       "item_category": category, "quantity": 1, "unit_price": amount,
-                       "currency": "CHF",
-                       "item_details": "returns accepted within 30 days"}],
-        },
-        "mandate": {"mandate_id": snapshot.mandate_id, "status": snapshot.status.value,
-                    "customer_id": snapshot.customer_id, "card_id": snapshot.card_id,
-                    "instruction": snapshot.instruction,
-                    "hard_rules": [r.as_dict() for r in snapshot.hard_rules],
-                    "uncertainty_policy": snapshot.uncertainty_policy.value,
-                    "profile_id": snapshot.profile_id},
-        "context": {"approved_spend_in_period_chf": 0.0, "recent_authorizations": []},
-        "runtime": {"received_at": stamp, "history_window_minutes": 10,
-                    "context_basis": "run_decisions_and_scenario_timestamps"},
-    }
-
-
 def _judge(rules, uncertainty, amount: float, *, category="groceries", repeats=1,
            unsupported=None) -> str:
-    snapshot = _snapshot(rules, uncertainty, unsupported)
-    state = RunState(history=HistoryIndex({_CARD: frozenset({_MERCHANT})}), card_id=_CARD)
-    verdict = "allow"
-    for index in range(repeats):
-        verdict = evaluate_authorization(_event(snapshot, index, amount, category),
-                                         snapshot, state).decision
-    return verdict
+    """The engine's verdict on one hypothetical purchase -- `witness.judge`, with
+    this module's own question spelled out in its own vocabulary. The apparatus
+    (throwaway mandate, synthetic event, real engine) is shared with `silence.py`
+    rather than copied, so a change to what a hypothetical purchase looks like
+    cannot leave the two witnesses disagreeing about the same wallet."""
+    return judge(rules, uncertainty,
+                 Purchase(amount=amount, category=category, repeats=repeats),
+                 unsupported=unsupported)
 
 
 def find_witness(instruction: str, reading: Reading) -> dict[str, Any] | None:

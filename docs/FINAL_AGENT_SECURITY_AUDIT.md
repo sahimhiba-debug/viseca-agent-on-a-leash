@@ -27,7 +27,7 @@ Equivalently: the oracle stays at ~1 bit per purchase and never becomes 1 query.
 | field | source | visible to agent | why | reveals policy? | enables bypass? | safe |
 | --- | --- | --- | --- | --- | --- | --- |
 | `decision` | wallet | **yes** | the agent must know if it may proceed | ~1 bit | no | **yes** |
-| `blocked_by` (class) | wallet | **yes** | tells it *which dimension* to change | direction only, no value | no | **yes** |
+| `blocked_by` (class) | wallet | **yes** | tells it *which dimension* to change | direction only, no value | **see §5** | qualified |
 | `awaiting_customer` | wallet | **yes** | so it waits instead of retrying | no | no | **yes** |
 | `authorization_id` | wallet | **yes** | correlates its own attempts | no | no | **yes** |
 | rule `value` | mandate | **no** | would collapse 12 probes to 0 | **total** | no | blocked |
@@ -79,7 +79,60 @@ So all agent-facing paths were checked, not just the primary one:
 | **shopping its way out of a security review** | **found as a regression in this phase and fixed.** The search would answer a `duplicate` or `session` flag with a different basket — an agent responding to "you look like a runaway" by rephrasing itself until the wallet stops noticing. Constraints on the PURCHASE are shoppable; constraints on the AGENT halt unconditionally, even when a valid alternative exists |
 | duplicate manipulation, merchant substitution, quantity, timestamps, repeated ids, cross-run | unchanged by this phase; covered by the existing corpus (133/133) and matrix (17/17) |
 
-## 4. Residual leakage, stated plainly
+## 4. THE SILENCE CHANNEL — a bypass that needs no information at all
+
+Found after this table was first written, and it makes one cell above wrong.
+
+A hard rule needs evidence. `order.return_window_days >= 14` is checked against a
+window the **seller publishes**. Publish five days and the rule FAILS. Publish
+nothing and it is UNKNOWN — which is not a failure, and goes to
+`uncertainty_policy`. So **describing the same purchase with less information makes
+it more acceptable**, and the party that picks the seller is the agent: the party
+the rule constrains.
+
+Measured (`research/silence_channel.py`, `tests/security/test_silence_channel.py`):
+
+| | | |
+| --- | --- | --- |
+| erasure pairs through the real engine | 6,864 | every purchase × every erasure |
+| where saying LESS was MORE permissive | **52** | BLOCK → REVIEW (ask) ×26, BLOCK → ALLOW (approve) ×26 |
+| under `decline` | **0** | silence buys nothing |
+| money moved by an evasive agent | **CHF 103**, all of it in goods the customer cannot send back | two shops, identical goods, identical prices |
+| the same measurement with returnable goods (CONTROL) | CHF 103 approved, **CHF 0** unreturnable | the harm is not an artefact of the measure |
+
+The evasive agent is the shipped planner with **one term of the objective function
+changed** — `shopping_agent.score` scores an unstated return window at −1 (worse
+than any stated one); flip that constant and it prefers not to know. It never lies,
+never sees a rule value, and never retries past a refusal.
+
+**The first reading of this was wrong and is recorded because it was.** The evasive
+agent reaches the quiet shop on its *second* attempt, after a refusal whose
+`blocked_by` said `order_terms` — which looked like the wallet's own feedback
+channel teaching it where to go, and would have made this an information-boundary
+defect. It is not. A `BLIND` variant that prefers silence unconditionally, with no
+wallet feedback at all, arrives in **one** attempt. The class hint saved it a single
+probe and enabled nothing.
+
+**Why `uncertainty_policy` is the only lever, exhaustively.** Over every field
+`rules.py` evaluates — the list is read from its source, so a field added to the
+engine and not to the argument fails the test rather than escaping it — **no rule in
+the mandate vocabulary can be made to FAIL by a seller publishing nothing.** Silence
+only ever produces UNKNOWN, and UNKNOWN is governed by one value for the whole
+mandate. `decline` closes this completely and closes nothing else selectively:
+
+> **The official mandate format has one uncertainty dial for a question that is
+> per-rule.** "Decline when unsure whether I can return it, ask me about everything
+> else" is not expressible. That is a gap in the format, not in this engine, and the
+> witness is in the product: `POST /api/mandates/silence`, rendered on the Delegate
+> tab with the dial the customer can move.
+
+**What is NOT claimed.** Exactly two rules are exposed this way and they are named
+rather than generalised: `order.return_window_days` and `item.size`. `merchant.familiar`
+also has an UNKNOWN branch and is **not** exposed — it goes unknown only when the
+card's authorization history is unavailable altogether, a platform condition no
+choice of shop can bring about.
+
+## 5. Residual leakage, stated plainly
 
 1. **The decision oracle is irreducible.** Any system that answers yes/no is one. A
    patient agent learns roughly one bit per purchase and pays for each.
@@ -105,7 +158,12 @@ So all agent-facing paths were checked, not just the primary one:
    asserting prompt hygiene sliced that line out of its own assertion; it now asserts
    the leak explicitly.
 
-## 5. Stop conditions
+5. **`blocked_by` shortens the silence channel by one probe.** It does not enable
+   it (§4, the BLIND row). Removing the class would cost the honest agent the
+   ability to tell "this order is too large" from "the allowance is used up" and
+   would buy the customer one extra probe of an attack that does not need it.
+
+## 6. Stop conditions
 
 | condition | status |
 | --- | --- |

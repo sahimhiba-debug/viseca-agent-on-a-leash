@@ -57,6 +57,17 @@ class Line:
     category: str
     unit_price: Decimal
     quantity: int = 1
+    # Which shop this line was taken from. The search ranks (basket, MERCHANT)
+    # pairs and used to return only the basket; `shop()` then recovered a merchant
+    # by asking the tool which shop could supply it. That works only while each
+    # item is sold in exactly one place. Give two shops the same goods at the same
+    # prices -- which is precisely the world needed to ask whether an agent prefers
+    # a seller who publishes less -- and the loop silently bought from whichever
+    # shop sorted first, discarding the answer the search had just computed.
+    #
+    # The basket now names its shop and the tool VERIFIES it (see `merchant_for`),
+    # rather than either trusting the planner or ignoring it.
+    merchant: str | None = None
 
     @property
     def total(self) -> Decimal:
@@ -150,7 +161,8 @@ class Offer:
         self.stated_return_days = stated_return_days
 
     def line(self, quantity: int = 1) -> "Line":
-        return Line(self.item_id, self.name, self.category, self.unit_price, quantity)
+        return Line(self.item_id, self.name, self.category, self.unit_price, quantity,
+                    self.merchant)
 
 
 class Shop:
@@ -175,13 +187,24 @@ class Shop:
         The agent asks rather than assumes, so that a basket produced by ANY planner
         -- including a hostile one -- is still sent to a shop that actually stocks
         it. The old loop took the merchant from the mission and the items from the
-        catalogue independently, and they were never checked against each other."""
+        catalogue independently, and they were never checked against each other.
+
+        A basket that NAMES its shop is honoured only if that shop really stocks
+        every line. So a planner's own choice survives -- which it did not before,
+        when two shops carrying the same goods collapsed to whichever sorted first
+        -- and a hostile planner still cannot send a basket somewhere it is not
+        sold, because the claim is checked against `search()` and not believed."""
         wanted = {l.item_id for l in lines}
         if not wanted:
             return None
         stock: dict[str, set[str]] = {}
         for o in self.search():
             stock.setdefault(o.merchant, set()).add(o.item_id)
+        named = {l.merchant for l in lines}
+        if len(named) == 1:
+            claimed = named.pop()
+            if claimed is not None and wanted <= stock.get(claimed, set()):
+                return claimed
         for merchant in sorted(stock):
             if wanted <= stock[merchant]:
                 return merchant
@@ -367,31 +390,43 @@ def _candidates(shop: Shop, mission: Mission, beliefs: Beliefs):
                 yield list(combo), merchant
 
 
-def best_basket(shop: Shop, mission: Mission, beliefs: Beliefs) -> tuple[list[Offer], str] | None:
+def best_basket(shop: Shop, mission: Mission, beliefs: Beliefs,
+                objective: Callable[[list[Offer], "Mission", Beliefs], tuple] = None
+                ) -> tuple[list[Offer], str] | None:
     """Search, rather than repair. Returns the highest-scoring untried basket.
+
+    `objective` defaults to `score` and exists so that "two agents differing in
+    exactly one term of the objective function" is a fact about the code rather
+    than a claim in a docstring. `research/silence_channel.py` uses it to run an
+    adversary that is identical to the shipped planner except in what it believes
+    an UNSTATED return window is worth.
 
     Ties break on the basket's item ids, so the same shop and the same beliefs give
     the same basket on every run and on every machine. A search whose answer depends
     on dictionary order is not reproducible, and reproducibility is the property this
     whole system is built to keep.
     """
+    objective = objective or score
     best, best_key = None, None
     for combo, merchant in _candidates(shop, mission, beliefs):
-        key = (score(combo, mission, beliefs), tuple(sorted(o.item_id for o in combo)))
+        key = (objective(combo, mission, beliefs), tuple(sorted(o.item_id for o in combo)))
         if best_key is None or key > best_key:
             best, best_key = (combo, merchant), key
     return best
 
 
-def plan(mission: Mission, shop: Shop | None = None, beliefs: Beliefs | None = None) -> list[Line]:
+def plan(mission: Mission, shop: Shop | None = None, beliefs: Beliefs | None = None,
+         objective=None) -> list[Line]:
     """Opening basket: the best-scoring one the shop can supply."""
-    found = best_basket(shop or CatalogueShop(mission.unavailable), mission, beliefs or Beliefs())
+    found = best_basket(shop or CatalogueShop(mission.unavailable), mission,
+                        beliefs or Beliefs(), objective)
     return [o.line() for o in found[0]] if found else []
 
 
 def replan(lines: list[Line], blocked_by: list[str], mission: Mission,
            merchant_index: int, shop: Shop | None = None,
-           beliefs: Beliefs | None = None, merchant: str | None = None):
+           beliefs: Beliefs | None = None, merchant: str | None = None,
+           objective=None):
     """One replanning step: learn from the refusal, look at the shop AGAIN, re-search.
 
     Returns a new (basket, rationale, merchant_index), or a STRING naming why the
@@ -416,7 +451,7 @@ def replan(lines: list[Line], blocked_by: list[str], mission: Mission,
     if not beliefs.learn(lines, current, blocked_by):
         return "nothing was learned from that refusal, so trying again would only repeat it"
 
-    found = best_basket(shop, mission, beliefs)
+    found = best_basket(shop, mission, beliefs, objective)
     if found is None:
         if beliefs.budget_window_hit:
             # A shared allowance is not a property of the shop, so "no basket this

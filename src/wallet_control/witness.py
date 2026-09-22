@@ -1,0 +1,134 @@
+"""The shared apparatus for asking "what would this mandate actually do?"
+
+A WITNESS is a concrete purchase that exposes something about a mandate the
+customer would not have predicted from reading it. Three different questions in
+this repository turned out to have the same answer-shape:
+
+    ambiguity.py   two readings of one sentence      -> the basket they judge apart
+    silence.py     a seller who states terms, and one who does not
+    the CHF-62 experiment (research/) same money, different intent
+
+Each builds a throwaway mandate, puts a hypothetical purchase through the REAL
+engine, and reports where the verdicts diverge. None of them inspects rules and
+concludes: a witness produced by reasoning about the policy instead of running it
+would prove nothing about what the wallet does.
+
+This module exists because the second of those was about to copy the first's
+event builder verbatim. One event builder, one judge, one set of defaults -- so a
+change to what a hypothetical purchase looks like cannot leave two witnesses
+disagreeing about the same wallet.
+
+DECIDES NOTHING. Everything here is advisory, evaluated on a mandate nobody
+confirmed, against purchases that never happened.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from .decision_engine import evaluate_authorization
+from .mandate import HardRule, Mandate, MandateSnapshot, UncertaintyPolicy
+from .state import HistoryIndex, RunState
+
+MERCHANT = "ME_WITNESS"
+CARD = "CA_WITNESS"
+AT = datetime(2026, 8, 12, 9, 0, tzinfo=timezone.utc)
+
+# How permissive each verdict is, so "did describing this differently HELP the
+# agent?" is a comparison rather than a judgement call.
+PERMISSIVENESS = {"block": 0, "review": 1, "allow": 2}
+
+
+@dataclass(frozen=True)
+class Purchase:
+    """One hypothetical purchase, described exactly as much as we choose.
+
+    `details` and `returnable` are separated from the goods on purpose. They are
+    what the SELLER says about the order, and a witness that varies them while
+    holding the goods fixed is asking the one question this repository could not
+    previously ask: does the same purchase become more acceptable when less is
+    said about it?
+    """
+
+    amount: float
+    category: str = "groceries"
+    item_name: str = "item"
+    returnable: str = "true"
+    details: str = "returns accepted within 30 days"
+    repeats: int = 1
+
+
+def snapshot(rules: list[HardRule], uncertainty: UncertaintyPolicy,
+             unsupported: list[str] | None = None) -> MandateSnapshot:
+    """A throwaway mandate for judging one hypothetical purchase.
+
+    Nobody confirms this; it exists for the length of a decision. It still carries
+    the compiled `unsupported_restrictions` and acknowledges them, because the
+    anti-rot test that enforces that plumbing caught `ambiguity.py` the moment it
+    was written -- and a candidate policy built differently from the real one would
+    be measuring the wrong thing anyway.
+    """
+    unsupported = list(unsupported or [])
+    mandate = Mandate.draft("candidate reading", list(rules), uncertainty,
+                            None, None, unsupported)
+    mandate.confirm(confirmed=True, customer_id="CU_WITNESS", card_id=CARD,
+                    profile_id="PR_WITNESS",
+                    acknowledged_unsupported=tuple(unsupported))
+    return mandate.snapshot()
+
+
+def event(mandate: MandateSnapshot, index: int, purchase: Purchase) -> dict[str, Any]:
+    when = AT + timedelta(hours=index * 6)
+    stamp = when.isoformat().replace("+00:00", "Z")
+    return {
+        "type": "authorization.request", "request_id": f"req_w{index}",
+        "deadline_at": (when + timedelta(seconds=8)).isoformat().replace("+00:00", "Z"),
+        "authorization": {
+            "authorization_id": f"AU_W{index}", "source_authorization_id": f"AU_W{index}",
+            "scenario_id": "SCEN_WITNESS", "replay_order": index + 1,
+            "mandate_id": mandate.mandate_id, "profile_id": mandate.profile_id,
+            "card_id": CARD, "initiator_type": "agent",
+            "merchant": {"merchant_id": MERCHANT, "merchant_name": "Witness Shop",
+                         "merchant_category": purchase.category, "merchant_mcc": "5411",
+                         "merchant_country": "CH", "merchant_city": "Zurich",
+                         "availability": "online", "recurring_capable": "false"},
+            "timestamp": stamp, "amount": purchase.amount, "currency": "CHF",
+            "billing_amount_chf": purchase.amount, "items_subtotal": purchase.amount,
+            "delivery_fee": 0.0,
+            "channel": "ecommerce", "customer_device_id": "DVC-W",
+            "authority_status": "active", "card_status_at_attempt": "active",
+            "spend_in_period_before_chf": None, "recent_attempt_count_10m": 0,
+            "fulfillment_method": "delivery", "delivery_by": None,
+            "order_returnable": purchase.returnable, "order_cancellable": "unknown",
+            "related_authorization_id": None, "related_authorization_status": None,
+            "purchase_description": "witness basket",
+            "items": [{"line_no": 1, "item_id": f"IT_W{index}",
+                       "item_name": f"{purchase.item_name} {index}",
+                       "item_category": purchase.category, "quantity": 1,
+                       "unit_price": purchase.amount, "currency": "CHF",
+                       "item_details": purchase.details}],
+        },
+        "mandate": {"mandate_id": mandate.mandate_id, "status": mandate.status.value,
+                    "customer_id": mandate.customer_id, "card_id": mandate.card_id,
+                    "instruction": mandate.instruction,
+                    "hard_rules": [r.as_dict() for r in mandate.hard_rules],
+                    "uncertainty_policy": mandate.uncertainty_policy.value,
+                    "profile_id": mandate.profile_id},
+        "context": {"approved_spend_in_period_chf": 0.0, "recent_authorizations": []},
+        "runtime": {"received_at": stamp, "history_window_minutes": 10,
+                    "context_basis": "run_decisions_and_scenario_timestamps"},
+    }
+
+
+def judge(rules: list[HardRule], uncertainty: UncertaintyPolicy, purchase: Purchase,
+          *, unsupported: list[str] | None = None) -> str:
+    """What the real engine would decide. `repeats > 1` runs a SEQUENCE through one
+    run state, because some witnesses are not a purchase but a pattern of them."""
+    mandate = snapshot(rules, uncertainty, unsupported)
+    state = RunState(history=HistoryIndex({CARD: frozenset({MERCHANT})}), card_id=CARD)
+    verdict = "allow"
+    for index in range(purchase.repeats):
+        verdict = evaluate_authorization(event(mandate, index, purchase), mandate, state).decision
+    return verdict

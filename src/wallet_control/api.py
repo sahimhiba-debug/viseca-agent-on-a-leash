@@ -32,7 +32,7 @@ from .attack_demo import run_all_attacks
 from .audit import audit_timeline, delegation_summary
 from .csv_data import account_limits_for_card, history_csv_path, load_merchants, load_purchase_attempt_items, load_scenario_catalogue, scenario_rows
 from .decision_engine import _PLAIN_FAIL, _PLAIN_UNKNOWN, agent_view, evaluate_authorization, resolve_authorization
-from .mandate import Mandate
+from .mandate import Mandate, UncertaintyPolicy
 from .offline_replay import build_event, compile_and_confirm_mandate_for_scenario
 from .policy_compiler import compile_instruction
 from .state import HistoryIndex, RunState
@@ -116,6 +116,13 @@ FIELD_AUTHORS: dict[tuple[str, str], str] = {
     ("MandateForSession", "session_id"): "customer",
     ("MandateForSession", "instruction"): "customer",
     ("CompileRequest", "instruction"): "customer",
+    # Policy-bearing by name, and correctly so -- but only `/api/mandates/silence`
+    # reads it, only to answer "what would this same sentence do under a different
+    # fallback?", and nothing is stored. The answer is a pure function of the
+    # instruction the caller already sent, so it discloses no policy the caller did
+    # not bring with them. The customer owns the question because the customer owns
+    # the fallback; an agent calling it learns its own input back.
+    ("CompileRequest", "uncertainty_policy"): "customer",
     ("ResolveRequest", "decision"): "customer",
     # The audit's own request model. It caught this one the moment it was added,
     # which is the shortest possible demonstration that the rule is live rather
@@ -132,6 +139,11 @@ from .authorship import POLICY_BEARING, check_field, check_registry  # noqa: E40
 
 class CompileRequest(BaseModel):
     instruction: str
+    # Only `/api/mandates/silence` reads this, and only to answer "what would this
+    # same sentence do under a different fallback?". Nothing is stored and no
+    # mandate is created, so this cannot become a way to set a policy without
+    # confirming one.
+    uncertainty_policy: str | None = None
 
 
 class RunRequest(BaseModel):
@@ -585,6 +597,35 @@ def mandate_ambiguity(req: CompileRequest) -> dict[str, Any]:
     return {"instruction": req.instruction, "witnesses": found_all, "available": True}
 
 
+@app.post("/api/mandates/silence")
+def mandate_silence(req: CompileRequest) -> dict[str, Any]:
+    """Which of your rules can a seller escape by publishing nothing?
+
+    Same shape as `/api/mandates/ambiguity` and the same discipline: not a warning
+    about a hypothetical, but three sellers offering the identical goods at the
+    identical price, each judged by the real engine.
+
+        states 30 days  -> ALLOW      the rule was checked and passed
+        states 13 days  -> BLOCK      the rule was checked and failed
+        states nothing  -> ?          the rule was never checked
+
+    `policy` overrides what the sentence compiled to, so the customer can move the
+    one dial that changes the third row and watch it change. Under `decline` the
+    list comes back empty, because silence then buys nothing -- which is the whole
+    reason this panel is worth reading when it does say something.
+    """
+    from .silence import silence_witness
+
+    policy = None
+    if req.uncertainty_policy:
+        try:
+            policy = UncertaintyPolicy(req.uncertainty_policy)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="unknown uncertainty policy")
+    found = silence_witness(req.instruction, uncertainty=policy)
+    return {"instruction": req.instruction, "witnesses": found, "available": True}
+
+
 @app.post("/api/mandates/compile")
 def compile_preview(req: CompileRequest) -> dict[str, Any]:
     """Preview the rules a customer's instruction would compile to, for them to
@@ -887,6 +928,22 @@ def _recorded_message(stored, auth: dict[str, Any], *, revoked: bool = False) ->
             for f in fields
         ))
         return f"Waiting for you: {'; '.join(reasons) or 'the wallet was not sure about this one'}."
+    # A THIRD instance of the shape this docstring already records twice. Everything
+    # that reached here said "matched your wallet policy" -- including an approval
+    # that matched nothing, because a rule could not be checked and the customer's
+    # `approve when unsure` fallback let it through. The stored record knows: its
+    # reason codes read `uncertain:...`. The sentence beside them said the rules were
+    # met. Fixed in `decision_engine._customer_message` at the same time; both are
+    # here because a re-presented surface is exactly where the first fix does not
+    # reach.
+    uncertain = [c.split(":", 1)[1] for c in stored.reason_codes if c.startswith("uncertain:")]
+    if stored.decision == "allow" and uncertain:
+        reasons = list(dict.fromkeys(
+            _PLAIN_UNKNOWN.get(f) or f"the wallet could not check {f.replace('.', ' ').replace('_', ' ')}"
+            for f in uncertain
+        ))
+        return (f"Approved, but not because the rules were met: {'; '.join(reasons)}. "
+                f"You told the wallet to go ahead when it cannot be sure.")
     return "Approved: this purchase matched your wallet policy."
 
 

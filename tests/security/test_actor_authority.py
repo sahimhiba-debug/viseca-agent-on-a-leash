@@ -35,7 +35,10 @@ LINES = [{"item_id": "IT0018", "name": "Fresh produce order", "category": "groce
     (ResolveRequest, {"decision"}),
     (RunRequest, set()),
     (MandateForSession, {"session_id", "instruction"}),
-    (CompileRequest, {"instruction"}),
+    # `uncertainty_policy` is a WHAT-IF for `/api/mandates/silence`: it changes
+    # nothing, stores nothing, and its answer is a pure function of the instruction
+    # in the same request. See FIELD_AUTHORS in api.py.
+    (CompileRequest, {"instruction", "uncertainty_policy"}),
 ])
 def test_each_request_model_exposes_only_what_that_actor_owns(model, allowed):
     """Enforced at the schema, because a check inside a handler can be edited around

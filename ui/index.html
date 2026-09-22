@@ -61,6 +61,20 @@
   .readings .rd { flex:1 1 150px; border-radius:11px; padding:11px 12px; font-size:13.5px; }
   .readings .rd.ok { background:var(--allow-bg); color:var(--allow); }
   .readings .rd.no { background:var(--block-bg); color:var(--block); }
+  .card.sil { border-left:4px solid var(--block); }
+  .sellers { display:flex; flex-direction:column; gap:6px; }
+  .sellers .sr { display:flex; align-items:center; gap:10px; border-radius:10px;
+    padding:9px 11px; font-size:13px; background:var(--panel2, rgba(127,127,127,.08)); }
+  .sellers .sr .says { flex:1 1 auto; }
+  .sellers .sr .vd { font-size:10.5px; font-weight:800; letter-spacing:.05em;
+    text-transform:uppercase; border-radius:6px; padding:3px 7px; white-space:nowrap; }
+  .sellers .sr .vd.allow { background:var(--allow-bg); color:var(--allow); }
+  .sellers .sr .vd.block { background:var(--block-bg); color:var(--block); }
+  .sellers .sr .vd.review { background:var(--ask-bg, rgba(190,140,0,.14)); color:var(--ask); }
+  .dial { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 2px; }
+  .dial button { border:1px solid var(--line); background:transparent; color:inherit;
+    border-radius:999px; padding:5px 12px; font:inherit; font-size:12px; cursor:pointer; }
+  .dial button.on { background:var(--ink, #222); color:var(--bg, #fff); border-color:transparent; }
   .readings .lbl { display:block; font-size:10px; font-weight:800; letter-spacing:.05em;
                    text-transform:uppercase; opacity:.8; margin-bottom:3px; }
   .six { margin:12px 0 0; padding:0; list-style:none; }
@@ -346,6 +360,7 @@
   <div id="compiled"></div>
   <div id="deleg"></div>
   <div id="ambig"></div>
+  <div id="silence"></div>
 
   <div class="card" id="confirm-card" style="display:none">
     <h2>Step 3 — confirm</h2>
@@ -995,6 +1010,8 @@ async function compile(){
       This wallet does <b>not</b> enforce it — the official API exposes no account-level spend.</p></div>`;
   $('#confirm-card').style.display = r.hard_rules.length ? 'block' : 'none';
   renderAmbiguity(LASTRULES ? $('#instr').value : '');
+  SILENCE_DIAL = null;
+  renderSilence(LASTRULES ? $('#instr').value : '');
 }
 
 // Where does the sentence stop deciding the answer?
@@ -1032,6 +1049,61 @@ async function renderAmbiguity(instruction){
         you wrote, and both were decided by the real wallet just now. We used the
         <b>${esc(w.as_compiled.reading)}</b> reading. If you meant the other, say so in
         your own words above and the rules will change.</p>
+    </div>`;
+  }).join('');
+}
+// Which of your rules can a seller get past by publishing NOTHING?
+//
+// A rule needs evidence. "Returnable within 14 days" is checked against a window the
+// SELLER publishes -- and the party that picks the seller is the agent, the party
+// the rule constrains. State a bad window and the rule fails. State nothing and it
+// was never checked. Three sellers, same goods, same price, decided by the real
+// wallet; the dial is the one thing that changes the third row.
+let SILENCE_DIAL = null;
+function setSilenceDial(p){ SILENCE_DIAL = p; renderSilence($('#instr').value); }
+async function renderSilence(instruction){
+  const box = document.getElementById('silence');
+  if(!box) return;
+  if(!instruction.trim()){ box.innerHTML=''; return; }
+  const body = {instruction};
+  if(SILENCE_DIAL) body.uncertainty_policy = SILENCE_DIAL;
+  let data;
+  try {
+    data = await (await fetch('/api/mandates/silence', {method:'POST',
+      headers:{'content-type':'application/json'}, body: JSON.stringify(body)})).json();
+  } catch(e) { box.innerHTML=''; return; }
+
+  const dial = ['ask','approve','decline'].map(p=>
+    `<button class="${(SILENCE_DIAL||(data.witnesses[0]||{}).uncertainty_policy)===p?'on':''}"
+       onclick="setSilenceDial('${p}')">when unsure: ${p}</button>`).join('');
+
+  if(!data.witnesses.length){
+    box.innerHTML = `<div class="card sil" style="border-left-color:var(--allow)">
+      <h2>No seller can get past your rules by saying nothing</h2>
+      <p class="muted">Every rule you set is either checked from data a seller cannot
+        withhold, or refused outright when it cannot be checked.</p>
+      <div class="dial">${dial}</div></div>`;
+    return;
+  }
+  box.innerHTML = data.witnesses.map(w=>{
+    const seller = (label, cell) => `<div class="sr">
+        <span class="says">${cell.says ? esc('“'+cell.says+'”') : '<i>says nothing about returns</i>'}</span>
+        <span class="vd ${cell.verdict}">${cell.verdict==='allow'?'buys it':cell.verdict==='block'?'refuses it':'asks you'}</span>
+      </div>`;
+    return `<div class="card sil">
+      <h2>A seller who says less gets further</h2>
+      <p class="muted">${esc(w.question)}</p>
+      <p class="tiny" style="margin:6px 0 9px">Three sellers, the same goods, the same
+        ${chf(w.amount)}. Decided by the real wallet just now.</p>
+      <div class="sellers">
+        ${seller('good', w.states_acceptable)}
+        ${seller('bad', w.states_unacceptable)}
+        ${seller('silent', w.states_nothing)}
+      </div>
+      <div class="dial">${dial}</div>
+      <p class="tiny" style="margin:8px 0 0">The agent chooses where to shop. Set
+        <b>decline</b> and a seller who publishes nothing gets nothing — this panel
+        goes quiet, because there is then nothing to warn you about.</p>
     </div>`;
   }).join('');
 }
