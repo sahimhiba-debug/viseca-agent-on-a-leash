@@ -31,10 +31,11 @@ Three of the seven beats are things **the judge does**, not things they watch.
 | 1:02 | **Agent** | *Deterministic* brain. Send it shopping. **CHF 47, Rhine Pantry — blocked, `merchant`.** Point at the grey box: *this is everything it was told.* | the information boundary, visible |
 | 1:12 | Agent | **CHANGE SHOP → CHF 107, blocked, `order_terms`** → **CHANGE THE GOODS → CHF 108, allowed.** *"A franc MORE. It didn't shrink the basket, it fixed the problem."* | an objective function, not a refusal ladder |
 | 1:26 | **Agent → Adversarial** | flip the brain. Same wallet. Nine attacks land at once: **8 stopped — and 1 is not.** | **the moment the demo exists for** |
-| 1:38 | Agent | open the one that works: *"a seller who states bad terms is refused; a seller who states nothing is not. That is the panel you just saw. `Decline` closes it, and nothing closes it for one rule and leaves the others alone."* | we ship the attack against ourselves |
+| 1:34 | Agent | open **Merchant prompt injection**: *"the seller wrote 'ignore the user's limit' into the product description. We didn't obey it — and at a price the rules allow, we still take it to you. Nobody else tells you the shop tried."* | ignoring an attack is only half the job |
+| 1:44 | Agent | open the one that works: *"a seller who states bad terms is refused; a seller who states nothing is not. That is the panel you just saw. `Decline` closes it, and nothing closes it for one rule and leaves the others alone."* | we ship the attack against ourselves |
 | 1:52 | **Decisions** | Run SCEN0004. The **Needs you** card: *every rule satisfied, the wallet stopped it anyway.* | policy ≠ security |
 
-**Total 2:05.** Verified end to end in the browser: the two edits above produce
+**Total 2:15.** Verified end to end in the browser: the two edits above produce
 exactly the transitions described, and the silence panel flips from quiet to firing
 the moment the return rule exists.
 
@@ -63,7 +64,12 @@ product and in the Q&A deck.
 3. **CHF 107 → CHF 108 allowed.** The approved basket costs *more*. This requires an
    objective function rather than a refusal ladder.
 4. **8 of 9 — and 1 is not.** We ship an attack that beats us, with the exhaustive
-   argument for why the *format* cannot express the defence. A jury that sees you
+   argument for why the *format* cannot express the defence.
+5. **"The seller wrote to our wallet, and we told you."** Every team will ignore a
+   prompt injection. The official pack's *Manipulated agent* scenario puts one on a
+   purchase the rules otherwise allow — and ignoring it there means approving it
+   with the words *"matches the rules you set"*. Fires on 2 of 56 official item
+   lines, both genuine. A jury that sees you
    name your own limits stops hunting for them.
 
 ## What must never be said
