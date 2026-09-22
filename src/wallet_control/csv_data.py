@@ -69,6 +69,13 @@ def load_merchants() -> dict[str, dict[str, str]]:
 
 
 @lru_cache(maxsize=1)
+@lru_cache(maxsize=1)
+def load_items() -> dict[str, dict[str, str]]:
+    """The official item catalogue, keyed by item_id. Read-only, like every loader
+    here. Used by `scope.py` to enumerate what a mandate actually permits."""
+    return {row["item_id"]: row for row in _read_csv("items.csv")}
+
+
 def load_purchase_attempts() -> list[dict[str, str]]:
     return _read_csv("purchase_attempts.csv")
 

@@ -61,6 +61,11 @@
   .readings .rd { flex:1 1 150px; border-radius:11px; padding:11px 12px; font-size:13.5px; }
   .readings .rd.ok { background:var(--allow-bg); color:var(--allow); }
   .readings .rd.no { background:var(--block-bg); color:var(--block); }
+  .card.sc { border-left:4px solid var(--ask); }
+  .scnum { font-size:34px; font-weight:800; line-height:1.05; letter-spacing:-.02em; }
+  .scnum small { font-size:15px; font-weight:600; opacity:.55; }
+  .scbar { height:10px; border-radius:99px; background:var(--block-bg); overflow:hidden; margin:10px 0 4px; }
+  .scbar i { display:block; height:100%; background:var(--allow); }
   .card.rb { border-left:4px solid var(--line); }
   .rbtext { font-size:15px; line-height:2.1; }
   .rbtext .w { padding:2px 1px; border-radius:4px; }
@@ -365,6 +370,7 @@
     <button class="act b-dark" onclick="compile()">See how the wallet reads this</button>
   </div>
 
+  <div id="scope"></div>
   <div id="readback"></div>
   <div id="compiled"></div>
   <div id="deleg"></div>
@@ -1018,6 +1024,7 @@ async function compile(){
     <p class="tiny" style="margin-top:9px">Your account also has a monthly limit set by your bank.
       This wallet does <b>not</b> enforce it — the official API exposes no account-level spend.</p></div>`;
   $('#confirm-card').style.display = r.hard_rules.length ? 'block' : 'none';
+  renderScope(LASTRULES ? $('#instr').value : '');
   renderReadBack(LASTRULES ? $('#instr').value : '');
   renderAmbiguity(LASTRULES ? $('#instr').value : '');
   SILENCE_DIAL = null;
@@ -1062,6 +1069,41 @@ async function renderAmbiguity(instruction){
     </div>`;
   }).join('');
 }
+// How much rope did you just hand over?
+//
+// The rules are true and are not the question a person actually has. So count it:
+// every basket this world can produce, each through the real engine. The absolute
+// figure depends on the enumeration's bound; what means something is how it MOVES
+// when a clause is added.
+let SCOPE_PREV = null;
+async function renderScope(instruction){
+  const box = document.getElementById('scope');
+  if(!box) return;
+  if(!instruction.trim()){ box.innerHTML=''; SCOPE_PREV=null; return; }
+  let d;
+  try {
+    d = await (await fetch('/api/mandates/size', {method:'POST',
+      headers:{'content-type':'application/json'}, body: JSON.stringify({instruction})})).json();
+  } catch(e){ box.innerHTML=''; return; }
+  if(typeof d.authorised !== 'number'){ box.innerHTML=''; return; }
+
+  const pct = d.universe ? Math.round(100*d.authorised/d.universe) : 0;
+  const delta = (SCOPE_PREV !== null && SCOPE_PREV !== d.authorised)
+    ? `<span class="tiny" style="color:${d.authorised<SCOPE_PREV?'var(--allow)':'var(--block)'}">
+         ${d.authorised<SCOPE_PREV?'−':'+'}${Math.abs(SCOPE_PREV-d.authorised)} since your last edit</span>` : '';
+  SCOPE_PREV = d.authorised;
+
+  box.innerHTML = `<div class="card sc">
+    <h2>What you are about to authorise</h2>
+    <p class="scnum">${d.authorised} <small>of ${d.universe} purchases this shop could make</small></p>
+    <div class="scbar"><i style="width:${pct}%"></i></div>
+    <p class="tiny">${pct}% of everything on offer${d.asks_you?` · ${d.asks_you} more would be put to you`:''}. ${delta}</p>
+    <p class="tiny" style="margin-top:8px">Counted, not estimated: every basket one shop
+      could sell you — up to ${d.max_lines} lines — put through the same engine that will
+      judge the real ones. Add a condition above and watch this fall.</p>
+  </div>`;
+}
+
 // Which of your words did the compiler actually READ?
 //
 // Not a pattern and not an opinion. Every word is deleted in turn and the sentence

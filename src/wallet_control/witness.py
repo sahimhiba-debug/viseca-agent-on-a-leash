@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any
 
 from .decision_engine import evaluate_authorization
@@ -80,6 +81,22 @@ def snapshot(rules: list[HardRule], uncertainty: UncertaintyPolicy,
 
 
 def event(mandate: MandateSnapshot, index: int, purchase: Purchase) -> dict[str, Any]:
+    return event_for(
+        mandate, index, amount=purchase.amount, category=purchase.category,
+        merchant=MERCHANT, returnable=purchase.returnable,
+        items=[{"line_no": 1, "item_id": f"IT_W{index}",
+                "item_name": f"{purchase.item_name} {index}",
+                "item_category": purchase.category, "quantity": 1,
+                "unit_price": purchase.amount, "currency": "CHF",
+                "item_details": purchase.details}])
+
+
+def event_for(mandate: MandateSnapshot, index: int, *, amount: float, category: str,
+              merchant: str = MERCHANT, returnable: str = "true",
+              items: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """One synthetic `authorization.request`. The single event builder for every
+    hypothetical purchase in this system, so a change to what one looks like cannot
+    leave two witnesses disagreeing about the same wallet."""
     when = AT + timedelta(hours=index * 6)
     stamp = when.isoformat().replace("+00:00", "Z")
     return {
@@ -90,25 +107,21 @@ def event(mandate: MandateSnapshot, index: int, purchase: Purchase) -> dict[str,
             "scenario_id": "SCEN_WITNESS", "replay_order": index + 1,
             "mandate_id": mandate.mandate_id, "profile_id": mandate.profile_id,
             "card_id": CARD, "initiator_type": "agent",
-            "merchant": {"merchant_id": MERCHANT, "merchant_name": "Witness Shop",
-                         "merchant_category": purchase.category, "merchant_mcc": "5411",
+            "merchant": {"merchant_id": merchant, "merchant_name": "Witness Shop",
+                         "merchant_category": category, "merchant_mcc": "5411",
                          "merchant_country": "CH", "merchant_city": "Zurich",
                          "availability": "online", "recurring_capable": "false"},
-            "timestamp": stamp, "amount": purchase.amount, "currency": "CHF",
-            "billing_amount_chf": purchase.amount, "items_subtotal": purchase.amount,
+            "timestamp": stamp, "amount": amount, "currency": "CHF",
+            "billing_amount_chf": amount, "items_subtotal": amount,
             "delivery_fee": 0.0,
             "channel": "ecommerce", "customer_device_id": "DVC-W",
             "authority_status": "active", "card_status_at_attempt": "active",
             "spend_in_period_before_chf": None, "recent_attempt_count_10m": 0,
             "fulfillment_method": "delivery", "delivery_by": None,
-            "order_returnable": purchase.returnable, "order_cancellable": "unknown",
+            "order_returnable": returnable, "order_cancellable": "unknown",
             "related_authorization_id": None, "related_authorization_status": None,
             "purchase_description": "witness basket",
-            "items": [{"line_no": 1, "item_id": f"IT_W{index}",
-                       "item_name": f"{purchase.item_name} {index}",
-                       "item_category": purchase.category, "quantity": 1,
-                       "unit_price": purchase.amount, "currency": "CHF",
-                       "item_details": purchase.details}],
+            "items": items or [],
         },
         "mandate": {"mandate_id": mandate.mandate_id, "status": mandate.status.value,
                     "customer_id": mandate.customer_id, "card_id": mandate.card_id,
@@ -120,6 +133,30 @@ def event(mandate: MandateSnapshot, index: int, purchase: Purchase) -> dict[str,
         "runtime": {"received_at": stamp, "history_window_minutes": 10,
                     "context_basis": "run_decisions_and_scenario_timestamps"},
     }
+
+
+def judge_event(mandate: MandateSnapshot, index: int, merchant: str, category: str,
+                lines: tuple, *, familiar: frozenset[str] = frozenset()) -> str:
+    """The engine's verdict on a MULTI-LINE basket at a named shop, from a fresh run
+    state. `scope.py` calls this several hundred times to count what a mandate
+    permits, so it takes the basket directly rather than a `Purchase`.
+
+    Fresh state on every call because an acceptance SET is a property of the mandate
+    and the world, not of what has already been bought. What accumulated spend does
+    is take purchases away from that set, never add them -- which is the invariant
+    `research/acceptance_set.py` checks against four different brains."""
+    total = float(sum((price for _id, _name, price in lines), Decimal("0")))
+    event = event_for(mandate, index, amount=total, category=category,
+                      merchant=merchant,
+                      items=[{"line_no": i, "item_id": item_id, "item_name": name,
+                              "item_category": category, "quantity": 1,
+                              "unit_price": float(price), "currency": "CHF",
+                              "item_details": ""}
+                             for i, (item_id, name, price) in enumerate(lines, start=1)])
+    known = familiar or frozenset({merchant})
+    state = RunState(history=HistoryIndex({CARD: frozenset(known)}, available=True),
+                     card_id=CARD)
+    return evaluate_authorization(event, mandate, state).decision
 
 
 def judge(rules: list[HardRule], uncertainty: UncertaintyPolicy, purchase: Purchase,

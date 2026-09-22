@@ -641,6 +641,31 @@ def mandate_ambiguity(req: CompileRequest) -> dict[str, Any]:
     return {"instruction": req.instruction, "witnesses": found_all, "available": True}
 
 
+@app.post("/api/mandates/size")
+def mandate_size(req: CompileRequest) -> dict[str, Any]:
+    """How many purchases does this sentence authorise, out of how many exist?
+
+    The rules a customer is shown are true and are not an answer to the question
+    they actually have, which is how much rope they just handed over. So count it:
+    every basket this world can produce, each put through the REAL engine under the
+    drafted mandate.
+
+    The absolute figures are a function of the enumeration's bound (one shop, up to
+    five lines, the official catalogue) and mean nothing on their own. What carries
+    meaning is how they MOVE when a clause is added -- "at or below CHF 120" removes
+    450 of 595 -- which is the only honest answer to "what did that word do?".
+    """
+    from .scope import delegation_size
+
+    policy = None
+    if req.uncertainty_policy:
+        try:
+            policy = UncertaintyPolicy(req.uncertainty_policy)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="unknown uncertainty policy")
+    return delegation_size(req.instruction, policy)
+
+
 @app.post("/api/mandates/read-back")
 def mandate_read_back(req: CompileRequest) -> dict[str, Any]:
     """Which of your words did the compiler actually read?
