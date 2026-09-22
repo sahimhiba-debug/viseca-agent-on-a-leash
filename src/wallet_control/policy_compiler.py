@@ -92,7 +92,22 @@ _AMOUNT_RE = re.compile(
            under|below|less\ than|a\ maximum\ of|maximum\ of|max\ of|max|
            capped\ at|limited\ to|no\ higher\ than|nothing\ over|nothing\ above|
            (?:do\ not|don't|doesn't|does\ not)\ (?:exceed|go\ over|go\ above)|
-           not\ exceeding|within|up\ to\ a\ limit\ of|budget(?:\ of)?)\s*
+           not\ exceeding|within|up\ to\ a\ limit\ of|budget(?:\ of)?|
+           # Added after an INDEPENDENT corpus -- phrases written from a taxonomy of
+           # what a person might say, not from this file -- found four amount
+           # restrictions the compiler did not recognise. Each is unambiguously a
+           # maximum; none invents a semantics the customer did not state. They were
+           # already SAFE (no rule, and the customer was told before confirming), so
+           # this buys recognition rather than safety.
+           #
+           # "Don't let any single order exceed CHF 120"  -- negation, then words, then exceed
+           (?:do\ not|don't|does\ not|doesn't|must\ not|mustn't)\ (?:\w+\ ){0,4}?(?:exceed|go\ over|go\ above)|
+           # "I don't want to pay more than CHF 120 at a time"
+           (?:do\ not|don't)\ want\ to\ (?:pay|spend)\ more\ than|
+           # "Cap each order at CHF 120"
+           cap\ (?:\w+\ ){0,3}?at|
+           # "No order above CHF 120"
+           no\ \w+\ above)\s*
         CHF\s*(?P<v1>[\d.,]+)
         | CHF\s*(?P<v2>[\d.,]+)\s*(?:or\ less|or\ below|maximum|max\b|cap\b|ceiling|limit)
         | at\ or\ below\s*CHF\s*(?P<v3>[\d.,]+)
@@ -138,6 +153,30 @@ _STRICT_LIMIT_RE = re.compile(
     r"(?<!at\ or\ )\b(?:under|below|less\s+than)\s*CHF\s*[\d.,]+",
     re.IGNORECASE | re.VERBOSE,
 )
+
+# The period word can also come FIRST -- "weekly spending must not exceed CHF 300".
+#
+# Added after widening the amount vocabulary re-created the inversion this file
+# already warns about at length: "must not exceed" newly matched, so a WEEKLY cap
+# compiled to `scope=purchase` and the agent could spend CHF 300 every order against
+# a customer who had written CHF 300 a week. Found by attacking the change rather
+# than by the suite, which had no phrase of this shape.
+#
+# Deliberately tight: the period word must attach to a SPEND noun. "Order groceries
+# weekly, each order under CHF 120" must stay a per-order ceiling, and it does,
+# because "weekly" there qualifies the ordering and not a total.
+_PERIOD_THEN_AMOUNT_RE = re.compile(
+    r"""
+    (?P<word>weekly|monthly|daily|yearly|fortnightly)\s+
+    (?:spend|spending|total|budget|limit|outlay)
+    .{0,40}?
+    CHF\s*(?P<amount>[\d.,]+)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_PERIOD_ADJECTIVE_DAYS = {"daily": 1, "weekly": 7, "fortnightly": 14,
+                          "monthly": 30, "yearly": 365}
 
 _TOTAL_AMOUNT_RE = re.compile(
     r"CHF\s*(?P<amount>[\d.,]+)\s*(?:in\s+total|total|overall|altogether|in\s+all)\b",
@@ -448,6 +487,9 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
         else:
             days = _PERIOD_WORD_DAYS[m.group("word").lower()]
         period_amounts.append((_parse_amount(m.group("amount")), days))
+    for m in _PERIOD_THEN_AMOUNT_RE.finditer(text):
+        period_amounts.append((_parse_amount(m.group("amount")),
+                               _PERIOD_ADJECTIVE_DAYS[m.group("word").lower()]))
     period_amount_values = {a for a, _ in period_amounts}
 
     # "no more than CHF 50 IN TOTAL" is the same inversion as "per week", pointing at
