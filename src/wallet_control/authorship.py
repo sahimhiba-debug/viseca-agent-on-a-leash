@@ -52,6 +52,16 @@ def check_field(model: str, field: str, author: str | None) -> list[Violation]:
     """
     problems: list[Violation] = []
 
+    # A name has to be a name. Not a security property -- this check is advisory --
+    # but an empty or 5,000-character field sailing through makes the tool look like
+    # it is not reading its input, which costs more than the check does.
+    field = (field or "").strip()
+    if not field or len(field) > 64:
+        problems.append(Violation(
+            "a field has a name", f"{model}.{field[:24]}",
+            "a field name must be 1-64 characters"))
+        return problems
+
     if author is None:
         problems.append(Violation(
             "every field declares an author", f"{model}.{field}",
