@@ -186,7 +186,14 @@ _TOTAL_AMOUNT_RE = re.compile(
 _AMOUNT_THEN_PERIOD_RE = re.compile(
     r"""
     CHF\s*(?P<amount>[\d.,]+)
-    [^.;]{0,30}?                                   # same clause only -- never across a full stop
+    # Same clause only -- never across a full stop, AND never across another amount.
+    # Without the CHF guard the lazy skip jumped over one: in "at or below CHF 120
+    # per order, and CHF 300 across any 7 days" it paired CHF 120 with "7 days",
+    # producing a CHF 120 WEEKLY budget and dropping the CHF 300 the customer had
+    # actually written. Two constraints in, one wrong constraint out. Found by
+    # asking whether the text the customer CONFIRMS compiles back to the policy the
+    # wallet ENFORCES -- it did not.
+    (?:(?!CHF)[^.;]){0,30}?
     \b(?:per|a|each|every|in\ any|over\ any|across\ any|within\ any|in|over)\s+
     (?:(?P<days>\d+)\s*days?
        |(?P<daywords>seven|fourteen|thirty|ten|twenty|sixty|ninety)\s*days?
@@ -197,10 +204,6 @@ _AMOUNT_THEN_PERIOD_RE = re.compile(
 
 _WORDS_TO_NUM = {"seven": 7, "ten": 10, "fourteen": 14, "twenty": 20,
                  "thirty": 30, "sixty": 60, "ninety": 90}
-
-_PER_ORDER_LABEL_RE = re.compile(
-    r"(?:per\s+order|each\s+order|per\s+purchase|per\s+transaction)", re.IGNORECASE
-)
 
 _FAMILIARITY_RE = re.compile(
     r"""
@@ -544,7 +547,16 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
                 scope="purchase",
             )
         )
-        guidance.append(f"Each order must total CHF {per_order_amount:g} or less, including delivery.")
+        # The wording has to match the OPERATOR, not just the number. "under CHF
+        # 120" compiles to `< 120`, and this line said "CHF 120 or less" -- which
+        # describes `<= 120`. The customer confirmed text one rappen more permissive
+        # than the rule being enforced, so an order of exactly CHF 120.00 was refused
+        # by a wallet whose own confirmation screen said it was allowed.
+        guidance.append(
+            f"Each order must total less than CHF {per_order_amount:g}, including delivery."
+            if per_order_operator == "<"
+            else f"Each order must total CHF {per_order_amount:g} or less, including delivery."
+        )
     else:
         open_questions.append(
             "No per-order spending ceiling was recognized in the instruction. "
