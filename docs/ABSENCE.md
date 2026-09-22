@@ -143,6 +143,28 @@ long.
 
 ---
 
+## The eighth, where the answer is neither a default nor a refusal
+
+`register_run` with no checkpoint file starts with **empty spend history**, so any
+rolling limit begins again from zero and the cap can be approved a second time. The
+missing thing is a *file*, so none of the sweeps above reaches it.
+
+And here the rule runs out. Nothing available to the worker can rebuild the figure —
+`reconcile_run` recovers *which* authorizations were already decided, never their
+amounts, because the platform listing "isn't documented well enough to trust a
+reconstructed amount/timestamp". So the fact cannot be routed to anyone who has it.
+Refusing would be worse: it strands every genuinely new run.
+
+What is left is the third option, and it is the honest one: **make the absence
+loud.** That branch now logs a warning naming the consequence, and
+`WHAT_WE_REFUSE_TO_CLAIM.md` carries the row. Before, it was the quietest path in
+the file — the restore branch logged, and the branch that resets the customer's
+allowance said nothing at all.
+
+> When a missing fact cannot be supplied by anyone, the rule becomes: **do not let
+> it be silent.** A default that nobody can see is the whole failure mode; a
+> disclosed one is a decision the operator gets to make.
+
 ## The gate
 
 Seven instances is a pattern, and a pattern that lives only in a document comes back.

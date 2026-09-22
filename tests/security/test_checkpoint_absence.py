@@ -198,3 +198,65 @@ def test_a_faithful_round_trip_is_unchanged():
     assert restored.rolling_spend_chf(AT + timedelta(days=1), 7) == \
         state.rolling_spend_chf(AT + timedelta(days=1), 7)
     assert restored.total_approved_spend_chf() == Decimal("400")
+
+
+# ------------------------------------------- the absence that cannot be filled
+def test_a_missing_checkpoint_is_loud_about_resetting_the_window(tmp_path, caplog):
+    """The eighth boundary, and the one where the principle's answer is neither a
+    default nor a refusal.
+
+    `register_run` with no checkpoint file starts with EMPTY spend history, so any
+    rolling limit begins again from zero and the cap can be approved a second time.
+    Nothing available to the worker can rebuild the figure: `reconcile_run` recovers
+    WHICH authorizations were decided, never their amounts, because the platform
+    listing is not documented well enough to trust a reconstructed one.
+
+    So the absence cannot be filled -- and refusing would strand every genuinely new
+    run. What is left is to make it loud. This used to be the quietest path in the
+    file: the restore branch logged, and the branch that resets the customer's
+    allowance logged nothing at all."""
+    import logging
+
+    from wallet_control.live_worker import LiveWorker
+
+    worker = LiveWorker.__new__(LiveWorker)
+    worker._checkpoint_dir = tmp_path
+    worker._history = _history()
+    worker._runs = {}
+    import threading
+    worker._lock = threading.RLock()
+
+    with caplog.at_level(logging.WARNING, logger="wallet_control.live_worker"):
+        handle = worker.register_run("RUN_NEW", _mandate())
+
+    assert handle.state.total_approved_spend_chf() == Decimal("0")
+    warnings = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert warnings, "a reset allowance must not be the quietest path in the file"
+    message = " ".join(warnings).lower()
+    assert "no checkpoint" in message
+    assert "empty spend history" in message
+    assert "second time" in message, "the CONSEQUENCE must be named, not just the cause"
+
+
+def test_a_present_checkpoint_does_not_warn(tmp_path, caplog):
+    """The control. A warning on every run is a warning nobody reads."""
+    import json as _json
+    import logging
+    import threading
+
+    from wallet_control.live_worker import LiveWorker
+
+    state = _issued()
+    (tmp_path / "RUN_OLD.json").write_text(_json.dumps(state.to_snapshot()))
+
+    worker = LiveWorker.__new__(LiveWorker)
+    worker._checkpoint_dir = tmp_path
+    worker._history = _history()
+    worker._runs = {}
+    worker._lock = threading.RLock()
+
+    with caplog.at_level(logging.WARNING, logger="wallet_control.live_worker"):
+        handle = worker.register_run("RUN_OLD", _mandate())
+
+    assert handle.state.total_approved_spend_chf() == Decimal("400")
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []

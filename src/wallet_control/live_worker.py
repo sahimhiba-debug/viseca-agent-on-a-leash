@@ -204,6 +204,24 @@ class LiveWorker:
         tmp.replace(path)  # atomic on POSIX and Windows: never leaves a half-written checkpoint
 
     def register_run(self, run_id: str, mandate: MandateSnapshot) -> RunHandle:
+        """Restore this run's state, or start a fresh one.
+
+        A FRESH STATE HAS ZERO SPEND IN IT, and that is the permissive branch: the
+        rolling window starts again, so a run whose checkpoint is missing may spend
+        the cap a second time. Nothing here can recover the figure -- `reconcile_run`
+        says in its own docstring that the platform listing is not documented well
+        enough to trust a reconstructed amount -- so the absence cannot be filled and
+        must instead be made LOUD. It used to be the quietest path in the file: the
+        restore branch logged, and the branch that resets the customer's allowance
+        logged nothing at all.
+
+        This is the same mistake as the six in `docs/ABSENCE.md` at a boundary none
+        of those sweeps reach, because the missing thing is a FILE rather than a
+        field. The honest answer here is not a default and not a refusal -- refusing
+        would strand every genuinely new run -- it is to say so where an operator
+        will see it, and to disclose the consequence in
+        `docs/WHAT_WE_REFUSE_TO_CLAIM.md` rather than imply a bound we do not hold.
+        """
         with self._lock:
             path = self._checkpoint_path(run_id)
             if path is not None and path.exists():
@@ -211,6 +229,13 @@ class LiveWorker:
                 state = RunState.from_snapshot(snapshot, self._history)
                 logger.info("run_id=%s: restored %d prior decisions from checkpoint %s", run_id, len(snapshot["decisions"]), path)
             else:
+                if path is not None:
+                    logger.warning(
+                        "run_id=%s: no checkpoint at %s; starting with EMPTY spend history. "
+                        "Any rolling-window limit in this mandate begins again from zero, "
+                        "so this run may approve up to the cap a second time. Nothing "
+                        "available to this worker can reconstruct the earlier figure.",
+                        run_id, path)
                 state = RunState(history=self._history, card_id=mandate.card_id)
             handle = RunHandle(run_id=run_id, mandate=mandate, state=state)
             self._runs[run_id] = handle
