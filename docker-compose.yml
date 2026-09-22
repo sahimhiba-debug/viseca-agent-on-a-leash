@@ -31,6 +31,7 @@ services:
     command: >
       sh -c "pip install --no-cache-dir '.[dev]' >/dev/null &&
              python3 -m pytest -q &&
+             python3 scripts/run_authorship_audit.py &&
              python3 scripts/run_replay.py &&
              python3 research/planning_benchmark.py &&
              python3 research/control_comparison.py"

@@ -56,6 +56,19 @@
   .card > h2 { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink3); margin:0 0 10px; font-weight:750; }
   .lede2 { font-size:21px; font-weight:750; line-height:1.28; letter-spacing:-.02em;
            margin:0 0 10px; }
+  .six { margin:12px 0 0; padding:0; list-style:none; }
+  .six li { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);
+            font-size:13.5px; align-items:baseline; flex-wrap:wrap; }
+  .six li:last-child { border-bottom:none; }
+  .six .who { flex:0 0 auto; font-size:10px; font-weight:800; letter-spacing:.04em;
+              text-transform:uppercase; border-radius:7px; padding:3px 8px;
+              background:var(--block-bg); color:var(--block); }
+  .six .fact { flex:1 1 140px; }
+  .six .cost { flex:1 1 100%; font-size:12px; color:var(--ink3); }
+  .verdictbox { margin-top:12px; border-radius:11px; padding:12px 13px; font-size:14px; }
+  .verdictbox.ok { background:var(--allow-bg); color:var(--allow); }
+  .verdictbox.no { background:var(--block-bg); color:var(--block); }
+  .verdictbox b { display:block; margin-bottom:3px; }
   .sa { margin:14px 0 0; padding:0; list-style:none; }
   .sa li { display:flex; gap:11px; align-items:center; padding:11px 0;
            border-bottom:1px solid var(--line); flex-wrap:wrap; }
@@ -385,6 +398,30 @@
     <p class="tiny" id="atk-sum" style="margin:9px 0 0"></p>
   </div>
   <div id="atks"></div>
+
+  <div class="card">
+    <h2>Six vulnerabilities. One bug.</h2>
+    <p class="muted">Every defect this project found in its own code — six of them, in
+      six separate campaigns, fixed weeks apart — turned out to be the same thing:
+      <b>a fact accepted from a party that is not its author</b>.</p>
+    <ul class="six" id="six"></ul>
+    <p class="lede2" style="margin:14px 0 4px">Delegation is not about what an agent
+      may spend.<br>It is about which facts it may author.</p>
+    <p class="muted" style="margin-top:10px">Four of the six arrived the same way: someone
+      added a field. So try it. Type a field you would like the <b>agent</b> to be able
+      to send, and the real rule will answer — the same function the build runs.</p>
+    <div class="row2" style="margin-bottom:8px">
+      <input id="af-name" placeholder="e.g. max_amount" value="max_amount"
+             style="font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:11px;min-height:var(--tap)">
+      <select id="af-author" style="flex:0 0 132px">
+        <option value="agent">by the agent</option>
+        <option value="customer">by the customer</option>
+        <option value="">(undeclared)</option>
+      </select>
+    </div>
+    <button class="act b-dark" onclick="proposeField()">Add it to the agent's request</button>
+    <div id="af-out"></div>
+  </div>
 </section>
 
 <!-- ========== AUDIT ========== -->
@@ -497,6 +534,39 @@ async function runSameAmount(){
     </details>`;
 }
 
+const SIX = [
+  ["the agent",   "the customer\u2019s policy",        "CHF 500 refused \u2192 allowed under a self-set CHF 900"],
+  ["the agent",   "the scope of the budget",           "CHF 1,296 against a stated CHF 300 / 7 days"],
+  ["the caller",  "when the customer confirmed",       "an audit entry attributed to the customer, stamped 1999"],
+  ["the caller",  "the words shown to the customer",   "a dead field, one commit from being live"],
+  ["the caller",  "whether to re-check the window",    "omitting an argument skipped the check"],
+  ["the platform","the customer\u2019s confirmed rules","CHF 9,000 at an unknown seller, block \u2192 allow"],
+];
+function renderSix(){
+  const el = document.getElementById('six'); if(!el) return;
+  el.innerHTML = SIX.map(([who,fact,cost])=>`<li>
+    <span class="who">${esc(who)}</span>
+    <span class="fact">wrote ${esc(fact)}</span>
+    <span class="cost">${esc(cost)}</span></li>`).join('');
+}
+
+async function proposeField(){
+  const field = document.getElementById('af-name').value.trim();
+  const author = document.getElementById('af-author').value || null;
+  const out = document.getElementById('af-out');
+  if(!field){ out.innerHTML=''; return; }
+  const r = await fetch('/api/authorship/propose-field', {method:'POST',
+    headers:{'content-type':'application/json'},
+    body: JSON.stringify({model:'AgentProposal', field, author})});
+  const v = await r.json();
+  out.innerHTML = v.accepted
+    ? `<div class="verdictbox ok"><b>Accepted.</b>
+        <code>${esc(field)}</code> may be written by ${esc(author||'\u2014')}: it says what the
+        agent <i>wants</i>, not what it is judged by.</div>`
+    : `<div class="verdictbox no"><b>Refused \u2014 the build would fail.</b>
+        ${v.violations.map(x=>esc(x.detail)).join(' ')}</div>`;
+}
+
 async function renderAskTable(){
   try{
     const card = await (await fetch('card-control.json')).json();
@@ -527,6 +597,7 @@ async function boot(){
     SCEN.map(s=>`<option value="${s.scenario_id}">${esc(s.scenario_name)}</option>`).join('');
   showInstr();
   renderAskTable();
+  renderSix();
 }
 // The shop the browser agent can see. Two merchants, published return windows --
 // the same shape `research/shopping_agent.Offer` carries, because this loop is a

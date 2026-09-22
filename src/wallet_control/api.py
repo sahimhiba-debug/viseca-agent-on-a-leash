@@ -117,15 +117,17 @@ FIELD_AUTHORS: dict[tuple[str, str], str] = {
     ("MandateForSession", "instruction"): "customer",
     ("CompileRequest", "instruction"): "customer",
     ("ResolveRequest", "decision"): "customer",
+    # The audit's own request model. It caught this one the moment it was added,
+    # which is the shortest possible demonstration that the rule is live rather
+    # than descriptive: the endpoint built to check authorship failed the check.
+    ("ProposedField", "model"): "customer",
+    ("ProposedField", "field"): "customer",
+    ("ProposedField", "author"): "customer",
 }
 
-# Facts the wallet reasons WITH. No agent-authored field may appear here, and the
-# audit fails if one ever does.
-POLICY_BEARING = frozenset({
-    "instruction", "hard_rules", "uncertainty_policy", "confirmed_at",
-    "confirmed_rules", "customer_message", "mandate", "policy_version",
-    "spend", "budget", "window", "period_days", "scope",
-})
+# The RULES live in `authorship.py` so the audit script and the live endpoint check
+# the same thing rather than two things that agree today.
+from .authorship import POLICY_BEARING, check_field, check_registry  # noqa: E402,F401
 
 
 class CompileRequest(BaseModel):
@@ -393,6 +395,58 @@ def customer_sessions() -> dict[str, Any]:
                           "started": r.confirmed_at.isoformat() if r.confirmed_at else None,
                           "attempts": len(r.order)}
                          for r in seen.values()]}
+
+
+class ProposedField(BaseModel):
+    """A field somebody wants to add, for the audit to judge."""
+
+    model: str = "AgentProposal"
+    field: str
+    author: str | None = None
+
+
+@app.get("/api/authorship")
+def authorship() -> dict[str, Any]:
+    """Who may write which fact, and whether anything currently violates that.
+
+    Run live against the loaded module rather than reported from a file, so the
+    answer is about the code that is actually serving this request.
+    """
+    declared = {name: tuple(obj.model_fields)
+                for name, obj in globals().items()
+                if isinstance(obj, type) and issubclass(obj, BaseModel) and obj is not BaseModel}
+    violations = check_registry(FIELD_AUTHORS, declared)
+    by_author: dict[str, list[str]] = {}
+    for (model, field), author in sorted(FIELD_AUTHORS.items()):
+        by_author.setdefault(author, []).append(f"{model}.{field}")
+    return {
+        "fields": [{"model": m, "field": f, "author": a}
+                   for (m, f), a in sorted(FIELD_AUTHORS.items())],
+        "by_author": by_author,
+        "policy_bearing": sorted(POLICY_BEARING),
+        "violations": [v.as_dict() for v in violations],
+        "clean": not violations,
+    }
+
+
+@app.post("/api/authorship/propose-field")
+def authorship_propose_field(req: ProposedField) -> dict[str, Any]:
+    """Ask the real rule what it would say about a field somebody wants to add.
+
+    This is not a simulation of the check -- it calls the same `check_field` the
+    audit script calls. Adding a field is how four of the six historical defects
+    arrived, so being able to TRY it, live, is the clearest demonstration of what
+    the rule actually does.
+
+    Nothing is mutated. The answer is advisory in exactly the way a build failure
+    is advisory.
+    """
+    violations = check_field(req.model, req.field, req.author)
+    return {
+        "model": req.model, "field": req.field, "author": req.author,
+        "accepted": not violations,
+        "violations": [v.as_dict() for v in violations],
+    }
 
 
 @app.get("/api/customer/delegations")
