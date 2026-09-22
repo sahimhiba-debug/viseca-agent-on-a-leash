@@ -128,3 +128,10 @@ long.
 * **`unknown` is not free.** Routing more facts to `unknown` moves work onto the
   customer, and a wallet that asks about everything is a wallet nobody reads. The
   witness panels exist to spend that budget where a purchase actually changes.
+* **And the defence has a measured price.** On the official catalogue, **0 of 7**
+  grocery items publish a return window, so `uncertainty_policy = decline` turns
+  "only buy what I can send back" into an agent that buys nothing at all. The
+  control — clothing, where 4 of 7 publish — completes the same errand under the
+  same setting, for CHF 30 more. So the expensive thing is not declining; it is
+  **requiring evidence nobody publishes**, and the wallet's job is to show the
+  customer that before they confirm rather than to choose for them.

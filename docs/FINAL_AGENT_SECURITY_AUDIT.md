@@ -126,6 +126,34 @@ mandate. `decline` closes this completely and closes nothing else selectively:
 > witness is in the product: `POST /api/mandates/silence`, rendered on the Delegate
 > tab with the dial the customer can move.
 
+### What the defence costs — the result that contradicts the easy recommendation
+
+"Just set `decline`" is only an answer if it leaves the customer with an agent that
+can still do the errand. Measured on the **official catalogue**, with which items
+publish return terms read from `purchase_attempt_items.csv` rather than invented:
+
+| errand | items publishing a window | `approve` | `decline` |
+| --- | --- | --- | --- |
+| **groceries** | **0 of 7** | approved, CHF 100, 3 lines | **gave up after 5 attempts, CHF 0** |
+| clothing (control) | 4 of 7 | approved, CHF 340, 3 lines | approved, **CHF 370**, 3 lines |
+
+A customer who attaches "returnable within 14 days" to a **grocery** errand has
+written a rule no seller in that catalogue can satisfy — which is realistic, because
+nobody offers a fourteen-day return on fruit. Under `approve` they buy groceries and
+the rule does nothing. Under `decline` the rule works and they buy nothing. There is
+no middle, because `uncertainty_policy` is one dial for every rule at once.
+
+**The control is what makes the claim precise.** Same catalogue, same agent, same
+engine, an errand where sellers do publish: the strictest setting completes it. So
+
+> **`decline` is not what costs. Requiring evidence nobody publishes is.**
+
+And enforcement is not free even where it works: under `decline` the agent shopped
+toward sellers who state their terms and paid **CHF 30 more** for the same three
+lines. That premium — not a failed errand — is the real price of a requirement the
+market can meet. None of this is the wallet's choice to make, which is why the
+Delegate tab shows it before the customer confirms.
+
 **What is NOT claimed.** Exactly two rules are exposed this way and they are named
 rather than generalised: `order.return_window_days` and `item.size`. `merchant.familiar`
 also has an UNKNOWN branch and is **not** exposed — it goes unknown only when the

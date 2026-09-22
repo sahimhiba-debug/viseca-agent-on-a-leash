@@ -36,7 +36,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from research.silence_channel import (  # noqa: E402
-    ERASURES, erasure_violations, every_field_emptied, vocabulary_exhaustive,
+    ERASURES, cost_of_declining, erasure_violations, every_field_emptied,
+    vocabulary_exhaustive,
 )
 from wallet_control.mandate import UncertaintyPolicy  # noqa: E402
 from wallet_control.silence import silence_witness  # noqa: E402
@@ -161,3 +162,55 @@ def test_only_the_two_documented_fields_help_when_emptied(swept):
 def test_emptying_a_field_never_turns_a_refusal_into_a_silent_approval(swept):
     """Under `decline`, nothing anywhere in the event helps."""
     assert [f for f in swept["findings"] if f["policy"] == "decline"] == []
+
+
+# ------------------------------------------------ what the defence costs, and why
+@pytest.fixture(scope="module")
+def cost_groceries():
+    return cost_of_declining(category="groceries")
+
+
+@pytest.fixture(scope="module")
+def cost_clothing():
+    return cost_of_declining(category="clothing")
+
+
+def test_no_grocery_item_in_the_official_catalogue_publishes_a_return_window(cost_groceries):
+    """The fact the whole trade-off rests on, read from the official data rather than
+    assumed. Nobody offers a fourteen-day return on fruit."""
+    assert cost_groceries["published"] == 0, cost_groceries
+    assert cost_groceries["catalogue"] >= 5
+
+
+def test_declining_costs_the_whole_errand_when_no_seller_publishes(cost_groceries):
+    """The result that contradicts the easy recommendation, and is reported anyway.
+
+    A customer who attaches "returnable within 14 days" to a grocery errand has
+    written a rule no seller in the catalogue can satisfy. Under `approve` they buy
+    groceries and the rule does nothing; under `decline` the rule works and they buy
+    nothing. There is no middle, because `uncertainty_policy` is one dial for every
+    rule at once."""
+    by_policy = {r["policy"]: r for r in cost_groceries["rows"]}
+    assert by_policy["approve"]["lines_bought"] > 0
+    assert by_policy["approve"]["outcome"] == "approved"
+    assert by_policy["decline"]["lines_bought"] == 0
+    assert by_policy["decline"]["approved_chf"] == 0
+
+
+def test_but_declining_itself_is_not_what_costs(cost_clothing):
+    """THE CONTROL, and it is what makes the claim precise. Where sellers do publish
+    -- clothing, in the same catalogue, with the same agent and the same engine --
+    the strictest setting completes the errand. So the expensive thing is not
+    `decline`. It is requiring evidence nobody publishes."""
+    assert cost_clothing["published"] >= 3, cost_clothing
+    by_policy = {r["policy"]: r for r in cost_clothing["rows"]}
+    assert by_policy["decline"]["outcome"] == "approved"
+    assert by_policy["decline"]["lines_bought"] == by_policy["approve"]["lines_bought"]
+
+
+def test_enforcement_has_a_price_and_it_is_the_basket_not_the_errand(cost_clothing):
+    """Under `decline` the agent shops toward sellers who state their terms, and pays
+    for it. That premium -- not a failed errand -- is the real cost of enforcing a
+    requirement the market can actually meet."""
+    by_policy = {r["policy"]: r for r in cost_clothing["rows"]}
+    assert by_policy["decline"]["approved_chf"] >= by_policy["approve"]["approved_chf"]
