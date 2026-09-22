@@ -808,7 +808,7 @@ async function runAdversarial(sid){
 function renderAdversarial(out){
   const broke = out.filter(o=>o.v.decision==='allow' && o.a.expected==='refused');
   document.getElementById('ag-under').textContent =
-    'Eight attacks from the agent\u2019s chair, against the same wallet, live.';
+    'Eight hostile shopping strategies, driving the same loop against the same wallet, live.';
   document.getElementById('ag-sum').innerHTML = broke.length
     ? '<b style="color:var(--block)">'+broke.length+' attack(s) obtained an approval they should not have.</b> That is a real regression.'
     : '<b>No attack obtained anything your rules forbid.</b> Not all eight are <i>blocked</i>, and saying so would be false. '

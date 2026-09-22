@@ -274,7 +274,7 @@ attacks that killed it.
 
 1. *(15s)* Customer writes a sentence. Show the compiled policy **and the two
    disclosures** — the rolling cap paces rather than caps; it is per session.
-2. *(30s)* Run the attacks endpoint: eight attacks against the real engine.
+2. *(30s)* Run the attacks endpoint: nine attacks against the real engine, one of which succeeds and says so.
 3. *(30s)* The empty-basket attack, live: a CHF 400 purchase with no items used to
    satisfy four item restrictions. Now blocked under every policy.
 4. *(20s)* `python3 scripts/run_mutation_probe.py` — break the wallet on purpose,

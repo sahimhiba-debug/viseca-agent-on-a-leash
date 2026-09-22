@@ -34,7 +34,7 @@ mechanism — and it forced a genuine security question rather than dodging one.
    refused. CHF 137 → refused. **CHF 87 → allowed.** Point at what the agent was
    told: `blocked_by: [amount]`. *"No amount. No limit. No remaining budget. It
    stopped at 87, not 119.99 — because it never learned the number."*
-3. *(15s)* **Attacks tab.** Eight attacks, live, against the same engine.
+3. *(15s)* **Attacks tab.** Nine attacks, live, against the same engine — **eight stopped, and one is not**, with the argument attached.
 4. *(10s)* **`WHAT_WE_REFUSE_TO_CLAIM.md`.** *"This is the part we'd rather you read."*
 
 Everything is reproducible; nothing is staged; the fixed simulated clock makes the
