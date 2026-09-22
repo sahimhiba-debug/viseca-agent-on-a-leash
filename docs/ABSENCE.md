@@ -108,6 +108,7 @@ long.
 | `research/silence_channel.py` part 1 | 6,864 (purchase, erasure) pairs | 52 violations, 0 under `decline` |
 | `research/silence_channel.py` part 3 | every field `rules.py` evaluates, read from its source | no rule can be made to FAIL by silence |
 | `research/silence_channel.py` part 4 | 657 field-emptying variants | exactly 2 fields help, both documented |
+| ...and its own second-order attack | 15,763 PAIRS where neither field alone helped | 0 masked vacuities |
 | `research/unconsumed_intent.py` | 20 ordinary phrasings + 33 well-formed sentences | 19/20 detected, 0 false positives |
 | `tests/security/test_absent_fields_are_not_values.py` | the agent's own boundary | 17 assertions, including the absences that must stay legal |
 
@@ -115,9 +116,11 @@ long.
 
 ## What this does not claim
 
-* **It is not a proof.** Six instances and four exhaustive sweeps over *this* engine.
-  A seventh boundary may exist; the sweeps are bounded by the fields they enumerate,
-  and each one says so.
+* **It is not a proof.** Six instances and five sweeps over *this* engine. A seventh
+  boundary may exist; every sweep is bounded by the fields it enumerates, and each
+  one says so. The field sweep was first-order until it was attacked for being
+  first-order — 15,763 pairs later it still holds, which is evidence and not a
+  theorem. Nothing here rules out a third- or higher-order vacuity.
 * **It does not close the seller channel.** `uncertainty_policy = decline` closes it
   completely and closes nothing else selectively, because the official mandate format
   has one uncertainty dial for a question that is per-rule. That is a gap in the

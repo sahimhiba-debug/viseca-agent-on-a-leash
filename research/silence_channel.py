@@ -582,6 +582,73 @@ def cost_of_declining(*, category: str = "groceries", target_lines: int = 3,
             "published": len(published), "rows": rows}
 
 
+def pairs_of_emptied_fields() -> dict[str, Any]:
+    """Attacking Part 4's own claim. It is a FIRST-ORDER sweep: it empties one field
+    at a time, so it cannot see a vacuity that needs two absences together -- one
+    field masking the other's effect until both are gone.
+
+    So: every pair where NEITHER field alone made the purchase more acceptable, and
+    the question asked again of the pair. If a masked vacuity existed anywhere in
+    the event, this is where it would show.
+    """
+    import itertools
+
+    found, pairs = [], 0
+    for policy in (UncertaintyPolicy.ASK, UncertaintyPolicy.DECLINE, UncertaintyPolicy.APPROVE):
+        mandate = make_mandate(instruction="Order coffee.", uncertainty_policy=policy,
+                               hard_rules=_PROBE_RULES, card_id=CARD)
+        shapes = (("allows", 50.0, "returns accepted within 30 days", "true"),
+                  ("blocks on amount", 500.0, "returns accepted within 30 days", "true"),
+                  ("blocks on returns", 50.0, "returns accepted within 5 days", "true"))
+        for label, amount, details, returnable in shapes:
+            base = make_event(mandate=mandate, authorization_id="AU_P", amount=amount,
+                              merchant_id=PLAIN, timestamp=AT, card_id=CARD,
+                              order_returnable=returnable)
+            base["authorization"]["items"][0].update(
+                item_name="coffee beans", item_category="groceries", item_details=details)
+            before = evaluate_authorization(copy.deepcopy(base), mandate, _probe_state()).decision
+
+            alone: dict[tuple, str] = {}
+            for path, value in list(_leaf_paths(base["authorization"])):
+                for emptied in ([None, ""] if isinstance(value, str) else [None]):
+                    event = copy.deepcopy(base)
+                    try:
+                        _set_path(event["authorization"], path, emptied)
+                    except Exception:                      # noqa: BLE001
+                        continue
+                    try:
+                        alone[(path, emptied)] = evaluate_authorization(
+                            event, mandate, _probe_state()).decision
+                    except Exception:                      # noqa: BLE001
+                        alone[(path, emptied)] = "error"
+
+            for (path_a, empty_a), (path_b, empty_b) in itertools.combinations(alone, 2):
+                if path_a == path_b:
+                    continue
+                verdicts = (alone[(path_a, empty_a)], alone[(path_b, empty_b)])
+                if "error" in verdicts:
+                    continue
+                if any(PERMISSIVENESS[v] > PERMISSIVENESS[before] for v in verdicts):
+                    continue                               # already a first-order finding
+                event = copy.deepcopy(base)
+                try:
+                    _set_path(event["authorization"], path_a, empty_a)
+                    _set_path(event["authorization"], path_b, empty_b)
+                except Exception:                          # noqa: BLE001
+                    continue
+                pairs += 1
+                try:
+                    after = evaluate_authorization(event, mandate, _probe_state()).decision
+                except Exception:                          # noqa: BLE001
+                    continue
+                if PERMISSIVENESS[after] > PERMISSIVENESS[before]:
+                    found.append({"policy": policy.value, "shape": label,
+                                  "fields": [".".join(str(x) for x in path_a),
+                                             ".".join(str(x) for x in path_b)],
+                                  "before": before, "after": after})
+    return {"pairs": pairs, "masked": found}
+
+
 def main() -> int:
     print("SHOPPING FOR IGNORANCE\n")
     print('  Customer: "coffee supplies, at or below CHF 120, only things I can')
@@ -645,6 +712,10 @@ def main() -> int:
     for field in sweep["fields"]:
         print(f"       {field}")
     print("    -- the same two the rest of this file is about, and nothing else.")
+    second = pairs_of_emptied_fields()
+    print(f"\n    Attacking that claim's own shape: it is FIRST-ORDER. {second['pairs']} "
+          f"pairs where\n    neither field alone helped, asked again of the pair -- "
+          f"{len(second['masked'])} masked vacuit{'y' if len(second['masked']) == 1 else 'ies'}.")
     if sweep["crashes"]:
         kinds = sorted({c["error"] for c in sweep["crashes"]})
         print(f"\n    {len(sweep['crashes'])} raised instead of deciding ({', '.join(kinds)}).")

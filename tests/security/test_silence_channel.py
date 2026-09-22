@@ -214,3 +214,14 @@ def test_enforcement_has_a_price_and_it_is_the_basket_not_the_errand(cost_clothi
     requirement the market can actually meet."""
     by_policy = {r["policy"]: r for r in cost_clothing["rows"]}
     assert by_policy["decline"]["approved_chf"] >= by_policy["approve"]["approved_chf"]
+
+
+def test_no_vacuity_hides_behind_a_pair_of_absences():
+    """`every_field_emptied` is FIRST-ORDER: it empties one field at a time, so it
+    cannot see a vacuity that needs two absences together. This asks the question
+    again of every pair where neither field alone helped -- which is where a masked
+    vacuity would be if one existed."""
+    from research.silence_channel import pairs_of_emptied_fields
+    result = pairs_of_emptied_fields()
+    assert result["pairs"] > 10_000, result["pairs"]
+    assert result["masked"] == [], result["masked"]
