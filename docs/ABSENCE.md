@@ -139,8 +139,31 @@ long.
 | `research/unconsumed_intent.py` | 20 ordinary phrasings + 33 well-formed sentences | 19/20 detected, 0 false positives |
 | `tests/security/test_absent_fields_are_not_values.py` | the agent's own boundary | 17 assertions, including the absences that must stay legal |
 | `tests/security/test_checkpoint_absence.py` | every key `to_snapshot` writes | any partial lifecycle refused; the coherent legacy shape still restores; key lists checked against `to_snapshot` itself |
+| `tests/security/test_absence_registry.py` | **every `x.get(k, default)` and `x.get(k) or y` in the runtime** | all 13 declared with a reason; a new one fails the build |
 
 ---
+
+## The gate
+
+Seven instances is a pattern, and a pattern that lives only in a document comes back.
+So the idiom that causes it — `x.get(key, default)` and `x.get(key) or fallback` — is
+now enumerated by an AST walk over the whole runtime, and **every site must be
+declared with the reason its default is safe**. Four reasons are accepted, and every
+current site is one of them:
+
+| kind | the default is safe because | example |
+| --- | --- | --- |
+| **FACT** | the absence genuinely *is* the fact | a line with no `item_details` is a seller who published nothing → UNKNOWN, never `pass` |
+| **SENTINEL** | the default is a named "absent" value, not a legal one | `_MANDATE_STATUS_ABSENT` is not `"active"` |
+| **PROJECTION** | it is displayed, never decided on | the item name on a basket card |
+| **GUARDED** | presence is checked first, so the default is unreachable | `revoked=d.get("revoked", False)`, under the all-or-nothing lifecycle check |
+
+A new `.get` in `src/wallet_control/` fails the suite until someone writes that
+sentence. The gate does not prove the declared ones are right — it guarantees nobody
+added one without looking, which is the failure mode all seven instances shared.
+
+*Verified to bite:* adding `d.get("authority_status", "active")` to `drift.py` fails
+the test by name.
 
 ## What this does not claim
 
