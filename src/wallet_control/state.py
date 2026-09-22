@@ -220,6 +220,32 @@ class ResolutionError(ValueError):
     specific HTTP status / log message rather than a generic 400/500."""
 
 
+class CheckpointError(ValueError):
+    """A checkpoint that cannot be restored faithfully.
+
+    Raised rather than defaulted, and that is the whole point. `from_snapshot` used
+    to read the security-relevant fields with `.get(key, permissive_default)` --
+    `revoked=d.get("revoked", False)`, `consumed_at=... if d.get("consumed_at")
+    else None` -- which is the ordinary forward-compatible idiom and is exactly
+    wrong here, because every one of those defaults is the SPENDABLE branch.
+
+    Measured, before the fix, on a snapshot with one key removed:
+
+        drop `consumed_at`  ->  a spent authority is spendable again   DOUBLE SPEND
+        drop `revoked`      ->  a revoked authority is live again      REVOCATION UNDONE
+
+    `to_snapshot` always writes these, so this costs nothing for a checkpoint this
+    code produced. What it changes is the OTHER cases -- an older build's file, a
+    hand-edited one, a truncated write -- where the quiet default silently re-arms
+    money the customer had already spent or already stopped. A checkpoint we cannot
+    read is a checkpoint we refuse to read.
+
+    Predicted before it was found: `docs/ABSENCE.md` names five earlier instances of
+    one mistake and says the next one should be looked for wherever a missing fact
+    is replaced by a present one. This was the first place looked.
+    """
+
+
 class AuthorityError(ValueError):
     """Raised when a PaymentAuthority cannot be issued, or is invalid at the point
     it is needed (expired, revoked, or the underlying decision was never allow)."""
@@ -816,13 +842,58 @@ class RunState:
             ],
         }
 
+    # Every key `to_snapshot` writes. Absence of any of them is a refusal, not a
+    # default: `_SNAPSHOT_KEYS` and `_DECISION_KEYS` are checked against what
+    # `to_snapshot` actually produces by `test_checkpoint_absence.py`, so the two
+    # cannot drift apart.
+    _SNAPSHOT_KEYS = ("card_id", "last_device_id", "revoked_at", "decisions",
+                      "approved_spend", "recent_attempts")
+    _DECISION_KEYS = ("authorization_id", "decision", "billing_amount_chf", "timestamp",
+                      "counted_in_spend", "merchant_id", "basket_key", "was_reviewed",
+                      "resolved_at", "reason_codes", "mandate_id", "policy_version")
+    # THE EXECUTION LIFECYCLE IS ALL-OR-NOTHING, and the difference between its two
+    # kinds of absence is the whole finding.
+    #
+    #   all four missing  -- a decision that was never issued an authority. A
+    #                        coherent fact, written by an older two-record build,
+    #                        and it restores with no authority to spend. Safe, and
+    #                        `test_an_old_checkpoint_without_lifecycle_fails_closed`
+    #                        has documented it since that build existed.
+    #   SOME missing      -- a decision claiming an authority while omitting whether
+    #                        it was spent or revoked. Not a fact; a hole. Measured:
+    #                        drop `consumed_at` alone and a spent authority becomes
+    #                        spendable again; drop `revoked` alone and a revoked one
+    #                        comes back live.
+    _LIFECYCLE_KEYS = ("execution_issued_at", "execution_expires_at", "revoked",
+                       "consumed_at")
+    _ATTEMPT_KEYS = ("authorization_id", "merchant_id", "basket_key",
+                     "billing_amount_chf", "timestamp")
+
+    @staticmethod
+    def _require(mapping: dict, keys: tuple[str, ...], where: str) -> None:
+        """PRESENCE, not truthiness. `consumed_at: null` is a fact -- this authority
+        has not been spent -- and must restore. A MISSING `consumed_at` is not that
+        fact; it is the absence of one, and the two used to be the same thing."""
+        missing = [k for k in keys if k not in mapping]
+        if missing:
+            raise CheckpointError(
+                f"checkpoint {where} is missing {', '.join(missing)}. These are not "
+                f"defaulted: every one of their defaults would make money more "
+                f"spendable than the checkpoint recorded.")
+
     @classmethod
     def from_snapshot(cls, snapshot: dict, history: HistoryIndex) -> "RunState":
+        cls._require(snapshot, cls._SNAPSHOT_KEYS, "root")
         state = cls(history=history, card_id=snapshot["card_id"])
-        state._last_device_id = snapshot.get("last_device_id")
-        revoked_at = snapshot.get("revoked_at")
+        state._last_device_id = snapshot["last_device_id"]
+        revoked_at = snapshot["revoked_at"]
         state._revoked_at = datetime.fromisoformat(revoked_at) if revoked_at else None
         for d in snapshot["decisions"]:
+            where = f"decision {d.get('authorization_id', '<unnamed>')!r}"
+            cls._require(d, cls._DECISION_KEYS, where)
+            present = [k for k in cls._LIFECYCLE_KEYS if k in d]
+            if present and len(present) != len(cls._LIFECYCLE_KEYS):
+                cls._require(d, cls._LIFECYCLE_KEYS, f"{where} (partial execution lifecycle)")
             state._decisions[d["authorization_id"]] = StoredDecision(
                 authorization_id=d["authorization_id"],
                 decision=d["decision"],
@@ -831,17 +902,22 @@ class RunState:
                 counted_in_spend=d["counted_in_spend"],
                 merchant_id=d["merchant_id"],
                 basket_key=tuple(tuple(pair) for pair in d["basket_key"]),
-                was_reviewed=d.get("was_reviewed", False),
-                resolved_at=datetime.fromisoformat(d["resolved_at"]) if d.get("resolved_at") else None,
-                reason_codes=tuple(d.get("reason_codes", ())),
-                mandate_id=d.get("mandate_id"),
-                policy_version=d.get("policy_version"),
+                was_reviewed=d["was_reviewed"],
+                resolved_at=datetime.fromisoformat(d["resolved_at"]) if d["resolved_at"] else None,
+                reason_codes=tuple(d["reason_codes"]),
+                mandate_id=d["mandate_id"],
+                policy_version=d["policy_version"],
+                # `.get` here ONLY because the four are checked together above: either
+                # all are present, or none are and this decision never had a lifecycle.
                 execution_issued_at=datetime.fromisoformat(d["execution_issued_at"]) if d.get("execution_issued_at") else None,
                 execution_expires_at=datetime.fromisoformat(d["execution_expires_at"]) if d.get("execution_expires_at") else None,
                 revoked=d.get("revoked", False),
                 consumed_at=datetime.fromisoformat(d["consumed_at"]) if d.get("consumed_at") else None,
             )
         state._approved_spend = [(datetime.fromisoformat(ts), Decimal(amt)) for ts, amt in snapshot["approved_spend"]]
+        for a in snapshot["recent_attempts"]:
+            cls._require(a, cls._ATTEMPT_KEYS,
+                         f"recent attempt {a.get('authorization_id', '<unnamed>')!r}")
         state._recent_attempts = [
             _RecentAttempt(
                 authorization_id=a["authorization_id"],

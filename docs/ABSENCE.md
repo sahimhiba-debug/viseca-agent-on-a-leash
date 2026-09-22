@@ -10,7 +10,13 @@ sixth to see it.
 
 ---
 
-## The six
+## The seven
+
+The first six were found one at a time, by six different methods, over several
+campaigns; it took the sixth to see the pattern. **The seventh was predicted.** Once
+the rule was written down — *a missing fact quietly replaced by a present one* — the
+next place to look was wherever that substitution is idiomatic. `from_snapshot` was
+the first place looked, and it was full of it.
 
 | # | where | what was absent | what filled the hole | how it was found |
 | --- | --- | --- | --- | --- |
@@ -20,6 +26,27 @@ sixth to see it.
 | 4 | the seller's listing | a published return window | `UNKNOWN`, routed to `uncertainty_policy` | erasure monotonicity: 6,864 pairs, 52 violations |
 | 5 | the customer's sentence | a phrase the compiler knows | no rule, and no trace of one | causal read-back: 20 of 20 ordinary phrasings lost |
 | 6 | `/api/agent/propose` | the basket's merchant | `or "ME0001"` — a familiar shop | emptying every field of the event, one at a time |
+| 7 | `RunState.from_snapshot` | whether an authority was spent, or revoked | `d.get("consumed_at")` → unspent; `d.get("revoked", False)` → live | **predicted by this document**, then reproduced |
+
+Number 7 is the one that matters for whether any of this is a tool or a story.
+Measured on a real checkpoint with **one key removed**:
+
+```
+drop `consumed_at`  ->  a SPENT authority is spendable again      DOUBLE SPEND
+drop `revoked`      ->  a REVOKED authority is live again         REVOCATION UNDONE
+```
+
+Both defeat the two properties this project claims hardest. And the idiom that
+caused it — `.get(key, default)` — is the *ordinary, recommended* way to keep a
+serialised format forward-compatible. It is wrong here only because every one of
+those defaults is the spendable branch.
+
+**The fix is the distinction, not a blanket refusal.** A validator that rejected
+every incomplete checkpoint would also reject the one shape that is a genuine fact:
+a decision from an older build carrying no execution lifecycle at all, meaning "this
+was never issued an authority", which restores safely with nothing to spend. So the
+lifecycle is **all-or-nothing** — all four fields or none. A decision claiming an
+authority while omitting whether it was spent is not a fact; it is a hole.
 
 Number 6 is worth reading twice. Three lines above the expression that did it sat a
 comment saying exactly why it was wrong:
@@ -111,14 +138,15 @@ long.
 | ...and its own second-order attack | 15,763 PAIRS where neither field alone helped | 0 masked vacuities |
 | `research/unconsumed_intent.py` | 20 ordinary phrasings + 33 well-formed sentences | 19/20 detected, 0 false positives |
 | `tests/security/test_absent_fields_are_not_values.py` | the agent's own boundary | 17 assertions, including the absences that must stay legal |
+| `tests/security/test_checkpoint_absence.py` | every key `to_snapshot` writes | any partial lifecycle refused; the coherent legacy shape still restores; key lists checked against `to_snapshot` itself |
 
 ---
 
 ## What this does not claim
 
-* **It is not a proof.** Six instances and five sweeps over *this* engine. A seventh
-  boundary may exist; every sweep is bounded by the fields it enumerates, and each
-  one says so. The field sweep was first-order until it was attacked for being
+* **It is not a proof.** Seven instances and five sweeps over *this* engine. An
+  eighth boundary may exist; every sweep is bounded by the fields it enumerates, and
+  each one says so. The field sweep was first-order until it was attacked for being
   first-order — 15,763 pairs later it still holds, which is evidence and not a
   theorem. Nothing here rules out a third- or higher-order vacuity.
 * **It does not close the seller channel.** `uncertainty_policy = decline` closes it
