@@ -305,14 +305,81 @@ def delegation_shrinks() -> list[dict[str, Any]]:
     return rows
 
 
+# ------------------------------------------- the same question, asked of a card
+def card_acceptance_set(cap: Decimal = Decimal("120")) -> set:
+    """Which of the same purchases a conventional card control would approve.
+
+    Modelled generously -- per-transaction cap, monthly cap, MCC allow-list, country
+    allow-list -- because a strawman deserves the objection it invites. Every
+    purchase the two controls disagree about is therefore a question the card cannot
+    ASK, not a number set differently.
+    """
+    from research.card_limit_control import CardLimitControl
+    from wallet_control.csv_data import load_merchants
+
+    merchants = load_merchants()
+    allowed: set[tuple[str, tuple[str, ...]]] = set()
+    for merchant, offers in universe():
+        row = merchants.get(merchant, {})
+        control = CardLimitControl(per_transaction_chf=cap, monthly_chf=Decimal("1e9"))
+        verdict = control.decide({
+            "amount_chf": float(sum((o.unit_price for o in offers), Decimal("0"))),
+            "mcc": row.get("merchant_mcc"),
+            "country": row.get("merchant_country"),
+        })
+        if verdict["decision"] == "allow":
+            allowed.add(_key(merchant, offers))
+    return allowed
+
+
+def wallet_acceptance_set(instruction: str) -> dict[str, set]:
+    """A for an arbitrary sentence, compiled rather than hand-written. Returns the
+    approved set AND the escalated one, because "the wallet would ask you about all
+    116" is a different and more interesting answer than "it approves none"."""
+    from wallet_control.policy_compiler import compile_instruction
+
+    compiled = compile_instruction(instruction)
+    mandate = make_mandate(instruction=instruction,
+                           uncertainty_policy=compiled.uncertainty_policy,
+                           hard_rules=list(compiled.hard_rules), card_id=CARD)
+    buckets: dict[str, set] = {"allow": set(), "review": set(), "block": set()}
+    for index, (merchant, offers) in enumerate(universe()):
+        decision = evaluate_authorization(
+            _basket_event(mandate, offers, merchant, index), mandate, _state()).decision
+        buckets[decision].add(_key(merchant, offers))
+    return buckets
+
+
+# Two mandates: one whose requirements a card CAN express, one whose it cannot.
+# Reporting only the second would be the overclaim this file exists to avoid.
+CARD_COMPARISON = [
+    ("what a card CAN ask",
+     "Order our household groceries at or below CHF 120 from a shop I have used before."),
+    ("what a card CANNOT ask",
+     "Order our household groceries at or below CHF 120, only if returnable within 14 days."),
+]
+
+
+def _merchant_rows() -> dict[str, dict[str, str]]:
+    from wallet_control.csv_data import load_merchants
+    return load_merchants()
+
+
 def measure() -> dict[str, Any]:
     space = acceptance_set()
     A = space["A"]
     brains = {name: run_brain(objective) for name, objective in BRAINS.items()}
+    card = card_acceptance_set()
     for result in brains.values():
         result["escaped"] = sorted(result["B"] - A)
         result["coverage"] = (len(result["B"]) / len(A)) if A else 0.0
-    return {"space": space, "brains": brains}
+    comparison = []
+    for label, sentence in CARD_COMPARISON:
+        buckets = wallet_acceptance_set(sentence)
+        comparison.append({"label": label, "instruction": sentence,
+                           "wallet": buckets["allow"], "asks": buckets["review"],
+                           "card": card})
+    return {"space": space, "brains": brains, "card": card, "comparison": comparison}
 
 
 def main() -> int:
@@ -351,6 +418,41 @@ def main() -> int:
         print("  the distribution.")
     else:
         print(f"  *** {escaped} basket(s) escaped A. The invariant is broken. ***")
+    print("\n  " + "-" * 74)
+    print("  The same question, asked of a card spending limit")
+    print("  (CHF 120 per transaction, groceries MCC, Swiss merchants -- modelled")
+    print("   generously, because a strawman deserves the objection it invites)\n")
+    for row in result["comparison"]:
+        wallet, card = row["wallet"], row["card"]
+        print(f"    {row['label'].upper()}")
+        print(f"      \u201c{row['instruction']}\u201d")
+        asks = row["asks"]
+        print(f"        card    approves {len(card):4d} / {space['universe']}")
+        print(f"        wallet  approves {len(wallet):4d} / {space['universe']}"
+              + (f", and puts {len(asks)} to you" if asks else ""))
+        print(f"        the card approves and the wallet does not: {len(card - wallet)}")
+        print()
+    first, second = result["comparison"]
+    print("    THE FIRST ROW IS THE HONEST ONE. On this catalogue the two controls")
+    print("    approve the SAME set -- because the one grocery shop this card has")
+    print("    never used (Rhine Pantry) also happens to be the one in Germany, so")
+    print("    the card excludes it by COUNTRY and the wallet by FAMILIARITY. Same")
+    print("    answer, different question, and pure coincidence of this data.")
+    print()
+    print("    The difference is not in how much or where. It is in WHAT WAS BOUGHT")
+    print("    and on what terms, and the second row is where that shows:")
+    overlap = len(second["card"] & second["asks"])
+    print(f"      {len(second['card'] - second['wallet'])} baskets the card approves "
+          f"outright and this wallet does not approve at all;")
+    print(f"      {overlap} of those it puts to the customer rather than deciding alone.")
+    print()
+    print("    The customer asked to be able to send things back. A card has no field")
+    print("    for that -- it sees an amount, a merchant category and a country, and")
+    print("    all three are fine. The wallet has the field and no seller in this")
+    print("    catalogue fills it (0 of 7 grocery items publish a return window, see")
+    print("    research/silence_channel.py), so it refuses to decide alone. Neither")
+    print("    control can GET the fact. Only one of them can tell you it is missing.")
+
     print("\n  " + "-" * 74)
     print("  What each word costs the agent\n")
     total = len(universe())

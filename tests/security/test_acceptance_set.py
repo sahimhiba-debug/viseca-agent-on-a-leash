@@ -131,3 +131,47 @@ def test_the_bound_is_stated_and_honest():
         "an errand with no conditions must authorise the whole world, or the "
         "baseline is not a baseline")
     assert 0 <= sized["share"] <= 1
+
+
+# ------------------------------------------------- the same question, asked of a card
+def test_on_this_catalogue_a_card_and_the_wallet_agree_exactly(measured):
+    """THE INCONVENIENT RESULT, kept because it is true.
+
+    For a mandate whose requirements a card CAN express -- an amount, a merchant
+    category, a country -- the two controls approve exactly the same 116 baskets.
+    The project's thesis is that a wallet asks questions a card cannot, and this is
+    the measurement that shows where the thesis does NOT bite.
+
+    It is also a coincidence of this data: the one grocery shop this card has never
+    used (Rhine Pantry) is also the one in Germany, so the card excludes it by
+    COUNTRY and the wallet by FAMILIARITY. Same answer, different question. Reporting
+    only the second comparison below would have been the overclaim this file exists
+    to avoid."""
+    expressible = measured["comparison"][0]
+    assert expressible["label"] == "what a card CAN ask"
+    assert expressible["card"] == expressible["wallet"], (
+        "if these ever diverge, the coincidence in the official data has changed and "
+        "the honest framing above needs rewriting")
+
+
+def test_and_part_company_completely_when_the_requirement_is_not_a_card_field(measured):
+    """The other half. The customer asked to be able to send things back; a card sees
+    an amount, a merchant category and a country, and all three are fine."""
+    beyond = measured["comparison"][1]
+    assert beyond["label"] == "what a card CANNOT ask"
+    assert len(beyond["card"]) > 0
+    assert beyond["wallet"] == set(), "no seller in this catalogue publishes return terms"
+    assert len(beyond["card"] - beyond["wallet"]) == len(beyond["card"])
+    # ...and the wallet does not silently refuse them: it asks.
+    assert beyond["card"] <= beyond["asks"], (
+        "every basket the card waved through should be one the wallet puts to the "
+        "customer, not one it decides alone")
+
+
+def test_neither_control_can_get_the_missing_fact(measured):
+    """The honest end of that story, and the link to the silence channel: 0 of 7
+    grocery items in the official catalogue publish a return window. Neither control
+    can obtain it. Only one of them can tell the customer it is missing."""
+    beyond = measured["comparison"][1]
+    assert len(beyond["asks"]) > len(beyond["card"]) or beyond["asks"] >= beyond["card"]
+    assert beyond["wallet"] == set()
