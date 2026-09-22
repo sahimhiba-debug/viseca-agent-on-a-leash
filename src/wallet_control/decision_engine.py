@@ -277,6 +277,12 @@ class EngineDecision:
     # re-submitted -- see `evaluate_authorization`); this flag tells the caller the
     # event is suspect and should be investigated, not treated as routine.
     authorization_id_conflict: bool = False
+    # When a rolling-window rule is what refused this, the simulated time at which
+    # the SAME purchase would first fit again. CUSTOMER-FACING ONLY -- a retry time
+    # beside an amount is the window's length and remaining balance, which is the
+    # policy the agent is never told. `agent_view` does not carry it, and
+    # `test_agent_explanation_boundary` fails on any digit that reaches the agent.
+    earliest_retry_at: datetime | None = None
     # R&D Track E (docs/RND_POLICY_SECURITY_SPLIT.md): the SAME evaluations, scoped
     # to source=="customer" and source=="safety" respectively, decided by the SAME
     # `_decide()` function. Purely explanatory -- `decision` above is computed
@@ -546,7 +552,44 @@ def agent_view(decision: "EngineDecision") -> dict[str, Any]:
     }
 
 
-def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], facts: PurchaseFacts) -> str:
+def _window_retry(evaluations: list[RuleEvaluation], state: "RunState",
+                  facts: PurchaseFacts) -> datetime | None:
+    """When a rolling-window refusal stops applying.
+
+    "It would take you over the CHF 300 you allowed across any 7-day period" tells a
+    customer the week is full. It does not tell them when it stops being full, and
+    the engine knows: it holds every approved purchase's simulated timestamp. Making
+    someone guess about their own money is a choice, and this is the other one.
+
+    A card cannot answer this at all. It has no notion of the customer's window --
+    only of its own month.
+
+    ONLY WHEN THE WINDOW IS THE SOLE REASON. AU0007 in the official pack fails on the
+    window AND on an item category the customer never asked for; AU0010 fails on the
+    window AND on the per-order ceiling. Telling either of those customers "you could
+    order this again on Tuesday" would be false -- Tuesday will not make a jar of
+    something they did not ask for into something they did. A retry time attached to
+    a refusal that waiting cannot cure is a worse answer than no retry time, because
+    the customer will act on it."""
+    failures = [e for e in evaluations if e.outcome == "fail"]
+    if len(failures) != 1:
+        return None
+    for evaluation in failures:
+        rule = evaluation.rule
+        if (evaluation.outcome != "fail" or rule.scope != "period"
+                or rule.field != "authorization.billing_amount_chf" or not rule.period_days):
+            continue
+        try:
+            cap = Decimal(str(rule.value))
+        except (ArithmeticError, TypeError, ValueError):
+            continue          # a cap the engine cannot read bounds nothing to wait for
+        return state.earliest_window_retry(facts.timestamp, facts.billing_amount_chf,
+                                           rule.period_days, cap)
+    return None
+
+
+def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], facts: PurchaseFacts,
+                      retry_at: datetime | None = None) -> str:
     """Prose for a person. The technical detail goes in `evidence`, not here.
 
     `technical_details.md` shows this field carrying sentences -- "Please review this
@@ -595,7 +638,12 @@ def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], fac
     reasons = list(dict.fromkeys(_plain_reason(e) for e in problems))
     detail = "; ".join(reasons) if reasons else "a check did not pass"
     if decision == "block":
-        return f"Declined: {amount} at {facts.merchant_name}. Reason: {detail}."
+        when = ""
+        if retry_at is not None:
+            # Their own local reading of a simulated clock; the day name is what makes
+            # it answerable without arithmetic.
+            when = f" You could order this again on {retry_at.strftime('%A %-d %B at %H:%M')}."
+        return f"Declined: {amount} at {facts.merchant_name}. Reason: {detail}.{when}"
     return (
         f"Please review this purchase: {amount} at {facts.merchant_name}. "
         f"The wallet could not decide on its own because {detail}."
@@ -913,11 +961,13 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
             )
 
         evidence = tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in evaluations)
+        retry_at = _window_retry(evaluations, state, facts) if decision == "block" else None
         return EngineDecision(
             authorization_id=authorization_id,
             decision=decision,
             reason_codes=reason_codes,
-            customer_message=_customer_message(decision, evaluations, facts),
+            customer_message=_customer_message(decision, evaluations, facts, retry_at),
+            earliest_retry_at=retry_at,
             evidence=evidence,
             rule_evaluations=tuple(evaluations),
             intervention=classify_intervention(decision, tuple(evaluations)),

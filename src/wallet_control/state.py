@@ -518,6 +518,38 @@ class RunState:
             for end, _ in trial
         )
 
+    def earliest_window_retry(self, as_of: datetime, amount: Decimal, period_days: int,
+                              cap: Decimal) -> datetime | None:
+        """When this exact purchase would first fit inside the rolling window again.
+
+        A customer told "it would take you over the CHF 300 you allowed across any
+        7-day period" knows the week is full. They do not know when it stops being
+        full. The engine does -- it holds every approved purchase's simulated
+        timestamp -- and saying nothing makes the customer guess about their own
+        money.
+
+        The window is half-open, `(end - period, end]`, so an approved purchase stops
+        counting the instant it is `period_days` old. Those instants are therefore the
+        only times the answer can change, which makes this an exact search over at
+        most one candidate per approved purchase rather than a scan over time.
+
+        Returns None when waiting cannot help: either the purchase already fits (the
+        caller should not be asking), or it is larger than the whole cap, in which
+        case no amount of patience is the problem.
+
+        CUSTOMER-FACING ONLY. `agent_view` must never carry this: a retry time plus
+        an amount is the window's length and remaining balance, which is the policy
+        the agent is not told. `test_agent_explanation_boundary` enforces it.
+        """
+        if amount > cap:
+            return None
+        window = timedelta(days=period_days)
+        candidates = sorted({ts + window for ts, _ in self._approved_spend if ts + window > as_of})
+        for moment in candidates:
+            if self.peak_window_spend_chf(moment, amount, period_days) <= cap:
+                return moment
+        return None
+
     def total_approved_spend_chf(self) -> Decimal:
         """Cumulative approved spend since the run started -- mirrors the platform's
         `context.approved_spend_in_period_chf`, which technical_details.md says is
