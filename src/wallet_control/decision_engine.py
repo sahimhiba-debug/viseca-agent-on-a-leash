@@ -433,7 +433,12 @@ _PLAIN_UNKNOWN = {
     "order.return_window_days": "the seller did not say whether this can be returned",
     "item.size": "the seller did not state the size",
     "merchant.familiar": "the wallet has no purchase history to check this seller against",
-    "session.integrity_risk": "something about this session could not be verified",
+    # Concrete and actionable: the customer can answer "yes, that was me on my
+    # laptop" in a second. "Something could not be verified" makes them guess, and a
+    # question nobody can answer is a question they learn to click through. The AGENT
+    # still sees only the class `session` -- `agent_view` never carries this string.
+    "session.integrity_risk": "this purchase came from a device that has not been "
+                              "used earlier in this session",
     "authorization.basket_present": "this purchase lists no items to check",
 }
 

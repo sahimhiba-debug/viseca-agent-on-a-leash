@@ -277,6 +277,10 @@ class RunState:
     card_id: str
     _decisions: dict[str, StoredDecision] = field(default_factory=dict)
     _approved_spend: list[tuple[datetime, Decimal]] = field(default_factory=list)
+    # Every device this run has seen, not only the last one. A return to a device
+    # already used is the commonest benign pattern in the data and must not read the
+    # same as a move to a fresh one -- see `session_signals`.
+    _seen_devices: set[str] = field(default_factory=set)
     _recent_attempts: list[_RecentAttempt] = field(default_factory=list)
     _last_device_id: str | None = None
     # When the customer revoked this run's mandate. This is RUN-LEVEL state, not a
@@ -616,25 +620,57 @@ class RunState:
         return sum(1 for a in self._recent_attempts if as_of - window < a.timestamp <= as_of)
 
     # --- session integrity heuristic -------------------------------------------------
-    def session_signals(self, device_id: str, recent_attempt_count_10m: int, merchant_familiar: bool | None) -> tuple[bool, tuple[str, ...]]:
-        """A small, explicit heuristic -- not a model -- so it is auditable and has
-        no failure mode when unavailable. Escalates on rising velocity combined with
-        a device change or an unfamiliar merchant; automatically relaxes again once
-        those signals subside, because it is recomputed fresh from only the current
-        event's signals plus the single last-seen device, with no decaying "risk
-        score" that could get stuck elevated.
+    def session_signals(self, device_id: str, recent_attempt_count_10m: int,
+                        merchant_familiar: bool | None) -> tuple[bool | None, tuple[str, ...]]:
+        """A small, explicit heuristic -- not a model -- so it is auditable and has no
+        failure mode when unavailable.
+
+        THREE-VALUED, and it was the one rule in this engine that was not.
+
+        It used to return `risky: bool`, so a signal too weak to condemn came back as
+        CLEAN. On the scenario the challenge pack names "Session integrity" that
+        meant the engine noticed the device change, wrote
+        "device changed from DVC-B73E47 to DVC-4C0E9B" into its own evidence, and
+        APPROVED CHF 165 on the hijacker's first purchase. It only caught up two
+        purchases later, on velocity, once the burst was already running.
+
+        The customer had written: *"Pause anything that looks like someone other than
+        me is driving the session."* They asked to be ASKED. A bare device change is
+        exactly "looks like" -- not proof, which is why blocking it would punish every
+        ordinary person who moves from phone to laptop, and not nothing either. That
+        is what UNKNOWN is for, and `uncertainty_policy` is where the customer already
+        told us what to do with it.
+
+            a NEW device, plus velocity      -> True   someone else is driving
+            a NEW device on its own          -> None   it looks like someone might be
+            back to a device already seen    -> False  weaker still; noted, not raised
+            nothing                          -> False
+
+        Returning to a device this run has already seen is deliberately weaker than
+        moving to a fresh one: the handset coming back after the laptop is the
+        commonest benign pattern in the data, and AU0031 is exactly that.
         """
         reasons: list[str] = []
-        device_changed = self._last_device_id is not None and device_id != self._last_device_id
+        previous = self._last_device_id
+        device_changed = previous is not None and device_id != previous
+        first_sight = device_id not in self._seen_devices
         if device_changed:
-            reasons.append(f"device changed from {self._last_device_id} to {device_id}")
+            reasons.append(
+                f"device changed from {previous} to {device_id}"
+                + ("" if first_sight else " (a device already seen in this run)"))
         if recent_attempt_count_10m >= 2:
             reasons.append(f"{recent_attempt_count_10m} other attempts in the last 10 minutes")
         if merchant_familiar is False and device_changed:
             reasons.append("unfamiliar merchant immediately after a device change")
+
         self._last_device_id = device_id
-        risky = (device_changed and recent_attempt_count_10m >= 1) or recent_attempt_count_10m >= 2
-        return risky, tuple(reasons)
+        self._seen_devices.add(device_id)
+
+        if (device_changed and recent_attempt_count_10m >= 1) or recent_attempt_count_10m >= 2:
+            return True, tuple(reasons)
+        if device_changed and first_sight:
+            return None, tuple(reasons)
+        return False, tuple(reasons)
 
     # --- verifiable payment authority (R&D Track A) ----------------------------------
     def issue_authority(

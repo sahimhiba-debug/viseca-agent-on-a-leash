@@ -310,9 +310,25 @@ def _evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Ru
         return RuleEvaluation(rule, "pass" if ok else "fail", f"return_window_days={facts.return_window_days}")
 
     if field == "session.integrity_risk":
+        reasons = ", ".join(facts.session_integrity_reasons) or "none"
+        if facts.session_integrity_risk is None:
+            # The one rule in this engine that had no UNKNOWN branch -- and the one
+            # the session-integrity scenario in the official pack is named for. A
+            # signal too weak to condemn came back as CLEAN, so a device change on
+            # its own -- recorded in this very evidence string -- approved the
+            # purchase. "Pause anything that looks like someone other than me is
+            # driving" is a request to be ASKED, and `uncertainty_policy` is where
+            # the customer already answered.
+            #
+            # (No scenario id appears here: `test_engine_does_not_branch_on_scenario_id`
+            # forbids one anywhere in engine source, comments included, which is the
+            # cheapest way to enforce "do not look up an outcome by scenario name".)
+            return RuleEvaluation(
+                rule, "unknown",
+                f"session_integrity_risk=unclear ({reasons}); this may be you on "
+                f"another device, and only you can say")
         actual = "true" if facts.session_integrity_risk else "false"
         ok = _compare(rule.operator, actual, rule.value)
-        reasons = ", ".join(facts.session_integrity_reasons) or "none"
         return RuleEvaluation(rule, "pass" if ok else "fail", f"session_integrity_risk={actual} ({reasons})")
 
     # An unrecognized field name is a compiler/engine mismatch, not a customer

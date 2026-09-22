@@ -16,7 +16,7 @@ The cost is a one-line edit whenever the suite grows. That is the point: it make
 the claim expensive enough to keep true, instead of cheap enough to leave rotting.
 
 The replay counts are pinned in `tests/test_offline_replay.py` as a REGRESSION
-BOUNDARY -- there are no official expected-decision labels and 19/2/24 is not a
+BOUNDARY -- there are no official expected-decision labels and 18/3/24 is not a
 score. What is asserted here is narrower: that the table printed in the README is
 the table this engine actually produces.
 """

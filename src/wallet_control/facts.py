@@ -133,7 +133,7 @@ class PurchaseFacts:
     item_categories: tuple[str, ...]
     # Derived signals -- never sourced from merchant text.
     merchant_familiar: bool | None  # None = unknown (no history available)
-    session_integrity_risk: bool
+    session_integrity_risk: bool | None  # None = it looks like it might be, and only the customer knows
     session_integrity_reasons: tuple[str, ...]
     duplicate_of: str | None
     duplicate_reason: str | None
@@ -144,7 +144,7 @@ def build_purchase_facts(
     event: dict[str, Any],
     *,
     merchant_familiar: bool | None,
-    session_integrity_risk: bool,
+    session_integrity_risk: bool | None,
     session_integrity_reasons: tuple[str, ...],
     duplicate_of: str | None,
     duplicate_reason: str | None,

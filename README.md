@@ -126,7 +126,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     1628 tests
+tests/                     1632 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -179,7 +179,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1628 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**1632 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say
@@ -195,7 +195,7 @@ breaks 39 security mechanisms in `src/wallet_control/`, one at a time, and check
 suite notices: **39 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
-Official replay: **45 events, 19 allow / 2 review / 24 block** -- a regression
+Official replay: **45 events, 18 allow / 3 review / 24 block** -- a regression
 boundary, not a score. There are no official expected-decision labels.
 
 ## Offline replay results (this engine's actual output, not an answer key)
@@ -213,9 +213,9 @@ behind every one of the 45 decisions.
 | SCEN0000 Connection check | 1 | 1 | 0 | 0 |
 | SCEN0001 Household budget | 10 | 5 | 0 | 5 |
 | SCEN0002 Requested item and order terms | 12 | 3 | 1 | 8 |
-| SCEN0003 Session integrity | 11 | 5 | 0 | 6 |
+| SCEN0003 Session integrity | 11 | 4 | 1 | 6 |
 | SCEN0004 Manipulated agent | 11 | 5 | 1 | 5 |
-| **Total** | **45** | **19** | **2** | **24** |
+| **Total** | **45** | **18** | **3** | **24** |
 
 ## Further reading
 

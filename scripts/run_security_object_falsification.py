@@ -10,7 +10,7 @@ using criteria fixed BEFORE any of them was built:
   F3 NON-DEGENERACY does protecting it require escalating (almost) everything?
   F4 NECESSITY     is there an attack that ONLY this object catches?
 
-Nothing here is in the decision path. The official replay stays 19/2/24.
+Nothing here is in the decision path. The official replay stays 18/3/24.
 """
 
 from __future__ import annotations

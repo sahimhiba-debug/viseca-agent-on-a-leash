@@ -91,7 +91,7 @@ def test_the_disclosure_creates_no_rule_and_changes_no_decision():
 
 def test_every_official_instruction_still_compiles_the_same_rules():
     """The disclosure must not perturb the compiled policy of any official
-    scenario -- that is what keeps the replay at 19/2/24."""
+    scenario -- that is what keeps the replay at 18/3/24."""
     from wallet_control.csv_data import load_scenario_catalogue
 
     for scenario in load_scenario_catalogue().values():

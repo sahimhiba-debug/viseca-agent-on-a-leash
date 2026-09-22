@@ -167,7 +167,7 @@ def test_the_official_replay_is_unchanged(scenario_id):
     expected = {"SCEN0000": {"allow": 1, "review": 0, "block": 0},
                 "SCEN0001": {"allow": 5, "review": 0, "block": 5},
                 "SCEN0002": {"allow": 3, "review": 1, "block": 8},
-                "SCEN0003": {"allow": 5, "review": 0, "block": 6},
+                "SCEN0003": {"allow": 4, "review": 1, "block": 6},
                 "SCEN0004": {"allow": 5, "review": 1, "block": 5}}
     assert replay_scenario(scenario_id).counts() == expected[scenario_id]
 

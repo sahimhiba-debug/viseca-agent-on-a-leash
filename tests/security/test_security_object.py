@@ -196,7 +196,7 @@ def test_the_model_set_holds_no_duplicate_of_the_job_capability():
 
 def test_the_research_module_is_absent_from_the_decision_path():
     """The whole comparison is apparatus. If it ever reached the engine it would
-    change decisions, and the official replay would move off 19/2/24."""
+    change decisions, and the official replay would move off 18/3/24."""
     import inspect
 
     from wallet_control import decision_engine, facts, rules

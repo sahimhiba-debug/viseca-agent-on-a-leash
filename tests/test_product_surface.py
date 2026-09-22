@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -199,7 +201,7 @@ def test_health_reports_the_regression_boundary(client):
     body = client.get("/api/health").json()
     assert body["status"] == "ok"
     replay = body["official_replay"]
-    assert (replay["events"], replay["allow"], replay["review"], replay["block"]) == (45, 19, 2, 24)
+    assert (replay["events"], replay["allow"], replay["review"], replay["block"]) == (45, 18, 3, 24)
     assert replay["matches_regression_boundary"] is True
 
 
@@ -223,7 +225,7 @@ def test_demo_reset_clears_runs_without_touching_official_data(client):
     client.post("/api/scenarios/SCEN0000/run")
     assert client.post("/api/demo/reset").json()["cleared_runs"] >= 1
     assert client.get("/api/health").json()["active_runs"] == 0
-    assert replay_all().total_counts() == {"allow": 19, "review": 2, "block": 24}
+    assert replay_all().total_counts() == {"allow": 18, "review": 3, "block": 24}
 
 
 # --- the ledger records WHY, not only what ----------------------------------------
@@ -272,3 +274,25 @@ def test_the_audit_timeline_states_why_each_decision_was_made(client):
     assert decisions
     assert all(e["detail"] and e["detail"] != e["decision"] for e in decisions), (
         "the audit repeated the decision instead of explaining it")
+
+
+def test_the_health_check_cannot_contradict_itself(client):
+    """It used to hold the boundary twice -- a dict shown to the caller and the same
+    four numbers again longhand in the comparison -- so moving the boundary updated
+    one and not the other, and the endpoint answered `expected: 18/3/24,
+    matches_regression_boundary: false`.
+
+    An internally contradictory health check is worse than none. It is the surface a
+    teammate reads thirty seconds before going on stage."""
+    replay = client.get("/api/health").json()["official_replay"]
+    actual = {k: replay[k] for k in ("events", "allow", "review", "block")}
+    assert replay["matches_regression_boundary"] == (actual == replay["expected"]), (
+        actual, replay["expected"])
+
+    from wallet_control import api
+    source = (Path(api.__file__)).read_text()
+    body = source.split("def health()")[1].split("\n@app")[0]
+    for number in ("45", "18", "3", "24"):
+        assert f'== {number}' not in body, (
+            "the boundary is written longhand inside health() again; it must come "
+            "from REGRESSION_BOUNDARY so the two cannot drift")

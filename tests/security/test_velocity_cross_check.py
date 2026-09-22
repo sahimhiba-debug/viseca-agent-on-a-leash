@@ -69,9 +69,9 @@ def _attempt(mandate, aid, device, reported, minutes):
     return event
 
 
-def _run(reported_counts, *, spacing_minutes=1):
+def _run(reported_counts, *, spacing_minutes=1, devices=None):
     mandate, state = _mandate(), _state()
-    devices = ["D1", "D1", "D2", "D2"]
+    devices = devices or ["D1", "D1", "D2", "D2"]
     return [
         evaluate_authorization(
             _attempt(mandate, f"AU{i}", devices[i], reported_counts[i], i * spacing_minutes), mandate, state
@@ -90,8 +90,57 @@ def test_under_reporting_recent_attempts_no_longer_suppresses_session_risk():
 
 def test_slow_legitimate_traffic_is_not_penalised():
     """The cost of the fix, measured. Attempts half an hour apart are outside the
-    10-minute window, so an honest shopper reporting 0 is believed."""
-    assert _run([0, 0, 0, 0], spacing_minutes=30) == ["allow"] * 4
+    10-minute window, so an honest shopper reporting 0 is believed.
+
+    ONE DEVICE, which this fixture did not hold constant. It used to switch to a new
+    device halfway through and still expect four approvals -- so it was asserting
+    something about VELOCITY while quietly also asserting that a new device is
+    nothing. When the session signal became three-valued that second, unintended
+    assertion is what failed. The two signals are now separated: this one is about
+    velocity, and `test_a_new_device_alone_is_a_question_not_a_refusal` is about
+    the other."""
+    assert _run([0, 0, 0, 0], spacing_minutes=30,
+                devices=["D1"] * 4) == ["allow"] * 4
+
+
+def test_a_new_device_alone_is_a_question_not_a_refusal():
+    """The behaviour that replaced it, stated on purpose.
+
+    A device this run has not seen is not proof that someone else is driving -- it is
+    the commonest thing an ordinary person does, moving from phone to laptop -- and it
+    is not nothing either. The customer wrote "pause anything that LOOKS LIKE someone
+    other than me is driving the session"; this is what that looks like, and UNKNOWN
+    routed through `uncertainty_policy` is the only honest answer.
+
+    It cost the official replay one approval, AU0026: CHF 165 on the hijacker's first
+    purchase, which the engine used to approve while writing "device changed from
+    DVC-B73E47 to DVC-4C0E9B" into its own evidence."""
+    assert _run([0, 0, 0, 0], spacing_minutes=30,
+                devices=["D1", "D1", "D2", "D2"]) == ["allow", "allow", "review", "allow"]
+
+
+def test_returning_to_a_device_already_seen_is_not_raised():
+    """Weaker than a first sighting, deliberately: the handset coming back after the
+    laptop is the commonest benign pattern in the official data, and AU0031 is
+    exactly it. Without this, a two-device customer would be asked on every switch."""
+    assert _run([0, 0, 0, 0, 0], spacing_minutes=30,
+                devices=["D1", "D2", "D1", "D2", "D1"]) == [
+        "allow", "review", "allow", "allow", "allow"]
+
+
+def test_the_session_question_only_reaches_customers_who_asked_for_it():
+    """The scope of the change, and the reason it is not over-blocking.
+
+    `session.integrity_risk` is compiled only from an instruction that asks for it,
+    so no mandate without those words is affected. Three of the five official
+    scenarios have no session rule and none of them moved."""
+    from wallet_control.policy_compiler import compile_instruction
+    asked = compile_instruction(
+        "Buy clothing up to CHF 250. Pause anything that looks like someone other "
+        "than me is driving the session.")
+    silent = compile_instruction("Buy clothing up to CHF 250.")
+    assert any(r.field == "session.integrity_risk" for r in asked.hard_rules)
+    assert not any(r.field == "session.integrity_risk" for r in silent.hard_rules)
 
 
 def test_the_platforms_higher_count_is_never_discarded():
@@ -117,4 +166,4 @@ def test_the_official_replay_is_unmoved():
     """Asserted, not assumed: observed never exceeds reported on the official corpus."""
     from wallet_control.offline_replay import replay_all
 
-    assert replay_all().total_counts() == {"allow": 19, "review": 2, "block": 24}
+    assert replay_all().total_counts() == {"allow": 18, "review": 3, "block": 24}

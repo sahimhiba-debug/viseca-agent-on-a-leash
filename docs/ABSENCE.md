@@ -29,6 +29,7 @@ the first place looked, and it was full of it.
 | 7 | `RunState.from_snapshot` | whether an authority was spent, or revoked | `d.get("consumed_at")` → unspent; `d.get("revoked", False)` → live | **predicted by this document**, then reproduced |
 | 8 | `LiveWorker.register_run` | the checkpoint file | a fresh run state with zero spend | reading the restore path for the same shape |
 | 9 | `rules._compare` and three others | how to apply a rule this engine does not implement | an **uncaught exception** | reading the official rule format and fuzzing it |
+| 10 | `RunState.session_signals` | whether a device change means someone else is driving | `False` — **clean** | auditing all 45 official decisions by hand |
 
 Number 7 is the one that matters for whether any of this is a tool or a story.
 Measured on a real checkpoint with **one key removed**:
@@ -146,6 +147,40 @@ long.
 
 ---
 
+## The tenth was approving money while writing the evidence against itself
+
+`session.integrity_risk` was the one rule in this engine with no UNKNOWN branch. The
+signal was a `bool`, so anything too weak to condemn came back as **clean**.
+
+On the scenario the official pack names *Session integrity*, whose customer wrote
+**"Pause anything that looks like someone other than me is driving the session"**,
+the engine:
+
+```
+AU0026  ALLOW  CHF 165.00
+        evidence: session_integrity_risk=false
+                  (device changed from DVC-B73E47 to DVC-4C0E9B)
+```
+
+It noticed the device change. It wrote it down. It approved anyway — the hijacker's
+**first** purchase — and only caught up two purchases later on velocity, once the
+burst was already running.
+
+A device change is not proof (blocking it punishes everyone who moves from phone to
+laptop) and it is not nothing. That is what UNKNOWN is for, and `uncertainty_policy`
+is where the customer had already answered. The signal is now three-valued:
+
+| | |
+| --- | --- |
+| a new device **plus** velocity | `True` — someone else is driving |
+| a new device on its own | `None` — *it looks like someone might be* |
+| back to a device already seen | `False` — the commonest benign pattern in the data |
+
+**It cost one approval and moved the official replay from 19/2/24 to 18/3/24.** Only
+the session scenario moved: `session.integrity_risk` is compiled only from an
+instruction that asks for it, so no customer who did not write those words is
+affected.
+
 ## The ninth came from the specification, not from us
 
 `reference/viseca-2026/technical_details.md` defines the rule format far more widely
@@ -226,10 +261,11 @@ the test by name.
 
 ## What this does not claim
 
-* **It is not a proof.** Nine instances and six sweeps over *this* engine. A tenth
+* **It is not a proof.** Ten instances and six sweeps over *this* engine. An eleventh
   boundary may exist; every sweep is bounded by what it enumerates, and each one says
-  so. The ninth was found by reading the official specification rather than by any of
-  the sweeps, which is the honest measure of how much they cover. The field sweep was first-order until it was attacked for being
+  so. The ninth was found by reading the official specification and the tenth by
+  reading all 45 official decisions one at a time — neither by any sweep, which is
+  the honest measure of how much they cover. The field sweep was first-order until it was attacked for being
   first-order — 15,763 pairs later it still holds, which is evidence and not a
   theorem. Nothing here rules out a third- or higher-order vacuity.
 * **It does not close the seller channel.** `uncertainty_policy = decline` closes it

@@ -174,26 +174,31 @@ class ResolveRequest(BaseModel):
     decision: str  # "allow" | "block"
 
 
+# The regression boundary, written ONCE. It used to be here twice -- a dict shown to
+# the caller and the same four numbers again longhand in the comparison -- so moving
+# the boundary updated one and not the other, and this endpoint cheerfully answered
+# `expected: 18/3/24, matches_regression_boundary: false`. An internally
+# contradictory health check is worse than none: it is the surface a teammate reads
+# thirty seconds before going on stage.
+REGRESSION_BOUNDARY = {"events": 45, "allow": 18, "review": 3, "block": 24}
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     """Liveness plus the numbers a teammate needs before a demo: if the replay has
-    moved off 19/2/24, something is wrong and it is better to find out here than on
-    stage."""
+    moved off the boundary, better to find out here than on stage."""
     from .offline_replay import replay_all
 
     replay = replay_all()
     counts = replay.total_counts()
+    actual = {"events": replay.total_events(), **counts}
     return {
         "status": "ok",
         "active_runs": len(_RUNS),
         "official_replay": {
-            "events": replay.total_events(),
-            "allow": counts["allow"], "review": counts["review"], "block": counts["block"],
-            "expected": {"events": 45, "allow": 19, "review": 2, "block": 24},
-            "matches_regression_boundary": (
-                replay.total_events() == 45 and counts["allow"] == 19
-                and counts["review"] == 2 and counts["block"] == 24
-            ),
+            **actual,
+            "expected": REGRESSION_BOUNDARY,
+            "matches_regression_boundary": actual == REGRESSION_BOUNDARY,
         },
     }
 
