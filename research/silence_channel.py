@@ -402,6 +402,74 @@ def vocabulary_exhaustive() -> dict[str, Any]:
             "any_fails_on_silence": any(r["fails_on_silence"] for r in rows)}
 
 
+# =============================================================================
+# PART 4 -- the same question over EVERY field of the event, not just the two
+# =============================================================================
+
+def _leaf_paths(obj, prefix=()):
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            yield from _leaf_paths(value, prefix + (key,))
+    elif isinstance(obj, list):
+        for index, value in enumerate(obj):
+            yield from _leaf_paths(value, prefix + (index,))
+    else:
+        yield prefix, obj
+
+
+def _set_path(obj, path, value):
+    cursor = obj
+    for key in path[:-1]:
+        cursor = cursor[key]
+    cursor[path[-1]] = value
+
+
+def every_field_emptied() -> dict[str, Any]:
+    """Empty each field of the authorization in turn and ask the same question:
+    did the purchase become MORE acceptable?
+
+    Parts 1-3 ask it of the two fields a seller publishes. This asks it of the whole
+    event, so "the only places where absence helps are the two we documented" is a
+    result rather than a hope. A crash is reported separately: an exception is not a
+    permissiveness failure, but it is the loudest possible way to fail to represent
+    an absence, and the four reachable through `/api/agent/propose` were fixed as
+    refusals (`tests/security/test_absent_fields_are_not_values.py`).
+    """
+    findings, crashes, tested = [], [], 0
+    for policy in (UncertaintyPolicy.ASK, UncertaintyPolicy.DECLINE, UncertaintyPolicy.APPROVE):
+        mandate = make_mandate(instruction="Order coffee.", uncertainty_policy=policy,
+                               hard_rules=_PROBE_RULES, card_id=CARD)
+        shapes = (("allows", 50.0, "returns accepted within 30 days", "true"),
+                  ("blocks on amount", 500.0, "returns accepted within 30 days", "true"),
+                  ("blocks on returns", 50.0, "returns accepted within 5 days", "true"))
+        for label, amount, details, returnable in shapes:
+            base = make_event(mandate=mandate, authorization_id="AU_F", amount=amount,
+                              merchant_id=PLAIN, timestamp=AT, card_id=CARD,
+                              order_returnable=returnable)
+            base["authorization"]["items"][0].update(
+                item_name="coffee beans", item_category="groceries", item_details=details)
+            before = evaluate_authorization(copy.deepcopy(base), mandate, _probe_state()).decision
+            for path, value in list(_leaf_paths(base["authorization"])):
+                for emptied in ([None, ""] if isinstance(value, str) else [None]):
+                    event = copy.deepcopy(base)
+                    try:
+                        _set_path(event["authorization"], path, emptied)
+                    except Exception:                      # noqa: BLE001
+                        continue
+                    tested += 1
+                    dotted = ".".join(str(p) for p in path)
+                    try:
+                        after = evaluate_authorization(event, mandate, _probe_state()).decision
+                    except Exception as exc:               # noqa: BLE001
+                        crashes.append({"field": dotted, "error": type(exc).__name__})
+                        continue
+                    if PERMISSIVENESS[after] > PERMISSIVENESS[before]:
+                        findings.append({"policy": policy.value, "shape": label,
+                                         "field": dotted, "before": before, "after": after})
+    return {"tested": tested, "findings": findings, "crashes": crashes,
+            "fields": sorted({f["field"] for f in findings})}
+
+
 def main() -> int:
     print("SHOPPING FOR IGNORANCE\n")
     print('  Customer: "coffee supplies, at or below CHF 120, only things I can')
@@ -455,6 +523,22 @@ def main() -> int:
     print("    So silence only ever produces UNKNOWN, and UNKNOWN is governed by one")
     print("    value for the whole mandate. `decline` closes this completely and")
     print("    closes nothing else selectively: the format has no per-rule dial.")
+    print()
+    print("  " + "-" * 74)
+    print("  PART 4 -- the same question over EVERY field of the event")
+    sweep = every_field_emptied()
+    print(f"    {sweep['tested']} field-emptying variants through the real engine")
+    print(f"    {len(sweep['findings'])} became MORE permissive, across "
+          f"{len(sweep['fields'])} field(s):")
+    for field in sweep["fields"]:
+        print(f"       {field}")
+    print("    -- the same two the rest of this file is about, and nothing else.")
+    if sweep["crashes"]:
+        kinds = sorted({c["error"] for c in sweep["crashes"]})
+        print(f"\n    {len(sweep['crashes'])} raised instead of deciding ({', '.join(kinds)}).")
+        print("    Not a permissiveness failure -- no decision is not an approval -- but the")
+        print("    loudest way to fail to represent an absence. The four reachable through")
+        print("    /api/agent/propose are now refusals that name the missing field.")
     print()
     print("  " + "-" * 74)
     print("  The evasive agent never lied, never saw a rule value, and never retried")

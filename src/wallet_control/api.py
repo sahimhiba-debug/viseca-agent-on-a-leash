@@ -110,6 +110,11 @@ _RUNS: dict[str, DemoRun] = {}
 # "agent" means: this field may be authored by the party being judged. Such a field
 # may never carry policy, scope, time, or anything the wallet reasons WITH -- only
 # what the agent is asking for.
+# The one line field whose NULL is a fact rather than a mistake: a seller who
+# publishes no return window. Everything else that arrives empty is a proposal that
+# does not describe a purchase, and is refused rather than filled in.
+_NULL_MEANS_UNSTATED = frozenset({"return_days"})
+
 FIELD_AUTHORS: dict[tuple[str, str], str] = {
     ("AgentProposal", "session_id"): "agent",
     ("AgentProposal", "lines"): "agent",
@@ -296,12 +301,51 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
     # A malformed line is the caller's bug, and must read as one. Omitting `item_id`
     # raised an uncaught KeyError and returned a 500 with a stack trace on an
     # agent-controlled input -- a refusal dressed as a crash.
-    required = ("item_id", "name", "category", "unit_price")
+    #
+    # THE CHECK WAS FOR PRESENCE, NOT FOR A VALUE, and the difference is a policy
+    # bypass. `{"merchant": null}` has the key. It flowed into a set comprehension
+    # reading `str(l.get("merchant") or "ME0001")` -- three lines below a comment
+    # explaining that quietly re-attributing a basket to a default merchant "would
+    # hand the engine a truthful evaluation of a false description". The comment was
+    # right and the expression under it did exactly that:
+    #
+    #     names an unfamiliar shop   ->  BLOCK   blocked_by=["merchant"]
+    #     names NOTHING at all       ->  ALLOW
+    #
+    # against "from a shop I have used before". Withholding the fact beat supplying
+    # a bad one -- the same shape as the seller who publishes no return window, at
+    # our own boundary this time, and here it is a genuine bypass rather than a
+    # routing to `uncertainty_policy`.
+    #
+    # Four more payloads (`unit_price: null`, `unit_price: "abc"`, `quantity: null`,
+    # `return_days: "many"`) raised out of the handler, which is the same defect in
+    # its loudest form: a value the wallet cannot read is an ABSENCE, and an absence
+    # must be represented, not thrown.
+    required = ("item_id", "name", "category", "unit_price", "merchant")
+    numeric = {"unit_price": float, "quantity": int, "return_days": int}
     for index, line in enumerate(req.lines):
-        missing = [k for k in required if k not in line]
+        missing = [k for k in required if line.get(k) is None]
         if missing:
             raise HTTPException(status_code=400, detail=(
-                f"line {index + 1} is missing {', '.join(missing)}"))
+                f"line {index + 1} does not say {', '.join(missing)}. A proposal that "
+                f"leaves one of these out is not a purchase anyone could make, and it "
+                f"is not filled in for you: a missing fact is missing."))
+        for key, cast in numeric.items():
+            # NOT the same test for every field, because not every absence means the
+            # same thing. An omitted `quantity` means one; an explicit null means the
+            # caller had a value and lost it, which is malformed. An absent OR null
+            # `return_days` means the seller states no return window -- a real fact
+            # about the offer that the engine routes to `uncertainty_policy`, and the
+            # one absence here that must stay legal.
+            if key not in line:
+                continue
+            if line[key] is None and key in _NULL_MEANS_UNSTATED:
+                continue
+            try:
+                cast(line[key])
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=(
+                    f"line {index + 1} has {key}={line[key]!r}, which is not a number"))
 
     session = _AGENT_SESSIONS.get(req.session_id)
     if session is None:
@@ -316,7 +360,7 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
 
     snapshot = session.mandate.snapshot()
     revision = len(session.order)
-    amount = round(sum(float(l["unit_price"]) * int(l.get("quantity", 1)) for l in req.lines), 2)
+    amount = round(sum(float(l["unit_price"]) * int(l.get("quantity", 1) or 1) for l in req.lines), 2)
     when = AGENT_DEMO_START + timedelta(minutes=90 * revision)
     stamp = when.isoformat().replace("+00:00", "Z")
     # The event must describe the purchase the AGENT proposed, not a convenient one.
@@ -327,7 +371,7 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
     # the one we ship.
     windows = [l.get("return_days") for l in req.lines]
     items = [{"line_no": i + 1, "item_id": l["item_id"], "item_name": l["name"],
-              "item_category": l["category"], "quantity": int(l.get("quantity", 1)),
+              "item_category": l["category"], "quantity": int(l.get("quantity", 1) or 1),
               "unit_price": float(l["unit_price"]), "currency": "CHF",
               "item_details": ("" if l.get("return_days") is None
                                else f"returns accepted within {int(l['return_days'])} days")}
@@ -339,7 +383,7 @@ def agent_propose(req: AgentProposal) -> dict[str, Any]:
     # would hand the engine a truthful evaluation of a false description -- the same
     # defect that let an earlier agent be "approved" while holding goods from a shop
     # the customer had excluded. Refuse it instead; the caller has a bug.
-    proposed = {str(l.get("merchant") or "ME0001") for l in req.lines}
+    proposed = {str(l["merchant"]) for l in req.lines}
     if len(proposed) != 1:
         raise HTTPException(status_code=400, detail=(
             "a proposal must come from one merchant; this basket names "

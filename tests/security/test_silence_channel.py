@@ -36,7 +36,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from research.silence_channel import (  # noqa: E402
-    ERASURES, erasure_violations, vocabulary_exhaustive,
+    ERASURES, erasure_violations, every_field_emptied, vocabulary_exhaustive,
 )
 from wallet_control.mandate import UncertaintyPolicy  # noqa: E402
 from wallet_control.silence import silence_witness  # noqa: E402
@@ -142,3 +142,22 @@ def test_every_erasure_removes_and_never_adds():
         assert "not_applicable" not in label
         source = erase.__doc__ or ""
         assert "not_applicable" not in source, label
+
+
+@pytest.fixture(scope="module")
+def swept():
+    return every_field_emptied()
+
+
+def test_only_the_two_documented_fields_help_when_emptied(swept):
+    """The strongest form of the property: asked of EVERY field of the authorization,
+    not only the two a seller publishes. If a third ever appears here it is a new
+    silence channel and the claim in FINAL_AGENT_SECURITY_AUDIT.md -- "exactly two
+    rules are exposed this way" -- has become false."""
+    assert swept["tested"] > 500, swept["tested"]
+    assert swept["fields"] == ["items.0.item_details", "order_returnable"], swept["fields"]
+
+
+def test_emptying_a_field_never_turns_a_refusal_into_a_silent_approval(swept):
+    """Under `decline`, nothing anywhere in the event helps."""
+    assert [f for f in swept["findings"] if f["policy"] == "decline"] == []
