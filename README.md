@@ -34,6 +34,28 @@ this codebase are the official integration versus local, demo-only extensions.
    a step_up for one purchase without changing the standing policy --
    [`mandate.py`](src/wallet_control/mandate.py).
 
+## What it shows you *before* you agree
+
+A policy is a **hypothesis about what someone meant**. Three panels on the Delegate
+tab test that hypothesis with concrete purchases run through the real engine, rather
+than describing it in prose that nobody audits. Each one is **silent when it has
+nothing to say**, which is the property that keeps it from becoming a warning people
+learn to click through.
+
+| panel | the question | how it answers |
+| --- | --- | --- |
+| **read-back** ([`unconsumed.py`](src/wallet_control/unconsumed.py)) | which of your words did the compiler actually read? | every word deleted in turn and the sentence compiled again. Green changed a rule; struck through changed nothing; red means *deleting it would create* one. 19 of 20 silently-lost restrictions caught, 0 false alarms on 33 well-formed sentences |
+| **ambiguity** ([`ambiguity.py`](src/wallet_control/ambiguity.py)) | does your sentence decide this purchase? | compile it two defensible ways, search for a basket the two judge differently. 2 witnesses across 5 sentences — quiet on the other three |
+| **silence** ([`silence.py`](src/wallet_control/silence.py)) | can a seller get past your rule by publishing nothing? | three sellers, same goods, same price. States 30 days → *buys it*; states 13 → *refuses it*; **says nothing → depends on one dial you can move** |
+
+The shared apparatus is [`witness.py`](src/wallet_control/witness.py): a throwaway
+mandate, a hypothetical purchase, the real engine. None of it decides anything.
+
+**Why they exist** is one principle, arrived at after finding the same mistake at six
+different boundaries: **absence is not a value** — see [docs/ABSENCE.md](docs/ABSENCE.md).
+A missing fact must be represented as missing and routed to whoever can supply it;
+never filled in, never inferred, never thrown.
+
 ## Repository layout
 
 ```
@@ -49,7 +71,12 @@ src/wallet_control/        THE RUNTIME -- only code that runs in production
                            execution lifecycle, rolling spend, revocation, checkpoint
   payment.py               The execution boundary -- one function may move money
   audit.py                 Audit timeline + delegation view (pure projections)
-  attack_demo.py           The eight judge-facing attacks, run against the real engine
+  ambiguity.py             Two readings of one sentence, and the purchase between them
+  silence.py               The rule a seller can escape by publishing nothing
+  unconsumed.py            Which of the customer's words changed a rule, measured
+  witness.py               Shared apparatus: a hypothetical purchase, the real engine
+  attack_demo.py           The nine judge-facing attacks -- one of which SUCCEEDS,
+                           on purpose, with the argument attached
   drift.py                 Explains how a re-delivered authorization differs (cannot gate)
   money.py                 Exact-decimal CHF math and the fixed FX table
   intervention.py          Decision -> the customer-facing intervention gloss
