@@ -124,6 +124,7 @@ class LiveWorker:
         checkpoint_dir: Path | str | None = None,
         confirmed_rules: "Sequence[HardRule] | None" = None,
         confirmed_uncertainty_policy: "UncertaintyPolicy | None" = None,
+        trust_echoed_policy: bool = False,
     ) -> None:
         self._client = client
         self._history = history
@@ -132,8 +133,21 @@ class LiveWorker:
         self._lock = threading.Lock()
         self._checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
         # What the CUSTOMER confirmed, held locally so the platform's echo can be
-        # checked against it rather than trusted. Optional so offline and test callers
-        # need not supply it; `run_live_worker.py` always does.
+        # checked against it rather than adopted.
+        #
+        # This used to be optional and silently skipped when absent, with the safety
+        # resting on one caller remembering. The stakes are on the record: an audit
+        # widened the echo and turned a CHF 9,000 purchase at an unknown seller from
+        # BLOCK into ALLOW for a whole run. A check whose absence is silent is the
+        # same defect shape as five others found in this project, so forgetting is
+        # now loud: omit the rules and you must SAY you are trusting the platform.
+        if confirmed_rules is None and not trust_echoed_policy:
+            raise ValueError(
+                "LiveWorker needs the rules the customer confirmed, so the platform's "
+                "echo of them can be checked rather than adopted. Pass "
+                "confirmed_rules=..., or pass trust_echoed_policy=True to state "
+                "explicitly that this worker adopts whatever policy it is sent."
+            )
         self._confirmed_rules = tuple(confirmed_rules) if confirmed_rules is not None else None
         self._confirmed_uncertainty_policy = confirmed_uncertainty_policy
 

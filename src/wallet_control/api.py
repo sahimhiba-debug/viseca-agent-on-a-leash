@@ -87,6 +87,47 @@ class DemoRun:
 _RUNS: dict[str, DemoRun] = {}
 
 
+# ============================================================== AUTHORSHIP REGISTRY
+#
+# Every caller-controlled field, and WHO is entitled to author it.
+#
+# This table exists because six separate vulnerabilities in this project turned out
+# to be one bug: A FACT WAS ACCEPTED FROM A PARTY THAT IS NOT ITS AUTHOR.
+#
+#   instruction on /api/agent/propose   customer's policy, accepted from the AGENT
+#   session_id scoping the budget       customer's delegation, scoped by the AGENT
+#   confirmed_at on a run               wallet's clock, accepted from the CALLER
+#   customer_message on resolve         wallet's words, accepted from the CALLER
+#   mandate= on resolve_authorization   wallet's own check, disabled by the CALLER
+#   confirmed_rules= on LiveWorker      customer's policy, adopted from the PLATFORM
+#
+# Each was found separately, months of campaigns apart, and each was fixed
+# separately. None of the fixes prevented the next one, because the pattern was
+# never named. Naming it is the point of this table: `scripts/run_authorship_audit.py`
+# fails if a request model grows a field that is not declared here, so the NEXT
+# instance cannot be added silently.
+#
+# "agent" means: this field may be authored by the party being judged. Such a field
+# may never carry policy, scope, time, or anything the wallet reasons WITH -- only
+# what the agent is asking for.
+FIELD_AUTHORS: dict[tuple[str, str], str] = {
+    ("AgentProposal", "session_id"): "agent",
+    ("AgentProposal", "lines"): "agent",
+    ("MandateForSession", "session_id"): "customer",
+    ("MandateForSession", "instruction"): "customer",
+    ("CompileRequest", "instruction"): "customer",
+    ("ResolveRequest", "decision"): "customer",
+}
+
+# Facts the wallet reasons WITH. No agent-authored field may appear here, and the
+# audit fails if one ever does.
+POLICY_BEARING = frozenset({
+    "instruction", "hard_rules", "uncertainty_policy", "confirmed_at",
+    "confirmed_rules", "customer_message", "mandate", "policy_version",
+    "spend", "budget", "window", "period_days", "scope",
+})
+
+
 class CompileRequest(BaseModel):
     instruction: str
 

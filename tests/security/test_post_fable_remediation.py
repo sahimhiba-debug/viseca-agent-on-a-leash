@@ -271,7 +271,7 @@ def test_a_malformed_echoed_mandate_cannot_reach_the_comparison_as_valid():
 def test_a_worker_with_no_confirmed_policy_still_runs():
     """Offline and test callers do not supply one; the check is opt-in by design and
     must not break them."""
-    LiveWorker(client=None, history=HistoryIndex({}, available=False))._verify_echoed_policy(
+    LiveWorker(client=None, history=HistoryIndex({}, available=False), trust_echoed_policy=True)._verify_echoed_policy(
         "RUN1", _snapshot([CONFIRMED_RULES[0]])
     )
 

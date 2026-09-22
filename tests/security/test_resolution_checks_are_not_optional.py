@@ -111,3 +111,41 @@ def test_without_the_mandate_the_check_does_not_fire_and_we_say_so():
     assert state.rolling_spend_chf(AT + timedelta(days=1), 7) == 400, (
         "if this is no longer 400, the mandate-less path now enforces the window too; "
         "delete this test and make `mandate` required")
+
+
+# ============================== the same shape, found again in the live worker
+def test_the_live_worker_refuses_to_run_without_the_confirmed_policy():
+    """Sixth instance of one defect: a check whose absence is silent.
+
+    `_verify_echoed_policy` compares the platform's echo of the mandate against what
+    the customer actually confirmed, and it used to `return` quietly when the worker
+    had not been given the confirmed rules. The stakes are on the record in its own
+    docstring: an audit widened the echo and turned a CHF 9,000 purchase at an
+    unknown seller from BLOCK into ALLOW for a whole run.
+
+    Safety rested on one caller remembering. Forgetting is now loud -- and a caller
+    that genuinely means to adopt whatever policy it is sent has to say so.
+    """
+    from wallet_control.live_worker import LiveWorker
+    from wallet_control.state import HistoryIndex
+
+    with pytest.raises(ValueError, match="confirmed"):
+        LiveWorker(client=None, history=HistoryIndex.empty())
+
+    # ...and the explicit opt-out still works, because offline and test callers exist
+    LiveWorker(client=None, history=HistoryIndex.empty(), trust_echoed_policy=True)
+
+
+def test_the_production_worker_passes_the_confirmed_policy():
+    """AST-enforced on the script that actually runs against the platform."""
+    script = (ROOT / "scripts" / "run_live_worker.py").read_text()
+    tree = ast.parse(script)
+    constructions = [n for n in ast.walk(tree)
+                     if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "LiveWorker"]
+    assert constructions, "run_live_worker.py no longer constructs a LiveWorker"
+    for call in constructions:
+        keywords = {k.arg for k in call.keywords}
+        assert "confirmed_rules" in keywords, (
+            f"line {call.lineno}: the live worker would adopt the platform's echo")
+        assert "trust_echoed_policy" not in keywords, (
+            f"line {call.lineno}: production must not opt out of echo verification")

@@ -62,7 +62,7 @@ def _envelope(event: dict) -> dict:
 
 
 def _worker_with_run(client, mandate):
-    worker = LiveWorker(client, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True))
+    worker = LiveWorker(client, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True), trust_echoed_policy=True)
     worker.register_run("RUN1", mandate)
     return worker
 
@@ -117,7 +117,7 @@ def test_step_up_is_not_auto_resolved_and_resolve_uses_the_separate_endpoint():
     client = FakeVisecaClient([_envelope(event), None])
     # No history at all for this card -> merchant.familiar is unknown, not False,
     # so the mandate's uncertainty_policy (ASK) drives a step_up rather than a block.
-    worker = LiveWorker(client, HistoryIndex.empty())
+    worker = LiveWorker(client, HistoryIndex.empty(), trust_echoed_policy=True)
     worker.register_run("RUN1", mandate)
     worker.run_forever(wait_seconds=1, max_events=1)
     assert client.submitted[0]["decision"] == "step_up"
@@ -135,7 +135,7 @@ def test_worker_auto_registers_a_run_from_its_first_event():
     mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=1000, currency="CHF", scope="purchase")])
     event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
     client = FakeVisecaClient([_envelope(event), None])
-    worker = LiveWorker(client, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True))
+    worker = LiveWorker(client, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True), trust_echoed_policy=True)
     # deliberately no worker.register_run() call
     processed = worker.run_forever(wait_seconds=1, max_events=1)
     assert processed == 1
@@ -176,7 +176,7 @@ def test_checkpoint_persistence_survives_a_simulated_process_restart(tmp_path):
     )
     event = make_event(mandate=mandate, authorization_id="AU1", amount=250.0)
     client1 = FakeVisecaClient([_envelope(event), None])
-    worker1 = LiveWorker(client1, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True), checkpoint_dir=tmp_path)
+    worker1 = LiveWorker(client1, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True), checkpoint_dir=tmp_path, trust_echoed_policy=True)
     worker1.register_run("RUN1", mandate)
     worker1.run_forever(wait_seconds=1, max_events=1)
     assert client1.submitted[0]["decision"] == "approve"
@@ -188,7 +188,7 @@ def test_checkpoint_persistence_survives_a_simulated_process_restart(tmp_path):
     same_ts = datetime.fromisoformat(event["authorization"]["timestamp"].replace("Z", "+00:00"))
     event2 = make_event(mandate=mandate, authorization_id="AU2", amount=100.0, timestamp=same_ts)
     client2 = FakeVisecaClient([_envelope(event2), None])
-    worker2 = LiveWorker(client2, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True), checkpoint_dir=tmp_path)
+    worker2 = LiveWorker(client2, HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True), checkpoint_dir=tmp_path, trust_echoed_policy=True)
     worker2.register_run("RUN1", mandate)  # loads the checkpoint written by worker1
     worker2.run_forever(wait_seconds=1, max_events=1)
     # Without recovery, the 7-day window would only see AU2's 100 and approve it.
