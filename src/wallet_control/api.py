@@ -597,6 +597,31 @@ def mandate_ambiguity(req: CompileRequest) -> dict[str, Any]:
     return {"instruction": req.instruction, "witnesses": found_all, "available": True}
 
 
+@app.post("/api/mandates/read-back")
+def mandate_read_back(req: CompileRequest) -> dict[str, Any]:
+    """Which of your words did the compiler actually read?
+
+    A RECEIPT, not a warning. Every word is deleted in turn and the sentence
+    re-compiled: a word whose removal changes nothing was never read. That is a
+    causal measurement, so it cannot share the compiler's blind spots -- it is
+    defined as the complement of whatever the compiler matched.
+
+    `emphasise` carries the clauses where NOTHING was read and the wording is
+    restrictive. This is where a requirement goes to die silently today: the
+    coverage markers that exist to catch a missed restriction are built from the
+    same vocabulary as the compiler, so "I can send it back within 14 days"
+    produces no rule, no question, and no trace at all.
+    """
+    from .unconsumed import marks, unenforced_clauses
+
+    return {
+        "instruction": req.instruction,
+        "words": [{"word": m.word, "kind": m.kind, "start": m.start, "end": m.end}
+                  for m in marks(req.instruction)],
+        "emphasise": unenforced_clauses(req.instruction),
+    }
+
+
 @app.post("/api/mandates/silence")
 def mandate_silence(req: CompileRequest) -> dict[str, Any]:
     """Which of your rules can a seller escape by publishing nothing?

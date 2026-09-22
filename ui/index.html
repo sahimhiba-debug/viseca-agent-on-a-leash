@@ -61,6 +61,13 @@
   .readings .rd { flex:1 1 150px; border-radius:11px; padding:11px 12px; font-size:13.5px; }
   .readings .rd.ok { background:var(--allow-bg); color:var(--allow); }
   .readings .rd.no { background:var(--block-bg); color:var(--block); }
+  .card.rb { border-left:4px solid var(--line); }
+  .rbtext { font-size:15px; line-height:2.1; }
+  .rbtext .w { padding:2px 1px; border-radius:4px; }
+  .rbtext .w.consumed { background:var(--allow-bg); color:var(--allow); font-weight:650; }
+  .rbtext .w.inert { opacity:.42; text-decoration:line-through; text-decoration-thickness:1px; }
+  .rbtext .w.obstructive { background:var(--block-bg); color:var(--block); font-weight:650; }
+  .rblegend { display:flex; gap:12px; flex-wrap:wrap; font-size:11px; margin-top:8px; opacity:.8; }
   .card.sil { border-left:4px solid var(--block); }
   .sellers { display:flex; flex-direction:column; gap:6px; }
   .sellers .sr { display:flex; align-items:center; gap:10px; border-radius:10px;
@@ -357,6 +364,7 @@
     <button class="act b-dark" onclick="compile()">See how the wallet reads this</button>
   </div>
 
+  <div id="readback"></div>
   <div id="compiled"></div>
   <div id="deleg"></div>
   <div id="ambig"></div>
@@ -1009,6 +1017,7 @@ async function compile(){
     <p class="tiny" style="margin-top:9px">Your account also has a monthly limit set by your bank.
       This wallet does <b>not</b> enforce it — the official API exposes no account-level spend.</p></div>`;
   $('#confirm-card').style.display = r.hard_rules.length ? 'block' : 'none';
+  renderReadBack(LASTRULES ? $('#instr').value : '');
   renderAmbiguity(LASTRULES ? $('#instr').value : '');
   SILENCE_DIAL = null;
   renderSilence(LASTRULES ? $('#instr').value : '');
@@ -1052,6 +1061,55 @@ async function renderAmbiguity(instruction){
     </div>`;
   }).join('');
 }
+// Which of your words did the compiler actually READ?
+//
+// Not a pattern and not an opinion. Every word is deleted in turn and the sentence
+// re-compiled; a word whose removal changes nothing was never read. So this is the
+// complement of whatever the compiler matched, and it cannot share the compiler's
+// blind spots -- which is the whole problem with the coverage markers it already
+// has, built as they are from the same vocabulary as the thing they check.
+async function renderReadBack(instruction){
+  const box = document.getElementById('readback');
+  if(!box) return;
+  if(!instruction.trim()){ box.innerHTML=''; return; }
+  let d;
+  try {
+    d = await (await fetch('/api/mandates/read-back', {method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify({instruction})})).json();
+  } catch(e){ box.innerHTML=''; return; }
+  if(!d.words || !d.words.length){ box.innerHTML=''; return; }
+
+  let out = '', cursor = 0;
+  for(const w of d.words){
+    out += esc(instruction.slice(cursor, w.start));
+    out += `<span class="w ${w.kind}">${esc(w.word)}</span>`;
+    cursor = w.end;
+  }
+  out += esc(instruction.slice(cursor));
+
+  const obstructive = d.words.filter(w=>w.kind==='obstructive').map(w=>w.word);
+  const emph = (d.emphasise||[]).map(e=>
+    `<li>${esc(e.clause)}${e.obstructive && e.obstructive.length
+       ? ` <span class="tiny">— remove “${esc(e.obstructive[0])}” and this would become a rule</span>` : ''}</li>`).join('');
+
+  box.innerHTML = `<div class="card rb">
+    <h2>What the wallet actually read</h2>
+    <p class="muted">Every word removed in turn and the sentence compiled again. A word
+      that changes nothing was never read — this is measured, not guessed.</p>
+    <p class="rbtext">${out}</p>
+    <div class="rblegend">
+      <span><b style="color:var(--allow)">highlighted</b> = changed a rule</span>
+      <span><s>struck</s> = changed nothing</span>
+      ${obstructive.length ? '<span><b style="color:var(--block)">red</b> = removing it would CREATE a rule</span>' : ''}
+    </div>
+    ${emph ? `<div style="margin-top:12px"><b>Nothing in these was read, and they read like restrictions:</b>
+      <ul class="tiny" style="margin:6px 0 0 16px">${emph}</ul>
+      <p class="tiny" style="margin:8px 0 0">If one of them was a requirement, it is
+        <b>not enforced</b>. Say it another way and watch this line disappear.</p></div>` : ''}
+  </div>`;
+}
+
 // Which of your rules can a seller get past by publishing NOTHING?
 //
 // A rule needs evidence. "Returnable within 14 days" is checked against a window the

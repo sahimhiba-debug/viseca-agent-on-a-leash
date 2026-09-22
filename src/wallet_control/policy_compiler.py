@@ -228,9 +228,30 @@ _RETAILER_TYPE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# "return it within 14 days" produced NO rule and only an open question, because
+# the day count had to follow the return word almost immediately. The near-miss was
+# found by `unconsumed.py`, which reported the pronoun "it" as OBSTRUCTIVE -- delete
+# that one word and a rule appears -- so the defect named itself rather than waiting
+# for someone to think of the phrasing.
+#
+# Widened by a BOUNDED run of intervening characters, with three guards, because the
+# last time an amount pattern was widened here it created a scope inversion:
+#   * `[^.;]` cannot cross a sentence or clause boundary;
+#   * `(?!CHF)` cannot swallow a money phrase and pair the wrong number;
+#   * the preposition is REQUIRED, so only "... within/in/for N days" pairs -- an
+#     unanchored `\d+ days` would match "keep the total across any seven days".
 _RETURN_WINDOW_RE = re.compile(
-    r"return(?:ed|able|s)?\s*(?:are\s+accepted\s*)?(?:within)?\s*(?P<days>\d+)\s*days?\s*(?P<or_more>or\ more)?",
-    re.IGNORECASE,
+    r"return(?:ed|able|s)?\b"
+    r"(?:(?!CHF)[^.;]){0,24}?"
+    r"\b(?:within|in|for|up\ to|of)\s+"
+    # Only MINIMUM-flavoured quantifiers. "returnable for at least 14 days" is a
+    # 14-day floor and compiles to `>= 14`; "at most 14 days" is a CEILING on the
+    # window and would compile to the opposite of what it says. An unmatched phrase
+    # is caught by `unconsumed.py` and shown to the customer, so the safe direction
+    # is to decline the pairing rather than to guess it.
+    r"(?:at\ least\s+|at\ minimum\s+|a\ minimum\ of\s+|no\ less\ than\s+|minimum\s+)?"
+    r"(?P<days>\d+)\s*days?\s*(?P<or_more>or\ more)?",
+    re.IGNORECASE | re.VERBOSE,
 )
 
 # Five of eight ordinary paraphrases of this one requirement produced NO rule before
