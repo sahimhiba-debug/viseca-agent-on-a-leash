@@ -42,19 +42,24 @@ def test_the_corpus_is_broad_enough_to_mean_something():
 
 
 # ============================ the inversion a vocabulary widening re-created
-@pytest.mark.parametrize("phrase,scope", [
-    ("Weekly spending must not exceed CHF 300.", "period"),
-    ("Monthly spend must not exceed CHF 500.", "period"),
-    ("Don't let the weekly total exceed CHF 300.", "period"),
-    ("Spending must not exceed CHF 300 per week.", "period"),
-    ("Don't let any single order exceed CHF 120.", "purchase"),
-    ("Cap each order at CHF 120.", "purchase"),
-    ("No order above CHF 120.", "purchase"),
-    ("I don't want to pay more than CHF 120 at a time.", "purchase"),
-    # the false positive the fix has to avoid: "weekly" qualifying the ORDERING
-    ("Order groceries weekly, each order under CHF 120.", "purchase"),
+@pytest.mark.parametrize("phrase,scope,days", [
+    ("Weekly spending must not exceed CHF 300.", "period", 7),
+    ("Monthly spend must not exceed CHF 500.", "period", 30),
+    ("Don't let the weekly total exceed CHF 300.", "period", 7),
+    ("Spending must not exceed CHF 300 per week.", "period", 7),
+    ("Don't let any single order exceed CHF 120.", "purchase", None),
+    ("Cap each order at CHF 120.", "purchase", None),
+    ("No order above CHF 120.", "purchase", None),
+    ("I don't want to pay more than CHF 120 at a time.", "purchase", None),
+    # The false positives the tightness has to avoid: "weekly" qualifying the
+    # ORDERING, not a total. Both phrasings, because mutation showed the comma
+    # version passed while the "and" version did not -- with a loose pattern the
+    # second became a CHF 120 WEEKLY budget and the per-order ceiling vanished.
+    ("Order groceries weekly, each order under CHF 120.", "purchase", None),
+    ("Order weekly and keep each order under CHF 120.", "purchase", None),
+    ("Deliver monthly and keep each order under CHF 120.", "purchase", None),
 ])
-def test_a_period_word_does_not_become_a_per_order_ceiling(phrase, scope):
+def test_a_period_word_does_not_become_a_per_order_ceiling(phrase, scope, days):
     """Widening the amount vocabulary so "must not exceed" matched re-created the
     inversion this compiler already warns about at length: a WEEKLY cap compiled to
     `scope=purchase`, letting the agent spend CHF 300 every order against a customer
@@ -66,8 +71,15 @@ def test_a_period_word_does_not_become_a_per_order_ceiling(phrase, scope):
     compiled = compile_instruction(BASE + phrase)
     money = [r for r in compiled.hard_rules if r.field == "authorization.billing_amount_chf"]
     assert money, f"no amount rule at all for {phrase!r}"
-    assert any(r.scope == scope for r in money), (
+    matching = [r for r in money if r.scope == scope]
+    assert matching, (
         f"{phrase!r} compiled to {[(r.value, r.scope) for r in money]}, expected scope={scope}")
+    # ...and the WINDOW LENGTH the customer named. A weekly cap mapped to one day is
+    # stricter and still wrong: it is not what they said. Mutation found this gap --
+    # mapping "weekly" to 1 day survived the first version of this test.
+    assert any(r.period_days == days for r in matching), (
+        f"{phrase!r}: expected period_days={days}, got "
+        f"{[r.period_days for r in matching]}")
 
 
 def test_the_widened_vocabulary_did_not_move_the_official_replay():

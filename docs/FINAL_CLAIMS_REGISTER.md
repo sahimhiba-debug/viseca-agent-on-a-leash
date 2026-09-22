@@ -167,3 +167,15 @@ someone spend CHF 6,480 under it. These rows exist to make that impossible.
 | A human approval can clear a policy failure | **DO NOT CLAIM** | a hard failure never offers a step-up |
 | Telling the agent `budget_window` costs privacy | **DO NOT CLAIM** | measured: a prober converges identically either way — 11 probes, CHF 0.20 gap |
 | We benchmarked a real language model | **DO NOT CLAIM** | credentials re-checked exhaustively; none exist on this machine |
+
+## Authorship and intent (this campaign)
+
+| claim | class | evidence |
+| --- | --- | --- |
+| Six vulnerabilities in this project were one bug | **PROVEN** | the six, tabulated; `AUTHORSHIP.md` |
+| A static rule catches all six | **PROVEN** | each reintroduced and rejected, `test_authorship_audit` |
+| A seventh instance cannot be added silently | **SUPPORTED** | an undeclared field fails the audit; it caught its own endpoint |
+| The authorship rule is complete | **DO NOT CLAIM** | name-matching heuristic; it accepted `max_amount` until that was fixed. Aimed at the careless commit, not an adversary who controls the field name |
+| No restrictive statement disappears silently | **SUPPORTED** | 39 independently written restrictions, 0 silently weakened |
+| The compiler understands natural language | **DO NOT CLAIM** | 20 EXACT of 39; the other 19 are disclosed, not understood |
+| Widening the vocabulary is safe | **DO NOT CLAIM** | it created a scope inversion on this very campaign. Caught by attacking the change, not by the suite |

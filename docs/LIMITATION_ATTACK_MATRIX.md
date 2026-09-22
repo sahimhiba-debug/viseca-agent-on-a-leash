@@ -40,3 +40,28 @@ from earlier campaigns and are cited so a judge can re-run them.
 | 9.1 | L9 lifecycle | **NEW** replace a live mandate | 409 | closed |
 | 9.2 | L9 | prior: tighten-only amendment | enforced in `mandate.py` | closed |
 | 6.1 | L6 real LLM | **NEW** credential search (env, files, CLI, SDKs, local) | none; API 401, CLI OAuth expired | **EXTERNAL-DEPENDENCY-LIMITED** |
+
+## Authorship campaign
+
+| # | limitation | attack | result | classification |
+| --- | --- | --- | --- | --- |
+| A.1 | the six defects are unrelated | lay them side by side | **REFUTED** — all six are *a fact accepted from a party that is not its author* | — |
+| A.2 | the pattern cannot be checked statically | build `run_authorship_audit.py` | three rules; exits non-zero | **CLOSED** |
+| A.3 | the checker is fitted to today's code | **reintroduce all six defects** | all six CAUGHT | validated |
+| A.4 | the checker is decoration | remove each declared-optional reason | audit fails; the reasons are load-bearing | validated |
+| A.5 | L-new: `LiveWorker` skips echo verification silently | construct without `confirmed_rules` | **DEFECT** — CHF 9,000 exposure on record | **CLOSED**, fails closed |
+| A.6 | the new endpoints leak policy | search every byte | no decimal, no rule value, outside `/api/agent/` | closed |
+| A.7 | the new endpoints mutate state | propose fields, re-read the registry | unchanged | closed |
+| A.8 | the audit's own model is exempt | add the endpoint | **it failed its own check immediately** | fixed |
+| A.9 | `POLICY_BEARING` is complete | propose `max_amount` as agent | **ACCEPTED — gap** | fixed; documented as a heuristic |
+
+## Intent expressiveness campaign (R5)
+
+| # | attack | result | classification |
+| --- | --- | --- | --- |
+| I.1 | 39 restrictions written from a taxonomy, not from the regexes | **0 silently weakened** | invariant holds |
+| I.2 | are inexpressible restrictions disclosed? | 19 UNSUPPORTED-SAFE, all shown before confirmation | closed |
+| I.3 | recognition gaps | 5 plausible phrasings produced no rule | **REDUCED** — EXACT 15 → 20 |
+| I.4 | **does widening the vocabulary break scope?** | **YES** — "Weekly spending must not exceed CHF 300" became a per-ORDER ceiling | **FIXED**, mirror pattern |
+| I.5 | mutate the fix | 3 mutants: 2 survived — tests were too weak | tests strengthened, all 3 now killed |
+| I.6 | does the widening move the replay? | 45 · 19/2/24 unchanged | closed |
