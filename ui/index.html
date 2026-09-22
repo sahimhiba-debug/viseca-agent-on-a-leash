@@ -68,6 +68,11 @@
     margin:10px 0 4px; display:flex; }
   .scbar i { display:block; height:100%; background:var(--allow); }
   .scbar u { display:block; height:100%; background:var(--ask); }
+  .screp { border-radius:10px; padding:10px 12px; font-size:12.5px; margin-top:10px; }
+  .screp .lbl { display:block; font-size:9.5px; font-weight:800; letter-spacing:.06em;
+    text-transform:uppercase; opacity:.75; margin-bottom:3px; }
+  .screp.ok { background:var(--allow-bg); color:var(--allow); }
+  .screp.no { background:var(--block-bg); color:var(--block); }
   .card.rb { border-left:4px solid var(--line); }
   .rbtext { font-size:15px; line-height:2.1; }
   .rbtext .w { padding:2px 1px; border-radius:4px; }
@@ -1105,18 +1110,23 @@ async function renderScope(instruction){
   // count, not the zero.
   const headline = (d.authorised === 0 && d.asks_you > 0)
     ? `<p class="scnum" style="font-size:26px">None without asking you
-         <small style="display:block;margin-top:4px">${d.asks_you} of ${d.universe} purchases
-         would come to you first — the wallet will not decide these alone</small></p>`
-    : `<p class="scnum">${d.authorised} <small>of ${d.universe} purchases this shop could make</small></p>`;
+         <small style="display:block;margin-top:4px">${d.asks_you} of ${d.universe} grocery purchases
+         on offer would come to you first — the wallet will not decide these alone</small></p>`
+    : `<p class="scnum">${d.authorised} <small>of ${d.universe} grocery purchases your agent could put to this card</small></p>`;
 
   box.innerHTML = `<div class="card sc">
     <h2>What you are about to authorise</h2>
     ${headline}
     <div class="scbar"><i style="width:${pct}%"></i><u style="width:${askPct}%"></u></div>
     <p class="tiny">${pct}% approved outright${d.asks_you?` · ${askPct}% put to you`:''}. ${delta}</p>
-    <p class="tiny" style="margin-top:8px">Counted, not estimated: every basket one shop
-      could sell you — up to ${d.max_lines} lines — put through the same engine that will
-      judge the real ones. Add a condition above and watch this fall.</p>
+    <div class="screp ${d.how_many_times.bounded?'ok':'no'}">
+      <span class="lbl">${d.how_many_times.bounded?'how many times':'how many times — unlimited'}</span>
+      ${esc(d.how_many_times.note)}
+    </div>
+    <p class="tiny" style="margin-top:8px">Counted, not estimated: every basket of up to
+      ${d.max_lines} lines that any one shop in the ${d.category} catalogue could sell you,
+      each put through the same engine that will judge the real ones. Add a condition
+      above and watch this fall.</p>
   </div>`;
 }
 

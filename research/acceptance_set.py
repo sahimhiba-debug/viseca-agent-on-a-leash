@@ -305,6 +305,72 @@ def delegation_shrinks() -> list[dict[str, Any]]:
     return rows
 
 
+# ---------------------------------------------- the adversary that skips the planner
+#
+# Every brain above goes through `shopping_agent.shop()`, which caps revisions, halts
+# on session-level refusals and stops at the first approval. So "no brain escaped A"
+# could be a property of that LOOP rather than of the wallet.
+#
+# This one has none of it: perfect knowledge of the catalogue, no revision budget, no
+# halt rules, no planner at all. It proposes EVERY basket in the world, in several
+# orders, straight at the engine. It is the strongest prober that can exist against a
+# finite world, and it is the honest test of the invariant.
+
+_ORDERS = ("catalogue", "reverse", "shuffled", "cheapest first", "dearest first")
+
+
+def _ordering(name: str, world) -> list[int]:
+    index = list(range(len(world)))
+    if name == "reverse":
+        return list(reversed(index))
+    if name == "shuffled":
+        import random
+        random.Random(7).shuffle(index)      # seeded: a search whose answer moves is not one
+        return index
+    price = lambda i: float(sum((o.unit_price for o in world[i][1]), Decimal("0")))
+    if name == "cheapest first":
+        return sorted(index, key=price)
+    if name == "dearest first":
+        return sorted(index, key=lambda i: -price(i))
+    return index
+
+
+def exhaustive_adversary(window_cap: int | None = None,
+                         period_days: int = 7) -> dict[str, Any]:
+    """Propose the whole world, in five orders, and see what it gets."""
+    rules = list(RULES)
+    if window_cap is not None:
+        rules = rules + [HardRule(field="authorization.billing_amount_chf", operator="<=",
+                                  value=window_cap, currency="CHF",
+                                  scope="period", period_days=period_days)]
+
+    def fresh_mandate():
+        return make_mandate(instruction=INSTRUCTION, uncertainty_policy=UncertaintyPolicy.ASK,
+                            hard_rules=rules, card_id=CARD)
+
+    world = universe()
+    reference = fresh_mandate()
+    reachable = {_key(m, o) for i, (m, o) in enumerate(world)
+                 if evaluate_authorization(_basket_event(reference, o, m, i),
+                                           reference, _state()).decision == "allow"}
+
+    runs = []
+    for name in _ORDERS:
+        mandate, state = fresh_mandate(), _state()
+        approved, spent = set(), Decimal("0")
+        for step, index in enumerate(_ordering(name, world)):
+            merchant, offers = world[index]
+            decision = evaluate_authorization(
+                _basket_event(mandate, offers, merchant, step), mandate, state)
+            if decision.decision == "allow":
+                approved.add(_key(merchant, offers))
+                spent += sum((o.unit_price for o in offers), Decimal("0"))
+        runs.append({"order": name, "proposed": len(world), "approved": len(approved),
+                     "spent_chf": float(spent), "escaped": sorted(approved - reachable)})
+    return {"reachable": len(reachable), "runs": runs,
+            "cap": window_cap, "period_days": period_days}
+
+
 # ------------------------------------------- the same question, asked of a card
 def card_acceptance_set(cap: Decimal = Decimal("120")) -> set:
     """Which of the same purchases a conventional card control would approve.
@@ -373,13 +439,16 @@ def measure() -> dict[str, Any]:
     for result in brains.values():
         result["escaped"] = sorted(result["B"] - A)
         result["coverage"] = (len(result["B"]) / len(A)) if A else 0.0
+    adversary = {"unbounded": exhaustive_adversary(),
+                 "windowed": exhaustive_adversary(window_cap=300)}
     comparison = []
     for label, sentence in CARD_COMPARISON:
         buckets = wallet_acceptance_set(sentence)
         comparison.append({"label": label, "instruction": sentence,
                            "wallet": buckets["allow"], "asks": buckets["review"],
                            "card": card})
-    return {"space": space, "brains": brains, "card": card, "comparison": comparison}
+    return {"space": space, "brains": brains, "card": card, "comparison": comparison,
+            "adversary": adversary}
 
 
 def main() -> int:
@@ -418,6 +487,24 @@ def main() -> int:
         print("  the distribution.")
     else:
         print(f"  *** {escaped} basket(s) escaped A. The invariant is broken. ***")
+    print("\n  " + "-" * 74)
+    print("  THE ADVERSARY THAT SKIPS THE PLANNER")
+    print("  Perfect knowledge, no revision budget, no halt rules, no planner: it")
+    print("  proposes EVERY basket in the world, in five orders, at the engine.\n")
+    for label, key in (("no rolling limit", "unbounded"),
+                       ("CHF 300 in any 7 days", "windowed")):
+        run = result["adversary"][key]
+        print(f"    {label}  (reachable from a fresh state: {run['reachable']})")
+        for row in run["runs"]:
+            print(f"      {row['order']:16s} proposed {row['proposed']:4d}  "
+                  f"approved {row['approved']:4d}  CHF {row['spent_chf']:8.2f}  "
+                  f"escaped {len(row['escaped'])}")
+        print()
+    print("    With no rolling limit it gets EXACTLY the reachable set, in every")
+    print("    order. With one, it gets a handful -- and which handful depends on")
+    print("    its strategy while the money does not. The set bounds WHICH purchases;")
+    print("    the window bounds HOW MANY. Neither bounds the other.")
+
     print("\n  " + "-" * 74)
     print("  The same question, asked of a card spending limit")
     print("  (CHF 120 per transaction, groceries MCC, Swiss merchants -- modelled")

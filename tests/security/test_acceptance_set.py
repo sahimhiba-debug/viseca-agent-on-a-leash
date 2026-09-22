@@ -175,3 +175,168 @@ def test_neither_control_can_get_the_missing_fact(measured):
     beyond = measured["comparison"][1]
     assert len(beyond["asks"]) > len(beyond["card"]) or beyond["asks"] >= beyond["card"]
     assert beyond["wallet"] == set()
+
+
+def test_the_familiar_set_is_derived_from_history_and_not_declared():
+    """It was `frozenset({"ME0001", ..., "ME0004"})` and it happened to be exactly
+    right -- the worst state for a fact to be in: correct today, unmoored from its
+    source, silently wrong the moment the data changes.
+
+    A number the customer is shown, computed from a hand-written copy of a fact the
+    engine reads from a file, is the same shape as every defect in
+    `docs/ABSENCE.md`: not an absence here but a DRIFT, and the panel would have
+    gone on reporting a confident figure about a world that no longer existed."""
+    from wallet_control.csv_data import history_csv_path, load_merchants
+    from wallet_control.scope import COUNTED_CARD, familiar_merchants
+    from wallet_control.state import HistoryIndex
+
+    history = HistoryIndex.from_csv(history_csv_path())
+    expected = {m for m in load_merchants()
+                if history.is_familiar(COUNTED_CARD, m) is True}
+    assert familiar_merchants() == expected
+    assert len(expected) > 1, "a world where everything is familiar tests nothing"
+
+    # Structure, not text: the docstring explaining the fix quotes the old literal,
+    # so a grep matches its own explanation.
+    import ast
+    tree = ast.parse((Path(__file__).resolve().parents[2] / "src" / "wallet_control"
+                      / "scope.py").read_text())
+    assignment = next(
+        node for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(getattr(t, "id", None) == "FAMILIAR" for t in node.targets))
+    assert isinstance(assignment.value, ast.Call), (
+        "FAMILIAR is assigned a literal again; it must be derived from the history "
+        "file the engine reads")
+    assert getattr(assignment.value.func, "id", None) == "familiar_merchants"
+
+
+def test_the_counted_figure_says_what_it_is_counted_over():
+    """A count whose scope is not stated beside it is a number a reader attaches to
+    whatever they are looking at -- and the agent demo shops a smaller fixture than
+    the catalogue this enumerates."""
+    from wallet_control.scope import delegation_size
+    sized = delegation_size("Order our household groceries at or below CHF 120.")
+    over = sized["counted_over"]
+    assert len(over["shops"]) >= 3 and over["card"]
+    assert str(sized["max_lines"]) in over["basis"]
+    assert sized["category"] in over["basis"]
+
+
+# --------------------------------------------- how many times, not just how many
+def test_a_count_of_purchases_does_not_answer_how_much_rope():
+    """The false belief my own headline created.
+
+    "116 purchases" reads as a quantity. It is not: without a rolling rule the agent
+    may make every one of them and then make them all again tomorrow. A correct
+    figure a person will attach to the wrong question is the same defect as a correct
+    record with a false rendering -- `docs/ABSENCE.md`, the I39 class -- and it is
+    worse here because the number is the first thing on the page."""
+    from wallet_control.scope import delegation_size
+
+    unbounded = delegation_size(
+        "Order our household groceries at or below CHF 120 from a shop I have used before.")
+    assert unbounded["authorised"] > 0
+    assert unbounded["how_many_times"]["bounded"] is False
+    assert unbounded["how_many_times"]["most_purchases_per_period"] is None
+    assert "again" in unbounded["how_many_times"]["note"].lower()
+
+    bounded = delegation_size(
+        "Order our household groceries at or below CHF 120 from a shop I have used "
+        "before, and keep the total across any seven days at or below CHF 300.")
+    times = bounded["how_many_times"]
+    assert times["bounded"] is True
+    assert times["cap_chf"] == 300 and times["period_days"] == 7
+    assert times["most_purchases_per_period"] == int(300 // times["cheapest_chf"])
+    assert bounded["authorised"] == unbounded["authorised"], (
+        "a rolling rule bounds the RATE, not the set of purchases -- if this ever "
+        "changes, the two numbers are measuring different things and the panel is "
+        "showing one while describing the other")
+
+
+def test_a_rolling_rule_the_engine_cannot_apply_bounds_nothing_and_says_so():
+    """A period rule whose value is not a number is UNKNOWN to the engine, so it
+    bounds nothing. The panel must not invent a limit from a rule that does not
+    impose one -- that would be this project shipping the defect it hunts."""
+    from wallet_control.mandate import UncertaintyPolicy
+    from wallet_control.scope import _repetition
+    from wallet_control.mandate import HardRule
+
+    rules = [HardRule(field="authorization.billing_amount_chf", operator="<=",
+                      value=["300"], currency="CHF", scope="period", period_days=7)]
+    times = _repetition(rules, 28.0)
+    assert times["bounded"] is False
+    assert times["most_purchases_per_period"] is None
+    assert "not a number" in times["note"]
+    assert UncertaintyPolicy  # the import is the point: this path is engine-agnostic
+
+
+# ------------------------------------------ the adversary that skips the planner
+@pytest.fixture(scope="module")
+def adversary(measured):
+    return measured["adversary"]
+
+
+def test_an_exhaustive_adversary_gets_exactly_the_reachable_set(adversary):
+    """Every brain in the table above goes through `shopping_agent.shop()`, which
+    caps revisions, halts on session-level refusals and stops at the first approval.
+    So "no brain escaped" could have been a property of that LOOP.
+
+    This one has none of it: perfect knowledge of the catalogue, no revision budget,
+    no halt rules, no planner. It proposes all 595 baskets in five different orders.
+    It gets exactly the 116 the mandate permits -- not one more, and the same 116
+    whichever order it tries them in."""
+    run = adversary["unbounded"]
+    assert len(run["runs"]) == 5
+    for row in run["runs"]:
+        assert row["escaped"] == [], (row["order"], row["escaped"])
+        assert row["approved"] == run["reachable"], row
+        assert row["proposed"] > 500
+
+
+def test_a_rolling_window_bounds_how_many_and_not_which(adversary):
+    """The set bounds WHICH purchases; the window bounds HOW MANY. Neither bounds the
+    other, and the exhaustive adversary shows both halves at once: the reachable set
+    is unchanged at 116 -- a CHF 300 weekly cap forbids no single basket under CHF
+    120 -- while what it actually gets collapses to a handful."""
+    run = adversary["windowed"]
+    assert run["reachable"] == adversary["unbounded"]["reachable"]
+    for row in run["runs"]:
+        assert row["escaped"] == []
+        assert row["approved"] < run["reachable"] / 5, row
+        assert row["spent_chf"] <= run["cap"], row
+
+
+def test_the_strategy_changes_what_it_gets_and_not_what_it_spends(adversary):
+    """Cheapest-first takes more purchases, dearest-first takes fewer, and both stop
+    at about the same money. That is the window doing its job on the dimension it
+    actually governs."""
+    rows = {row["order"]: row for row in adversary["windowed"]["runs"]}
+    assert rows["cheapest first"]["approved"] > rows["dearest first"]["approved"]
+    assert rows["dearest first"]["spent_chf"] >= rows["cheapest first"]["spent_chf"]
+
+
+def test_the_panel_predicts_this_adversary_and_is_an_upper_bound():
+    """The customer-facing number, checked against the strongest prober that can
+    exist against this world.
+
+    The delegation panel tells the customer "at most N of these purchases" from
+    cap / cheapest-authorised. An exhaustive adversary with perfect knowledge must
+    never beat that figure -- and gets close enough to it that the figure is not
+    idle. Predicted 10, achieved 9: the tenth does not fit at real prices."""
+    from wallet_control.scope import delegation_size
+    from research.acceptance_set import exhaustive_adversary
+
+    sized = delegation_size(
+        "Order our household groceries at or below CHF 120 from a shop I have used "
+        "before, and keep the total across any seven days at or below CHF 300.")
+    predicted = sized["how_many_times"]["most_purchases_per_period"]
+    assert predicted, sized["how_many_times"]
+
+    best = max(row["approved"] for row in exhaustive_adversary(window_cap=300)["runs"])
+    assert best <= predicted, (
+        f"an adversary made {best} purchases where the customer was told at most "
+        f"{predicted} -- the panel is understating the exposure")
+    assert best >= predicted - 2, (
+        f"predicted {predicted}, best achieved {best}: the figure is so loose it "
+        f"tells the customer nothing")

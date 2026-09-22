@@ -46,15 +46,41 @@ from functools import lru_cache
 from itertools import combinations
 from typing import Any
 
-from .csv_data import load_items, load_merchants
+from .csv_data import history_csv_path, load_items, load_merchants
 from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy
 from .policy_compiler import compile_instruction
+from .state import HistoryIndex
 from .witness import CARD, judge_event, snapshot
 
 MAX_LINES = 5
-# Which shops this demo card has bought from before. Read by the enumeration so the
-# familiarity rule carves a real piece out of the universe rather than nothing.
-FAMILIAR = frozenset({"ME0001", "ME0002", "ME0003", "ME0004"})
+
+# The card the counted world belongs to. The official demo card, so the familiarity
+# rule carves a real piece out of the universe rather than nothing.
+COUNTED_CARD = "CA0001"
+
+
+@lru_cache(maxsize=1)
+def familiar_merchants(card_id: str = COUNTED_CARD) -> frozenset[str]:
+    """Which shops this card has actually paid before, from the SAME history file the
+    engine reads.
+
+    This was a hard-coded `frozenset({"ME0001", ..., "ME0004"})`. It happened to be
+    exactly right, which is the worst state for a fact to be in: correct today,
+    unmoored from its source, and silently wrong the moment the data changes. A
+    policy-bearing set asserted in one place and derived in another is the shape
+    every defect in `docs/ABSENCE.md` has -- here it would not have been an absence
+    but a drift, and the panel would have gone on reporting a confident number about
+    a world that no longer existed.
+    """
+    history = HistoryIndex.from_csv(history_csv_path())
+    return frozenset(
+        merchant for merchant in load_merchants()
+        if history.is_familiar(card_id, merchant) is True)
+
+
+# Kept as a module attribute because `disagreement.py` and the research modules read
+# it; it is now DERIVED rather than declared.
+FAMILIAR = familiar_merchants()
 
 
 @lru_cache(maxsize=8)
@@ -84,12 +110,57 @@ def _categories(rules: list[HardRule]) -> str:
     return "groceries"
 
 
-def _count(mandate: MandateSnapshot, category: str) -> dict[str, int]:
+def _count(mandate: MandateSnapshot, category: str) -> dict[str, Any]:
     counts = {"allow": 0, "review": 0, "block": 0}
+    cheapest: Decimal | None = None
     for index, (merchant, combo) in enumerate(_world(category)):
-        counts[judge_event(mandate, index, merchant, category, combo,
-                           familiar=FAMILIAR)] += 1
+        verdict = judge_event(mandate, index, merchant, category, combo, familiar=FAMILIAR)
+        counts[verdict] += 1
+        if verdict == "allow":
+            total = sum((price for _id, _name, price in combo), Decimal("0"))
+            cheapest = total if cheapest is None else min(cheapest, total)
+    counts["cheapest_chf"] = float(cheapest) if cheapest is not None else None
     return counts
+
+
+def _repetition(rules: list[HardRule], cheapest: float | None) -> dict[str, Any]:
+    """HOW MANY TIMES, which is the half of "how much rope" that a count of purchases
+    does not answer.
+
+    A number of authorised purchases reads as a quantity of rope. It is not: without
+    a rolling rule the agent may make every one of them, and then make them all again
+    tomorrow. The panel that shows 116 and stops there creates exactly the false
+    belief this project spends its time removing -- a correct figure that a person
+    will attach to the wrong question.
+
+    With a rolling cap the bound is real and computable: the sum over any window must
+    stay under the cap, so at most `cap / cheapest authorised basket` purchases fit
+    in one. Reported as the ceiling it is, not as a forecast."""
+    window = next((r for r in rules
+                   if r.field == "authorization.billing_amount_chf"
+                   and r.scope == "period" and r.period_days), None)
+    if window is None:
+        return {"bounded": False, "cap_chf": None, "period_days": None,
+                "most_purchases_per_period": None, "cheapest_chf": cheapest,
+                "note": ("Nothing here limits how many times. The agent may make "
+                         "every one of these purchases, and then make them again. "
+                         "A rolling limit paces that; only revoking stops it.")}
+    try:
+        cap = Decimal(str(window.value))
+    except (ArithmeticError, TypeError, ValueError):
+        # A period rule whose value is not a number is UNKNOWN to the engine, so it
+        # bounds nothing. Saying otherwise here would be the panel inventing a limit.
+        return {"bounded": False, "cap_chf": None, "period_days": window.period_days,
+                "most_purchases_per_period": None, "cheapest_chf": cheapest,
+                "note": "This mandate's rolling limit is not a number the engine can apply."}
+    most = (int(cap // Decimal(str(cheapest)))
+            if cheapest and Decimal(str(cheapest)) > 0 else None)
+    return {"bounded": True, "cap_chf": float(cap), "period_days": window.period_days,
+            "most_purchases_per_period": most, "cheapest_chf": cheapest,
+            "note": (f"At most CHF {float(cap):g} in any {window.period_days} days "
+                     f"\u2014 {most} of these purchases at the cheapest, fewer at any "
+                     f"other price." if most else
+                     f"At most CHF {float(cap):g} in any {window.period_days} days.")}
 
 
 def delegation_size(instruction: str,
@@ -101,8 +172,9 @@ def delegation_size(instruction: str,
     mandate = snapshot(rules, uncertainty or compiled.uncertainty_policy,
                        list(compiled.unsupported_restrictions))
     counts = _count(mandate, category)
-    universe = sum(counts.values())
+    universe = counts["allow"] + counts["review"] + counts["block"]
     return {
+        "how_many_times": _repetition(rules, counts["cheapest_chf"]),
         "instruction": instruction,
         "universe": universe,
         "authorised": counts["allow"],
@@ -110,5 +182,14 @@ def delegation_size(instruction: str,
         "refused": counts["block"],
         "category": category,
         "max_lines": MAX_LINES,
+        # What the figure is OF, in the payload rather than only in a docstring: a
+        # count whose scope is not stated beside it is a number a reader will attach
+        # to whatever they are looking at.
+        "counted_over": {
+            "shops": sorted({m for m, _ in _world(category)}),
+            "card": COUNTED_CARD,
+            "basis": (f"every basket of up to {MAX_LINES} lines that any one shop in "
+                      f"the official {category} catalogue could supply"),
+        },
         "share": (counts["allow"] / universe) if universe else 0.0,
     }
