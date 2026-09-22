@@ -64,8 +64,10 @@
   .card.sc { border-left:4px solid var(--ask); }
   .scnum { font-size:34px; font-weight:800; line-height:1.05; letter-spacing:-.02em; }
   .scnum small { font-size:15px; font-weight:600; opacity:.55; }
-  .scbar { height:10px; border-radius:99px; background:var(--block-bg); overflow:hidden; margin:10px 0 4px; }
+  .scbar { height:10px; border-radius:99px; background:var(--block-bg); overflow:hidden;
+    margin:10px 0 4px; display:flex; }
   .scbar i { display:block; height:100%; background:var(--allow); }
+  .scbar u { display:block; height:100%; background:var(--ask); }
   .card.rb { border-left:4px solid var(--line); }
   .rbtext { font-size:15px; line-height:2.1; }
   .rbtext .w { padding:2px 1px; border-radius:4px; }
@@ -1091,16 +1093,27 @@ async function renderScope(instruction){
   if(typeof d.authorised !== 'number'){ box.innerHTML=''; return; }
 
   const pct = d.universe ? Math.round(100*d.authorised/d.universe) : 0;
+  const askPct = d.universe ? Math.round(100*d.asks_you/d.universe) : 0;
   const delta = (SCOPE_PREV !== null && SCOPE_PREV !== d.authorised)
     ? `<span class="tiny" style="color:${d.authorised<SCOPE_PREV?'var(--allow)':'var(--block)'}">
          ${d.authorised<SCOPE_PREV?'−':'+'}${Math.abs(SCOPE_PREV-d.authorised)} since your last edit</span>` : '';
   SCOPE_PREV = d.authorised;
 
+  // A bare huge "0" reads as "this thing is broken" — which is the opposite of what
+  // it means when 116 purchases are being put to the customer rather than decided
+  // without them. When nothing is approved outright, the headline is the question
+  // count, not the zero.
+  const headline = (d.authorised === 0 && d.asks_you > 0)
+    ? `<p class="scnum" style="font-size:26px">None without asking you
+         <small style="display:block;margin-top:4px">${d.asks_you} of ${d.universe} purchases
+         would come to you first — the wallet will not decide these alone</small></p>`
+    : `<p class="scnum">${d.authorised} <small>of ${d.universe} purchases this shop could make</small></p>`;
+
   box.innerHTML = `<div class="card sc">
     <h2>What you are about to authorise</h2>
-    <p class="scnum">${d.authorised} <small>of ${d.universe} purchases this shop could make</small></p>
-    <div class="scbar"><i style="width:${pct}%"></i></div>
-    <p class="tiny">${pct}% of everything on offer${d.asks_you?` · ${d.asks_you} more would be put to you`:''}. ${delta}</p>
+    ${headline}
+    <div class="scbar"><i style="width:${pct}%"></i><u style="width:${askPct}%"></u></div>
+    <p class="tiny">${pct}% approved outright${d.asks_you?` · ${askPct}% put to you`:''}. ${delta}</p>
     <p class="tiny" style="margin-top:8px">Counted, not estimated: every basket one shop
       could sell you — up to ${d.max_lines} lines — put through the same engine that will
       judge the real ones. Add a condition above and watch this fall.</p>

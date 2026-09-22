@@ -12,8 +12,8 @@ unchanged beneath it. Everything else follows from pressing it.
 > "An agent with your card can be talked into anything.
 > So we didn't give it your card.
 > It proposes. The wallet decides — from rules you wrote in your own words.
-> And before you agree to anything, it shows you exactly which of your words
-> it actually read. Type whatever you like."
+> And before you agree, it tells you exactly how much rope you just handed over:
+> not a limit, a **number of purchases**. Type whatever you like."
 
 ## The sequence
 
@@ -21,14 +21,16 @@ Three of the seven beats are things **the judge does**, not things they watch.
 
 | t | screen | what happens | the point, unspoken |
 | --- | --- | --- | --- |
-| 0:00 | **Delegate** | *hand them the keyboard.* They type — or extend the sentence in the box with **"and only buy things I can send back within 14 days."** | plain English is the input |
-| 0:08 | Delegate | **the read-back.** Their own sentence, word by word: green for what changed a rule, **struck through for what changed nothing.** Half their new clause is struck. *"We did not read this. Say it another way."* They rewrite it to "…I can **return** within 14 days" and watch it turn green. | comprehension is **measured**, not asserted — every word deleted and the sentence compiled again |
-| 0:25 | Delegate | the compiled rules, **and what could not be represented at all** | honesty is a gate, not a footnote |
-| 0:30 | Delegate | *if anyone is watching closely:* before the rewrite the silence panel was **green and quiet** — "no seller can get past your rules by saying nothing". Of course: there was no rule to get past. The two panels are telling one story. | the second problem only exists once the first is fixed |
-| 0:38 | Delegate | **the silence panel.** Three sellers, same goods, same price. States 30 days → *buys it*. States 13 days → *refuses it*. **Says nothing → asks you.** *Hand them the dial:* `approve` → **buys it**. `decline` → the panel goes green and **falls silent**. | a rule is only as strong as the adversary's ability to avoid producing its evidence — and the agent picks the seller |
-| 1:00 | **Agent** | *Deterministic* brain. Send it shopping. **CHF 47, Rhine Pantry — blocked, `merchant`.** Point at the grey box: *this is everything it was told.* | the information boundary, visible |
-| 1:10 | Agent | **CHANGE SHOP → CHF 107, blocked, `order_terms`** → **CHANGE THE GOODS → CHF 108, allowed.** *"A franc MORE. It didn't shrink the basket, it fixed the problem."* | an objective function, not a refusal ladder |
-| 1:25 | **Agent → Adversarial** | flip the brain. Same wallet. Nine attacks land at once: **8 stopped — and 1 is not.** | **the moment the demo exists for** |
+| 0:00 | **Delegate** | *hand them the keyboard.* They type **"Order our household groceries."** | plain English is the input |
+| 0:05 | Delegate | **595 of 595 purchases.** *"That sentence authorises everything this shop sells. Add a condition."* They type **"at or below CHF 120"** → **145 of 595, −450.** Then **"from a shop I have used before"** → **116, −29.** | a mandate is a SET, and it is countable. Every other team will show you rules |
+| 0:20 | Delegate | they add **"and only buy things I can send back within 14 days."** | |
+| 0:24 | Delegate | **the read-back.** Their own sentence, word by word: green for what changed a rule, **struck through for what changed nothing.** Half their new clause is struck. *"We did not read this. Say it another way."* They rewrite it to "…I can **return** within 14 days" and watch it turn green. | comprehension is **measured**, not asserted — every word deleted and the sentence compiled again |
+| 0:34 | Delegate | the compiled rules, **and what could not be represented at all** | honesty is a gate, not a footnote |
+| 0:38 | Delegate | *if anyone is watching closely:* before the rewrite the silence panel was **green and quiet** — "no seller can get past your rules by saying nothing". Of course: there was no rule to get past. The two panels are telling one story. | the second problem only exists once the first is fixed |
+| 0:42 | Delegate | **the silence panel.** Three sellers, same goods, same price. States 30 days → *buys it*. States 13 days → *refuses it*. **Says nothing → asks you.** *Hand them the dial:* `approve` → **buys it**. `decline` → the panel goes green and **falls silent**. | a rule is only as strong as the adversary's ability to avoid producing its evidence — and the agent picks the seller |
+| 1:02 | **Agent** | *Deterministic* brain. Send it shopping. **CHF 47, Rhine Pantry — blocked, `merchant`.** Point at the grey box: *this is everything it was told.* | the information boundary, visible |
+| 1:12 | Agent | **CHANGE SHOP → CHF 107, blocked, `order_terms`** → **CHANGE THE GOODS → CHF 108, allowed.** *"A franc MORE. It didn't shrink the basket, it fixed the problem."* | an objective function, not a refusal ladder |
+| 1:26 | **Agent → Adversarial** | flip the brain. Same wallet. Nine attacks land at once: **8 stopped — and 1 is not.** | **the moment the demo exists for** |
 | 1:38 | Agent | open the one that works: *"a seller who states bad terms is refused; a seller who states nothing is not. That is the panel you just saw. `Decline` closes it, and nothing closes it for one rule and leaves the others alone."* | we ship the attack against ourselves |
 | 1:52 | **Decisions** | Run SCEN0004. The **Needs you** card: *every rule satisfied, the wallet stopped it anyway.* | policy ≠ security |
 
@@ -44,6 +46,12 @@ product and in the Q&A deck.
 
 ## The four moments that must land
 
+0. **595 → 145 → 116, as they type.** Five seconds in, before any claim, the product
+   answers the question a person actually has — *how much did I just hand over?* — in
+   purchases rather than in francs. Every other team will show a rule list. This
+   shows the **set the rules pick out**, counted by putting all 595 through the same
+   engine that will judge the real ones. It is the one number that makes "customer
+   control" concrete rather than rhetorical.
 1. **Their own sentence, struck through.** Eight seconds in, before any claim has
    been made, the product tells them it did not understand half of what they wrote —
    and it is *measured*, by deleting each word and compiling again, not guessed. Then
