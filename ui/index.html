@@ -56,6 +56,13 @@
   .card > h2 { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink3); margin:0 0 10px; font-weight:750; }
   .lede2 { font-size:21px; font-weight:750; line-height:1.28; letter-spacing:-.02em;
            margin:0 0 10px; }
+  .card.amb { border-left:4px solid var(--ask); }
+  .readings { display:flex; gap:9px; flex-wrap:wrap; }
+  .readings .rd { flex:1 1 150px; border-radius:11px; padding:11px 12px; font-size:13.5px; }
+  .readings .rd.ok { background:var(--allow-bg); color:var(--allow); }
+  .readings .rd.no { background:var(--block-bg); color:var(--block); }
+  .readings .lbl { display:block; font-size:10px; font-weight:800; letter-spacing:.05em;
+                   text-transform:uppercase; opacity:.8; margin-bottom:3px; }
   .six { margin:12px 0 0; padding:0; list-style:none; }
   .six li { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);
             font-size:13.5px; align-items:baseline; flex-wrap:wrap; }
@@ -338,6 +345,7 @@
 
   <div id="compiled"></div>
   <div id="deleg"></div>
+  <div id="ambig"></div>
 
   <div class="card" id="confirm-card" style="display:none">
     <h2>Step 3 — confirm</h2>
@@ -986,6 +994,46 @@ async function compile(){
     <p class="tiny" style="margin-top:9px">Your account also has a monthly limit set by your bank.
       This wallet does <b>not</b> enforce it — the official API exposes no account-level spend.</p></div>`;
   $('#confirm-card').style.display = r.hard_rules.length ? 'block' : 'none';
+  renderAmbiguity(LASTRULES ? $('#instr').value : '');
+}
+
+// Where does the sentence stop deciding the answer?
+//
+// The compiler already warns about ambiguity in prose. Nobody audits prose about
+// hypothetical purchases; they agree to it. So instead of describing the
+// ambiguity, show the PURCHASE it changes -- both readings run through the real
+// engine, and if no purchase separates them the customer is never shown this.
+async function renderAmbiguity(instruction){
+  const box = document.getElementById('ambig');
+  if(!box) return;
+  box.innerHTML = '';
+  if(!instruction.trim()) return;
+  let data;
+  try {
+    data = await (await fetch('/api/mandates/ambiguity', {method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify({instruction})})).json();
+  } catch(e) { return; }
+  if(!data.witnesses || !data.witnesses.length) return;
+
+  box.innerHTML = data.witnesses.map(w=>{
+    const what = w.repeats === 1
+      ? `a basket costing exactly ${chf(w.amount_chf)}`
+      : `${w.repeats} purchases of ${chf(w.amount_chf)}`;
+    const cell = side => `<div class="rd ${side.decision==='allow'?'ok':'no'}">
+        <span class="lbl">${side.decision==='allow'?'would buy it':'would refuse it'}</span>
+        ${esc(side.reading)}</div>`;
+    return `<div class="card amb">
+      <h2>Your sentence does not decide this one</h2>
+      <p class="muted">${esc(w.question)}</p>
+      <p class="lede2" style="margin:8px 0 10px">${what}</p>
+      <div class="readings">${cell(w.as_compiled)}${cell(w.alternative)}</div>
+      <p class="tiny" style="margin:10px 0 0">Both answers are defensible readings of what
+        you wrote, and both were decided by the real wallet just now. We used the
+        <b>${esc(w.as_compiled.reading)}</b> reading. If you meant the other, say so in
+        your own words above and the rules will change.</p>
+    </div>`;
+  }).join('');
 }
 function row(k,v,enforced,note){
   return `<div class="kv"><span class="k">${esc(k)}<br><span class="tiny">${esc(note)}</span></span>

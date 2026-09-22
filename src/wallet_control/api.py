@@ -554,6 +554,37 @@ def list_scenarios() -> list[dict[str, Any]]:
     return list(load_scenario_catalogue().values())
 
 
+@app.post("/api/mandates/ambiguity")
+def mandate_ambiguity(req: CompileRequest) -> dict[str, Any]:
+    """Where does this sentence stop deciding the answer?
+
+    Returns, for each genuinely ambiguous construct, a CONCRETE PURCHASE that two
+    defensible readings judge differently. Not a confidence score and not a model's
+    opinion of its own certainty -- both readings are run through the real engine,
+    and if no purchase separates them the customer is not bothered.
+
+    It began in `research/`, and the runtime-boundary test refused it -- correctly,
+    even as a guarded local import. That refusal was the right answer to the wrong
+    question: this is not apparatus, it is a product feature shown to the customer
+    before they confirm, exactly like the compiler's open questions. So it moved
+    into the runtime, where it decides nothing and advises everything.
+    """
+    from .ambiguity import witnesses as find_witnesses
+
+    found_all = []
+    for found in find_witnesses(req.instruction):
+        as_compiled, alternative = found["labels"]
+        found_all.append({
+            "key": found["reading"].key,
+            "question": found["reading"].question,
+            "amount_chf": found["amount"],
+            "repeats": found["repeats"],
+            "as_compiled": {"reading": as_compiled, "decision": found["verdict_a"]},
+            "alternative": {"reading": alternative, "decision": found["verdict_b"]},
+        })
+    return {"instruction": req.instruction, "witnesses": found_all, "available": True}
+
+
 @app.post("/api/mandates/compile")
 def compile_preview(req: CompileRequest) -> dict[str, Any]:
     """Preview the rules a customer's instruction would compile to, for them to
