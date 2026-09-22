@@ -478,6 +478,14 @@ def _plain_reason(evaluation: RuleEvaluation) -> str:
                     f"across any {window} period")
         except (TypeError, ValueError):
             return f"it would take you over what you allowed across any {window} period"
+    # `merchant.familiar` has two unknowns -- no history at all, and history that is
+    # the AGENT'S rather than the customer's -- and one entry in the table below. It
+    # said "the wallet has no purchase history to check this seller against" while
+    # the evidence line beside it said "your agent has paid this seller before, but
+    # you have not". A record that is right and a rendering that is wrong is the
+    # defect this whole file keeps finding; the basis is already prose, so use it.
+    if rule.field == "merchant.familiar" and evaluation.outcome == "unknown" and evaluation.detail:
+        return evaluation.detail
     table = _PLAIN_UNKNOWN if evaluation.outcome == "unknown" else _PLAIN_FAIL
     fallback = rule.field.replace(".", " ").replace("_", " ")
     return table.get(rule.field) or f"a check on {fallback} did not pass"
@@ -819,6 +827,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         facts = build_purchase_facts(
             event,
             merchant_familiar=merchant_familiar,
+            merchant_familiar_basis=state.history.familiarity_basis(card_id, merchant_id),
             session_integrity_risk=session_risk,
             session_integrity_reasons=session_reasons,
             duplicate_of=duplicate_of,

@@ -215,7 +215,14 @@ def _evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Ru
 
     if field == "merchant.familiar":
         if facts.merchant_familiar is None:
-            return RuleEvaluation(rule, "unknown", "no authorization history available for this merchant/card")
+            # TWO CAUSES, and the customer is entitled to know which. "No history at
+            # all" and "your agent has shopped here and you have not" are different
+            # facts; collapsing them let an agent's own past purchases answer a
+            # question the customer asked about THEIR history.
+            return RuleEvaluation(
+                rule, "unknown",
+                facts.merchant_familiar_basis or
+                "no authorization history available for this merchant/card")
         actual = "true" if facts.merchant_familiar else "false"
         ok = _compare(rule.operator, actual, rule.value)
         return RuleEvaluation(rule, "pass" if ok else "fail", f"merchant_familiar={actual}")

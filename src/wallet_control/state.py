@@ -68,8 +68,14 @@ class HistoryIndex:
     clearly-unfamiliar merchant.
     """
 
-    def __init__(self, approved_merchants_by_card: dict[str, frozenset[str]], *, available: bool = True) -> None:
+    def __init__(self, approved_merchants_by_card: dict[str, frozenset[str]], *,
+                 available: bool = True,
+                 agent_only_merchants_by_card: dict[str, frozenset[str]] | None = None) -> None:
+        # The first argument is the CUSTOMER'S OWN history -- purchases they or a
+        # merchant-initiated arrangement made. The second is the agent's, and it is
+        # kept apart deliberately; see `is_familiar`.
         self._approved_merchants_by_card = approved_merchants_by_card
+        self._agent_only_by_card = agent_only_merchants_by_card or {}
         self.available = available
 
     @classmethod
@@ -78,24 +84,71 @@ class HistoryIndex:
 
     @classmethod
     def from_csv(cls, path: Path) -> "HistoryIndex":
-        merchants_by_card: dict[str, set[str]] = {}
+        """Split by WHO made each past purchase.
+
+        `authorization_history.csv` carries `initiator_type` -- human, agent, or
+        merchant -- and this used to collapse all three. On the official pack that
+        makes 24 card/merchant pairs "familiar" on the strength of the AGENT'S own
+        past purchases and nothing else. The customer never shopped there.
+
+        Which matters because of what it composes into. Run the agent once under a
+        loose mandate; it buys at ten new shops. Then tighten to "only shops I have
+        used before". Those ten now qualify, and the tightening bought nothing --
+        two individually valid operations composing into a policy that does not do
+        what it says. The agent's own history becomes the customer's permission.
+
+        `merchant`-initiated rows count as the customer's: a recurring charge or a
+        refund both imply a relationship the customer entered. Measured on the pack,
+        no merchant/card pair is familiar through those alone.
+        """
+        by_card: dict[str, set[str]] = {}
+        agent_by_card: dict[str, set[str]] = {}
         with path.open(newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 if row["status"] != "approved":
                     continue
-                merchants_by_card.setdefault(row["card_id"], set()).add(row["merchant_id"])
-        return cls({k: frozenset(v) for k, v in merchants_by_card.items()}, available=True)
+                target = agent_by_card if row.get("initiator_type") == "agent" else by_card
+                target.setdefault(row["card_id"], set()).add(row["merchant_id"])
+        agent_only = {card: frozenset(shops - by_card.get(card, set()))
+                      for card, shops in agent_by_card.items()}
+        return cls({k: frozenset(v) for k, v in by_card.items()}, available=True,
+                   agent_only_merchants_by_card={k: v for k, v in agent_only.items() if v})
 
     def is_familiar(self, card_id: str, merchant_id: str) -> bool | None:
+        """True, False, or None -- and None now has two causes, both honest.
+
+        A card with history but never this merchant is genuinely unfamiliar (False).
+        A card we have no record of at all is unknown (None) -- a brand-new card, or
+        a data gap.
+
+        AND a merchant only the AGENT has bought from is also None. The customer
+        asked about their own history; the honest answer is "your agent has, you have
+        not", which is neither the yes they asked for nor a flat no. It goes to their
+        `uncertainty_policy` like every other unknown. Treating it as True lets an
+        agent bootstrap its own permission; treating it as False would punish a
+        customer who genuinely shops through one.
+        """
         if not self.available:
             return None
-        # A card with history but never this merchant is genuinely unfamiliar (False).
-        # A card we have no record of at all is unknown (None) -- e.g. a brand-new
-        # card, or a data gap -- so the engine treats it as missing information
-        # rather than a confirmed violation.
         if card_id not in self._approved_merchants_by_card:
             return None
-        return merchant_id in self._approved_merchants_by_card[card_id]
+        if merchant_id in self._approved_merchants_by_card[card_id]:
+            return True
+        if merchant_id in self._agent_only_by_card.get(card_id, ()):
+            return None
+        return False
+
+    def familiarity_basis(self, card_id: str, merchant_id: str) -> str:
+        """Whose history answered, for the evidence line and the customer's message."""
+        if not self.available:
+            return "no purchase history was available"
+        if merchant_id in self._approved_merchants_by_card.get(card_id, ()):
+            return "you have paid this seller before"
+        if merchant_id in self._agent_only_by_card.get(card_id, ()):
+            return "your agent has paid this seller before, but you have not"
+        if card_id not in self._approved_merchants_by_card:
+            return "this card has no purchase history"
+        return "you have never paid this seller"
 
 
 @dataclass(frozen=True)

@@ -31,6 +31,7 @@ the first place looked, and it was full of it.
 | 9 | `rules._compare` and three others | how to apply a rule this engine does not implement | an **uncaught exception** | reading the official rule format and fuzzing it |
 | 10 | `RunState.session_signals` | whether a device change means someone else is driving | `False` — **clean** | auditing all 45 official decisions by hand |
 | 11 | the merchant-text path | that a seller had written to the machine holding the card | nothing at all — observed and discarded | the same audit, on the scenario named *Manipulated agent* |
+| 12 | `HistoryIndex.from_csv` | **whose** past purchase made a shop familiar | the agent's own history, counted as the customer's | mining `authorization_history.csv`'s `initiator_type` |
 
 Number 7 is the one that matters for whether any of this is a tool or a story.
 Measured on a real checkpoint with **one key removed**:
@@ -147,6 +148,33 @@ long.
 | `tests/security/test_spec_conformance.py` | 1,344 field × operator × value × scope rules | no exception; nothing inapplicable is ever allowed |
 
 ---
+
+## The twelfth composes out of two valid operations
+
+`authorization_history.csv` carries `initiator_type` — human, agent, or merchant —
+and the familiarity index collapsed all three. So when a customer writes *"from a
+shop I have used before"*, a shop only the **agent** had ever bought from answered
+yes. On the official pack: **24 card/merchant pairs across 18 cards.**
+
+The damage is in the composition, not the lookup:
+
+1. run the agent under a mandate with no familiarity clause; it buys at ten shops
+   the customer has never heard of;
+2. tighten the mandate to *"only shops I have used before"*.
+
+All ten now qualify. **The tightening bought nothing, and the customer believes it
+bought something.** Two individually valid operations composing into a policy that
+does not do what it says — and the agent's own history becoming the customer's
+permission, which is the authorship defect one level below the request fields where
+the audit script looks.
+
+Neither true nor false: familiar lets an agent bootstrap its own permission,
+unfamiliar punishes a customer who genuinely shops through one. So `unknown`, routed
+through `uncertainty_policy`, and the customer is told *whose* history answered.
+
+**The official replay does not move** — the demo card has no agent-only merchants.
+A latent defect fixed with no scenario forcing it, which is the only kind you get to
+fix before someone else finds it.
 
 ## The eleventh: correct, silent, and a failure
 
@@ -296,11 +324,12 @@ the test by name.
 
 ## What this does not claim
 
-* **It is not a proof.** Eleven instances and six sweeps over *this* engine. A twelfth
-  boundary may exist; every sweep is bounded by what it enumerates, and each one says
-  so. The ninth was found by reading the official specification, and the tenth and
-  eleventh by reading all 45 official decisions one at a time — none of the three by
-  any sweep, which is the honest measure of how much they cover. The field sweep was first-order until it was attacked for being
+* **It is not a proof.** Twelve instances and six sweeps over *this* engine. A
+  thirteenth boundary may exist; every sweep is bounded by what it enumerates, and
+  each one says so. The last four were found by reading the official specification,
+  by reading all 45 official decisions one at a time, and by mining a column of the
+  history file — **none of them by any sweep**, which is the honest measure of how
+  much the sweeps cover. The field sweep was first-order until it was attacked for being
   first-order — 15,763 pairs later it still holds, which is evidence and not a
   theorem. Nothing here rules out a third- or higher-order vacuity.
 * **It does not close the seller channel.** `uncertainty_policy = decline` closes it
