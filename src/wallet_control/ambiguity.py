@@ -36,6 +36,7 @@ from typing import Any, Callable
 
 from .mandate import HardRule, UncertaintyPolicy
 from .policy_compiler import compile_instruction
+from .disagreement import diverge_from_readings
 from .witness import Purchase, judge
 
 
@@ -119,36 +120,35 @@ def _judge(rules, uncertainty, amount: float, *, category="groceries", repeats=1
 
 
 def find_witness(instruction: str, reading: Reading) -> dict[str, Any] | None:
-    """A concrete purchase the two readings judge differently, or None."""
+    """A concrete purchase the two readings judge differently, or None.
+
+    THIS USED TO GUESS WHERE TO LOOK. It tried a handful of amounts derived from the
+    rules -- the ceiling, a rappen either side, a repeated fraction -- which finds a
+    witness when one sits on a boundary and can say nothing about how much is at
+    stake. It now searches the whole enumerated world through `disagreement.diverge`,
+    so it reports the CHEAPEST separating purchase and HOW MANY there are.
+
+    The count is the part that changed the product. "Your sentence is ambiguous"
+    is a shrug; "your sentence is ambiguous about 470 of 595 purchases, the cheapest
+    being three orders of CHF 87" is a question someone can answer.
+    """
     if reading.applies is not None and not reading.applies(instruction):
         return None
     compiled = compile_instruction(instruction)
     rules_a = list(compiled.hard_rules)
-    rules_b = reading.transform(rules_a)
-    if rules_b is None:
+    if reading.transform(rules_a) is None:
         return None
 
-    uncertainty = compiled.uncertainty_policy
-    ceilings = [r.value for r in rules_a if r.field == "authorization.billing_amount_chf"]
+    divergence = diverge_from_readings(instruction, reading.transform)
+    if divergence is None or divergence.cheapest is None:
+        return None
 
-    candidates = []
-    for ceiling in ceilings:
-        for amount in (ceiling, ceiling - 0.01, ceiling + 0.01):
-            candidates.append({"amount": round(float(amount), 2), "repeats": 1})
-        candidates.append({"amount": round(float(ceiling) / 2, 2), "repeats": 3})
-
-    for candidate in candidates:
-        unsupported = list(compiled.unsupported_restrictions)
-        verdict_a = _judge(rules_a, uncertainty, candidate["amount"],
-                           repeats=candidate["repeats"], unsupported=unsupported)
-        verdict_b = _judge(rules_b, uncertainty, candidate["amount"],
-                           repeats=candidate["repeats"], unsupported=unsupported)
-        if verdict_a != verdict_b:
-            return {"reading": reading, "labels": reading.labels(rules_a),
-                    "amount": candidate["amount"], "repeats": candidate["repeats"],
-                    "category": "groceries",
-                    "verdict_a": verdict_a, "verdict_b": verdict_b}
-    return None
+    cheapest = divergence.cheapest
+    return {"reading": reading, "labels": reading.labels(rules_a),
+            "amount": cheapest["chf"], "repeats": cheapest["repeats"],
+            "category": "groceries",
+            "count": divergence.count, "universe": divergence.universe,
+            "verdict_a": cheapest["as_compiled"], "verdict_b": cheapest["alternative"]}
 
 
 def witnesses(instruction: str) -> list[dict[str, Any]]:

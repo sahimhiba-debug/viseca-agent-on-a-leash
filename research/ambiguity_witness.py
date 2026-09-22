@@ -76,6 +76,8 @@ def main() -> int:
             what = (f"a basket of CHF {witness['amount']:.2f}" if repeats == 1
                     else f"{repeats} purchases of CHF {witness['amount']:.2f}")
             print(f"      {witness['reading'].question}")
+            print(f"        {witness['count']} of {witness['universe']} purchases are "
+                  f"decided differently. The cheapest:")
             print(f"        WITNESS: {what}")
             print(f"          read as \u201c{label_a}\u201d  \u2192  {witness['verdict_a'].upper()}")
             print(f"          read as \u201c{label_b}\u201d  \u2192  {witness['verdict_b'].upper()}")

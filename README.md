@@ -45,7 +45,8 @@ learn to click through.
 | panel | the question | how it answers |
 | --- | --- | --- |
 | **read-back** ([`unconsumed.py`](src/wallet_control/unconsumed.py)) | which of your words did the compiler actually read? | every word deleted in turn and the sentence compiled again. Green changed a rule; struck through changed nothing; red means *deleting it would create* one. 19 of 20 silently-lost restrictions caught, 0 false alarms on 33 well-formed sentences |
-| **ambiguity** ([`ambiguity.py`](src/wallet_control/ambiguity.py)) | does your sentence decide this purchase? | compile it two defensible ways, search for a basket the two judge differently. 2 witnesses across 5 sentences — quiet on the other three |
+| **scope** ([`scope.py`](src/wallet_control/scope.py)) | how much rope did you just hand over? | every basket this world can produce, through the real engine. `"Order our household groceries"` authorises **595 of 595**; adding `"at or below CHF 120"` removes **450**. Counted, not described — 18 ms |
+| **ambiguity** ([`ambiguity.py`](src/wallet_control/ambiguity.py)) | does your sentence decide this purchase? | compile it two defensible ways and search the whole world, sequences included, for where they part. `"up to CHF 250 per week"` is ambiguous about **470 of 595** purchases; the cheapest witness is three orders of CHF 87. Quiet on three of five sentences |
 | **silence** ([`silence.py`](src/wallet_control/silence.py)) | can a seller get past your rule by publishing nothing? | three sellers, same goods, same price. States 30 days → *buys it*; states 13 → *refuses it*; **says nothing → depends on one dial you can move** |
 
 The shared apparatus is [`witness.py`](src/wallet_control/witness.py): a throwaway
@@ -59,6 +60,21 @@ words, 11 words), each difference exactly the vocabulary that was added
 The probe is one deletion and a re-compile and never inspects the compiler, so a
 **model-based** compiler is another entry in that table at one call per word — which
 is a statement about the mechanism, not evidence about any model. None was called.
+
+**Where a model belongs, and the only place it earns real freedom.** The readings
+above are a hand-written table of two transformations.
+[`disagreement.py`](src/wallet_control/disagreement.py) takes two *compilers*
+instead, so a model-based one would generate readings for constructs nobody thought
+of — proposing a **hypothesis about meaning**, never a decision, adjudicated by the
+real engine and resolved by the customer. A wrong model produces an extra question;
+it cannot produce a wrong enforcement. That is the draft/verify shape of
+[speculative decoding](https://github.com/Swiss-ai-Weeks/optimized-apertus), one
+level up from the agent — and the same repository names the object underneath all of
+this, the **acceptance set**: an untrusted proposer changes the speed, never the
+distribution. Measured across four brains and 337 proposals, including one that
+ranks baskets by a hash: **not one approved purchase outside the set**
+([`research/acceptance_set.py`](research/acceptance_set.py)). **No model has been
+run** — `api.publicai.co/v1` answers 401 without a key.
 
 **Why they exist** is one principle, arrived at after finding the same mistake at six
 different boundaries: **absence is not a value** — see [docs/ABSENCE.md](docs/ABSENCE.md).
@@ -85,6 +101,8 @@ src/wallet_control/        THE RUNTIME -- only code that runs in production
   unconsumed.py            Which of the customer's words changed a rule, measured
                            by deleting each one -- takes ANY compiler, not just ours
   witness.py               Shared apparatus: a hypothetical purchase, the real engine
+  scope.py                 How many purchases this sentence authorises, counted
+  disagreement.py          Where two readings part, over the whole enumerated world
   attack_demo.py           The nine judge-facing attacks -- one of which SUCCEEDS,
                            on purpose, with the argument attached
   drift.py                 Explains how a re-delivered authorization differs (cannot gate)
@@ -108,7 +126,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     1579 tests
+tests/                     1589 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -161,7 +179,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1579 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**1589 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say

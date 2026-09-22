@@ -635,6 +635,11 @@ def mandate_ambiguity(req: CompileRequest) -> dict[str, Any]:
             "question": found["reading"].question,
             "amount_chf": found["amount"],
             "repeats": found["repeats"],
+            # HOW MANY purchases the two readings decide differently, out of how
+            # many exist. "Your sentence is ambiguous" is a shrug; "about 470 of
+            # 595 purchases" is a question someone can answer.
+            "count": found["count"],
+            "universe": found["universe"],
             "as_compiled": {"reading": as_compiled, "decision": found["verdict_a"]},
             "alternative": {"reading": alternative, "decision": found["verdict_b"]},
         })

@@ -1060,7 +1060,10 @@ async function renderAmbiguity(instruction){
     return `<div class="card amb">
       <h2>Your sentence does not decide this one</h2>
       <p class="muted">${esc(w.question)}</p>
-      <p class="lede2" style="margin:8px 0 10px">${what}</p>
+      <p class="tiny" style="margin:6px 0 2px"><b>${w.count} of ${w.universe}</b>
+        purchases this shop could make are decided differently by the two readings.
+        The cheapest:</p>
+      <p class="lede2" style="margin:4px 0 10px">${what}</p>
       <div class="readings">${cell(w.as_compiled)}${cell(w.alternative)}</div>
       <p class="tiny" style="margin:10px 0 0">Both answers are defensible readings of what
         you wrote, and both were decided by the real wallet just now. We used the

@@ -135,6 +135,37 @@ def event_for(mandate: MandateSnapshot, index: int, *, amount: float, category: 
     }
 
 
+def judge_sequence(mandate: MandateSnapshot, index: int, merchant: str, category: str,
+                   lines: tuple, repeats: int, *,
+                   familiar: frozenset[str] = frozenset()) -> str:
+    """The verdict after buying the same basket `repeats` times in one run.
+
+    Some differences between two readings are invisible to any single purchase: a
+    weekly budget and a per-order ceiling of the same figure agree on every one
+    order and part company on the third. So the search has to be over SEQUENCES,
+    not baskets, and this is the smallest form of that -- the same basket, again.
+
+    Item names carry the repetition number because the engine's duplicate suspicion
+    would otherwise (correctly) flag the second identical basket at the same shop,
+    and the question being asked is about the budget rule, not about duplicates."""
+    total = float(sum((price for _id, _name, price in lines), Decimal("0")))
+    known = familiar or frozenset({merchant})
+    state = RunState(history=HistoryIndex({CARD: frozenset(known)}, available=True),
+                     card_id=CARD)
+    verdict = "allow"
+    for step in range(repeats):
+        event = event_for(
+            mandate, index * 16 + step, amount=total, category=category,
+            merchant=merchant,
+            items=[{"line_no": i, "item_id": item_id,
+                    "item_name": f"{name} {step}", "item_category": category,
+                    "quantity": 1, "unit_price": float(price), "currency": "CHF",
+                    "item_details": ""}
+                   for i, (item_id, name, price) in enumerate(lines, start=1)])
+        verdict = evaluate_authorization(event, mandate, state).decision
+    return verdict
+
+
 def judge_event(mandate: MandateSnapshot, index: int, merchant: str, category: str,
                 lines: tuple, *, familiar: frozenset[str] = frozenset()) -> str:
     """The engine's verdict on a MULTI-LINE basket at a named shop, from a fresh run
