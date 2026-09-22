@@ -30,13 +30,35 @@ def client():
 # --- attack demonstrations --------------------------------------------------------
 
 
-def test_every_attack_demonstration_holds():
-    """If one of these ever flips to `allowed`, the demo must fail loudly rather than
-    narrate a success that did not happen."""
+# Attack 9 is the one that SUCCEEDS. It is in the demo on purpose: a hard rule is
+# checked against evidence the SELLER publishes, and the agent picks the seller, so
+# choosing a shop that publishes nothing answers the rule without lying. Leaving it
+# out would make the other eight a sales pitch. `uncertainty_policy = decline`
+# closes it completely; nothing closes it for one rule and not the others.
+_EXPECTED_TO_SUCCEED = {"shopping_for_ignorance"}
+
+
+def test_only_the_disclosed_attack_succeeds():
+    """If any OTHER attack ever flips to `allowed`, the demo must fail loudly rather
+    than narrate a success that did not happen -- and if the disclosed one ever
+    stops succeeding, the claim beside it has become false and must be rewritten."""
     results = run_all_attacks()
-    assert len(results) == 8
-    failed = [r.title for r in results if not r.held]
-    assert not failed, f"attack demonstrations no longer hold: {failed}"
+    assert len(results) == 9
+    unexpected = [r.title for r in results if not r.held and r.key not in _EXPECTED_TO_SUCCEED]
+    assert not unexpected, f"attack demonstrations no longer hold: {unexpected}"
+    succeeded = {r.key for r in results if not r.held}
+    assert succeeded == _EXPECTED_TO_SUCCEED, succeeded
+
+
+def test_the_disclosed_attack_says_plainly_that_it_is_not_stopped():
+    """The danger of shipping a successful attack is that the surrounding copy
+    quietly softens it into a near-miss."""
+    attack = next(r for r in run_all_attacks() if r.key == "shopping_for_ignorance")
+    assert attack.outcome == "allowed" and attack.held is False
+    assert "not stopped" in attack.expected.lower()
+    assert "ALLOW" in attack.proof and "BLOCK" in attack.proof
+    body = " ".join(attack.detail).lower()
+    assert "decline" in body, "the setting that closes it must be named"
 
 
 def test_attack_demonstrations_are_deterministic():
@@ -181,9 +203,11 @@ def test_health_reports_the_regression_boundary(client):
     assert replay["matches_regression_boundary"] is True
 
 
-def test_attacks_endpoint_reports_all_eight_holding(client):
+def test_attacks_endpoint_counts_the_disclosed_failure(client):
+    """8 of 9. A surface that reported 9 of 9 would be contradicting the demo it
+    serves."""
     body = client.get("/api/attacks").json()
-    assert body["total"] == 8 and body["held"] == 8
+    assert body["total"] == 9 and body["held"] == 8
 
 
 def test_run_audit_endpoint_returns_timeline_and_delegation(client):

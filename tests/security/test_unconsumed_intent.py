@@ -146,3 +146,45 @@ def test_ground_truth_is_independent_of_the_detector():
     src = Path(__file__).resolve().parents[2] / "research" / "unconsumed_intent.py"
     body = src.read_text().split("def is_silently_lost")[1].split("\ndef ")[0]
     assert "unenforced_clauses" not in body and "marks(" not in body
+
+
+def test_the_read_back_is_bounded_and_says_so_rather_than_truncating():
+    """One deletion per word, each a full compile, is QUADRATIC. As first shipped:
+    50 words 0.05s, 500 words 2.2s, 2,000 words 35s -- a denial of service against a
+    customer-facing route, introduced by this module and found by attacking it.
+
+    The bound is stated rather than silently applied. A partial read-back that did
+    not say it was partial would be this repository's own favourite defect wearing
+    the badge of the feature written to expose it."""
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from wallet_control.api import app
+    from wallet_control.unconsumed import MAX_WORDS, marks, too_long
+
+    long_one = "Order groceries at or below CHF 120. " + ("please " * 5000)
+    assert too_long(long_one)
+    assert marks(long_one) == []
+    assert unenforced_clauses(long_one) == []
+
+    client = TestClient(app)
+    start = time.time()
+    body = client.post("/api/mandates/read-back", json={"instruction": long_one}).json()
+    assert time.time() - start < 2.0
+    assert body["analysed"] is False
+    assert str(MAX_WORDS) in body["note"]
+    assert body["words"] == []
+
+    ok = client.post("/api/mandates/read-back", json={
+        "instruction": "Order groceries at or below CHF 120."}).json()
+    assert ok["analysed"] is True and ok["words"]
+
+
+def test_every_official_mandate_is_comfortably_inside_the_bound():
+    """If the bound ever cut off a real mandate it would be the wrong bound."""
+    from wallet_control.unconsumed import MAX_WORDS, too_long
+    official = {k: v["cardholder_instruction"] for k, v in load_scenario_catalogue().items()}
+    longest = max(len(v.split()) for v in official.values())
+    assert longest < MAX_WORDS / 2, longest
+    assert not any(too_long(v) for v in official.values())

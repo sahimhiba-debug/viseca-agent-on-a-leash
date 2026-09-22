@@ -326,7 +326,8 @@
 
   <div class="card">
     <h2>See it stop a compromised agent</h2>
-    <p class="muted">Eight attacks, run live against the same engine — not a slideshow.</p>
+    <p class="muted">Nine attacks, run live against the same engine — not a slideshow.
+      <b>One of them works</b>, and it is in here on purpose.</p>
     <button class="act b-dark" onclick="go('attacks')">Run the attacks</button>
     <button class="act b-ghost" onclick="go('delegate')">Start from my instruction</button>
   </div>
@@ -1078,6 +1079,11 @@ async function renderReadBack(instruction){
       headers:{'content-type':'application/json'},
       body: JSON.stringify({instruction})})).json();
   } catch(e){ box.innerHTML=''; return; }
+  if(d.analysed === false){
+    box.innerHTML = `<div class="card rb"><h2>What the wallet actually read</h2>
+      <p class="muted">${esc(d.note||'')}</p></div>`;
+    return;
+  }
   if(!d.words || !d.words.length){ box.innerHTML=''; return; }
 
   let out = '', cursor = 0;
@@ -1328,12 +1334,17 @@ async function revoke(){
 async function loadAttacks(explicit){
   if(explicit) $('#atks').innerHTML='<div class="card"><p class="spin">Running against the live engine…</p></div>';
   const r = await (await fetch('/api/attacks')).json();
-  $('#atk-sum').textContent = `${r.held} of ${r.total} stopped · run at ${new Date().toLocaleTimeString()}`;
+  const open = r.attacks.filter(a=>!a.held).length;
+  $('#atk-sum').innerHTML = `${r.held} of ${r.total} stopped · run at ${new Date().toLocaleTimeString()}`
+    + (open ? ` — <b style="color:var(--block)">and ${open} is not</b>. A rule is checked against
+       evidence the <i>seller</i> publishes, and the agent picks the seller. Set
+       <b>decline when unsure</b> and it closes; nothing closes it for one rule and
+       leaves the others alone.` : '');
   $('#h-atk').textContent = `${r.held} / ${r.total}`;
   $('#atks').innerHTML = r.attacks.map(a=>{
     const escalated = a.outcome==='stepped_up';
     return `<div class="atk"><div class="atk-h"><h3>${esc(a.title)}</h3>
-      <span class="pill ${escalated?'ask':a.held?'allow':'block'}">${escalated?'escalated':a.held?'stopped':'HOLE'}</span></div>
+      <span class="pill ${escalated?'ask':a.held?'allow':'block'}">${escalated?'escalated':a.held?'stopped':'NOT STOPPED'}</span></div>
       <div class="story">
         <div class="step prop"><div class="lbl">The agent tried</div>${esc(a.attempt)}</div>
         <div class="arrow">↓</div>

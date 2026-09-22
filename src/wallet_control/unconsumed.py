@@ -92,6 +92,17 @@ from .policy_compiler import compile_instruction
 
 _WORD = re.compile(r"\S+")
 
+# One deletion per word, each one a full compile, makes this QUADRATIC in the
+# instruction. Measured on the endpoint as shipped: 50 words 0.05s, 500 words 2.2s,
+# 2,000 words 35s -- a denial of service against a customer-facing route, introduced
+# by this module and found by attacking it rather than by using it.
+#
+# The bound is on the WORK, and it is stated rather than silently truncating: a
+# partial read-back that did not say it was partial would be this repository's own
+# favourite defect, an absence filled in with something that looks complete. The
+# longest of the five official mandates is 40 words.
+MAX_WORDS = 150
+
 # Clause boundaries: a full stop, a semicolon, a comma, or a coordinating "and"/"but"
 # joining two predicates. Deliberately crude -- a clause that is split too finely
 # reports a shorter quote, which is a cosmetic loss, while one that is not split at
@@ -136,11 +147,20 @@ def _signature(instruction: str):
     return rules, explained
 
 
+def too_long(instruction: str) -> bool:
+    return len(_WORD.findall(instruction)) > MAX_WORDS
+
+
 def marks(instruction: str) -> list[Mark]:
     """One deletion per word, each re-compiled. O(n) compiles; they are regex passes
     over a sentence, and the alternative -- threading a span through every pattern in
     the compiler -- would measure what the code CLAIMS to have read rather than what
-    changed the answer."""
+    changed the answer.
+
+    Returns nothing at all past `MAX_WORDS`. Callers ask `too_long()` and say so.
+    """
+    if too_long(instruction):
+        return []
     base_rules, base_explained = _signature(instruction)
     out: list[Mark] = []
     for match in _WORD.finditer(instruction):
@@ -164,7 +184,7 @@ def unenforced_clauses(instruction: str) -> list[dict[str, Any]]:
     policy has nothing to report, and so does a sentence with no restrictive language
     in the part that did not.
     """
-    if not instruction.strip():
+    if not instruction.strip() or too_long(instruction):
         return []
     found = marks(instruction)
     out: list[dict[str, Any]] = []

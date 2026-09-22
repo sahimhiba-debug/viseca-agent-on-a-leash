@@ -656,10 +656,22 @@ def mandate_read_back(req: CompileRequest) -> dict[str, Any]:
     same vocabulary as the compiler, so "I can send it back within 14 days"
     produces no rule, no question, and no trace at all.
     """
-    from .unconsumed import marks, unenforced_clauses
+    from .unconsumed import MAX_WORDS, marks, too_long, unenforced_clauses
+
+    if too_long(req.instruction):
+        # Stated, not truncated. A partial read-back that did not say it was partial
+        # would be this repository's own favourite defect wearing the badge of the
+        # feature written to expose it.
+        return {"instruction": req.instruction, "words": [], "emphasise": [],
+                "analysed": False,
+                "note": (f"This instruction is longer than {MAX_WORDS} words. The "
+                         f"read-back deletes each word and compiles again, which grows "
+                         f"quadratically, so it was not run at all rather than run "
+                         f"partway and shown as if it were complete.")}
 
     return {
         "instruction": req.instruction,
+        "analysed": True,
         "words": [{"word": m.word, "kind": m.kind, "start": m.start, "end": m.end}
                   for m in marks(req.instruction)],
         "emphasise": unenforced_clauses(req.instruction),
