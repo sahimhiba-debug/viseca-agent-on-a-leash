@@ -188,3 +188,36 @@ def test_every_official_mandate_is_comfortably_inside_the_bound():
     longest = max(len(v.split()) for v in official.values())
     assert longest < MAX_WORDS / 2, longest
     assert not any(too_long(v) for v in official.values())
+
+
+def test_the_read_back_measures_the_compiler_and_not_english():
+    """The objection worth taking seriously: did this quietly encode what OUR regex
+    compiler happens to know?
+
+    Three compilers with deliberately different vocabularies, one sentence. If the
+    mechanism measures the compiler, the struck-through words must move with it --
+    and they do: NARROW reads 2 words, SHIPPED 6, WIDER 11, each difference exactly
+    the vocabulary that was added. If any two read alike, the claim in
+    `unconsumed.py` is wrong.
+
+    This is also the answer to "a serious version would use a model": the probe is
+    one deletion and a re-compile, it never inspects the compiler, so a model-based
+    compiler is another entry in that table at one call per word. No model was
+    called here and none is claimed."""
+    from research.read_back_is_compiler_agnostic import COMPILERS, SENTENCE, read
+    result = read()
+    signatures = {label: tuple(m["consumed"]) for label, m in result.items()}
+    assert len(set(signatures.values())) == len(COMPILERS), signatures
+
+    sizes = {label: len(m["consumed"]) for label, m in result.items()}
+    narrow, shipped, wider = (next(v for k, v in sizes.items() if k.startswith(p))
+                              for p in ("NARROW", "SHIPPED", "WIDER"))
+    assert narrow < shipped < wider, sizes
+
+    # The added vocabulary is what moved, not something incidental.
+    by = {k.split()[0]: set(v["consumed"]) for k, v in result.items()}
+    assert "groceries" in by["SHIPPED"] and "groceries" not in by["NARROW"]
+    assert {"send", "back", "within"} <= by["WIDER"]
+    assert not {"send", "back", "within"} & by["SHIPPED"]
+    assert "CHF" in by["NARROW"], "every compiler here understands a CHF figure"
+    assert SENTENCE.startswith("Order")

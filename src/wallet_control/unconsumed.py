@@ -86,9 +86,18 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from .policy_compiler import compile_instruction
+
+# A compiler is anything that turns a sentence into a compiled policy. The read-back
+# takes one rather than importing ours, because the whole claim is that it measures
+# THE COMPILER rather than English: point it at a different one and it must report
+# that one's blind spots. `research/read_back_is_compiler_agnostic.py` checks exactly
+# that against two deliberately different compilers, and it is also what makes this
+# usable against a model-based compiler, where the same deletion probe still applies
+# at the cost of one call per word.
+Compiler = Callable[[str], Any]
 
 _WORD = re.compile(r"\S+")
 
@@ -136,8 +145,8 @@ class Mark:
     end: int
 
 
-def _signature(instruction: str):
-    compiled = compile_instruction(instruction)
+def _signature(instruction: str, compiler: Compiler = compile_instruction):
+    compiled = compiler(instruction)
     rules = frozenset((r.field, r.operator, str(r.value), r.scope or "", r.period_days or 0)
                       for r in compiled.hard_rules)
     explained = (compiled.uncertainty_policy.value,
@@ -151,7 +160,7 @@ def too_long(instruction: str) -> bool:
     return len(_WORD.findall(instruction)) > MAX_WORDS
 
 
-def marks(instruction: str) -> list[Mark]:
+def marks(instruction: str, compiler: Compiler = compile_instruction) -> list[Mark]:
     """One deletion per word, each re-compiled. O(n) compiles; they are regex passes
     over a sentence, and the alternative -- threading a span through every pattern in
     the compiler -- would measure what the code CLAIMS to have read rather than what
@@ -161,12 +170,12 @@ def marks(instruction: str) -> list[Mark]:
     """
     if too_long(instruction):
         return []
-    base_rules, base_explained = _signature(instruction)
+    base_rules, base_explained = _signature(instruction, compiler)
     out: list[Mark] = []
     for match in _WORD.finditer(instruction):
         variant = (instruction[:match.start()] + instruction[match.end():])
         variant = re.sub(r"\s{2,}", " ", variant).strip()
-        rules, explained = _signature(variant)
+        rules, explained = _signature(variant, compiler)
         if rules > base_rules:
             kind = "obstructive"
         elif rules != base_rules or explained != base_explained:
@@ -177,7 +186,8 @@ def marks(instruction: str) -> list[Mark]:
     return out
 
 
-def unenforced_clauses(instruction: str) -> list[dict[str, Any]]:
+def unenforced_clauses(instruction: str,
+                       compiler: Compiler = compile_instruction) -> list[dict[str, Any]]:
     """Clauses the compiler demonstrably did not read, that demonstrably restrict.
 
     Empty is the common and correct answer. A sentence every part of which moved the
@@ -186,7 +196,7 @@ def unenforced_clauses(instruction: str) -> list[dict[str, Any]]:
     """
     if not instruction.strip() or too_long(instruction):
         return []
-    found = marks(instruction)
+    found = marks(instruction, compiler)
     out: list[dict[str, Any]] = []
     cursor = 0
     for piece in _CLAUSE_SPLIT.split(instruction):

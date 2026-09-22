@@ -51,6 +51,15 @@ learn to click through.
 The shared apparatus is [`witness.py`](src/wallet_control/witness.py): a throwaway
 mandate, a hypothetical purchase, the real engine. None of it decides anything.
 
+**The read-back measures the compiler, not English** — the obvious objection, and it
+is tested rather than argued. Pointed at three compilers with deliberately different
+vocabularies, the same sentence comes back read three different ways (2 words, 6
+words, 11 words), each difference exactly the vocabulary that was added
+([`research/read_back_is_compiler_agnostic.py`](research/read_back_is_compiler_agnostic.py)).
+The probe is one deletion and a re-compile and never inspects the compiler, so a
+**model-based** compiler is another entry in that table at one call per word — which
+is a statement about the mechanism, not evidence about any model. None was called.
+
 **Why they exist** is one principle, arrived at after finding the same mistake at six
 different boundaries: **absence is not a value** — see [docs/ABSENCE.md](docs/ABSENCE.md).
 A missing fact must be represented as missing and routed to whoever can supply it;
@@ -74,6 +83,7 @@ src/wallet_control/        THE RUNTIME -- only code that runs in production
   ambiguity.py             Two readings of one sentence, and the purchase between them
   silence.py               The rule a seller can escape by publishing nothing
   unconsumed.py            Which of the customer's words changed a rule, measured
+                           by deleting each one -- takes ANY compiler, not just ours
   witness.py               Shared apparatus: a hypothetical purchase, the real engine
   attack_demo.py           The nine judge-facing attacks -- one of which SUCCEEDS,
                            on purpose, with the argument attached
@@ -98,7 +108,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     1546 tests
+tests/                     1547 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -151,7 +161,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1546 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**1547 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say
