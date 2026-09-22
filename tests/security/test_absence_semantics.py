@@ -44,9 +44,15 @@ AT = datetime(2026, 8, 12, tzinfo=timezone.utc)
 
 
 def _recognised_fields() -> set[str]:
-    """Every literal `field == "..."` comparison inside `evaluate_rule`."""
+    """Every literal `field == "..."` comparison inside the rule interpreter.
+
+    The interpreter is `_evaluate_rule`; `evaluate_rule` is the thin guard around it
+    that turns a rule this engine cannot apply into UNKNOWN instead of an exception.
+    This scanner used to name the public function and caught the split immediately,
+    which is what it is for."""
     tree = ast.parse(RULES_SOURCE.read_text())
-    fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "evaluate_rule")
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "_evaluate_rule")
     found: set[str] = set()
     for node in ast.walk(fn):
         if isinstance(node, ast.Compare) and isinstance(node.left, ast.Name) and node.left.id == "field":

@@ -350,9 +350,19 @@ def _basket_key(items: list[dict[str, Any]]) -> BasketKey:
 
 
 def _requested_categories(mandate: MandateSnapshot) -> frozenset[str] | None:
+    """Which item categories the customer asked for, from any `item.category in ...`
+    rule.
+
+    `frozenset(rule.value)` was wrong for a value the rule format explicitly allows:
+    `value` may be "a number, a string, or a list containing only strings", so
+    `item.category in 20` is schema-legal and raised a TypeError here -- BEFORE any
+    rule was evaluated, so `rules.evaluate_rule`'s guard never saw it. A number is
+    one value, not an iterable of them, and this now reads it the way `rules.py`
+    reads every other list-or-scalar rule."""
     for rule in mandate.hard_rules:
         if rule.field == "item.category" and rule.operator == "in":
-            return frozenset(rule.value)
+            values = rule.value if isinstance(rule.value, list) else [rule.value]
+            return frozenset(str(v) for v in values)
     return None
 
 
@@ -436,7 +446,17 @@ def _plain_reason(evaluation: RuleEvaluation) -> str:
     # boundary -- the customer would look at the order rather than at the week.
     if rule.field == "authorization.billing_amount_chf" and rule.scope == "period" and evaluation.outcome == "fail":
         window = f"{rule.period_days}-day" if rule.period_days else "rolling"
-        return f"it would take you over the CHF {float(rule.value):g} you allowed across any {window} period"
+        # `float(rule.value)` assumed a number, and the rule format does not promise
+        # one: `value` may be "a number, a string, or a list containing only strings",
+        # so a period rule with a list value raised a TypeError HERE -- after the
+        # decision had been computed correctly, while rendering the sentence for the
+        # customer. The engine knew the answer and threw it away trying to say it in
+        # English. Say it without the figure rather than not at all.
+        try:
+            return (f"it would take you over the CHF {float(rule.value):g} you allowed "
+                    f"across any {window} period")
+        except (TypeError, ValueError):
+            return f"it would take you over what you allowed across any {window} period"
     table = _PLAIN_UNKNOWN if evaluation.outcome == "unknown" else _PLAIN_FAIL
     fallback = rule.field.replace(".", " ").replace("_", " ")
     return table.get(rule.field) or f"a check on {fallback} did not pass"

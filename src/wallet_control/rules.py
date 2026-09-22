@@ -21,7 +21,7 @@ per authorization and passes it in as `RuleContext`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 from .facts import PurchaseFacts
@@ -53,7 +53,51 @@ class RuleEvaluation:
     source: Literal["customer", "safety"] = "customer"
 
 
+class RuleNotInterpretable(ValueError):
+    """This engine cannot apply this rule as written.
+
+    Not "the rule is violated" and not "the rule passes" -- the third thing, which
+    `evaluate_rule` turns into UNKNOWN and routes to the customer's
+    `uncertainty_policy`, exactly as it already does for a field name it does not
+    recognise."""
+
+
+def _membership(actual: Any, expected: Any) -> bool:
+    """`in` / `not_in` against a list, which the spec allows on ANY field.
+
+    The rule format permits every operator on every field -- `operator` is one of
+    eight and `value` is "a number, a string, or a list containing only strings",
+    with no pairing rule between them. So `{"field": "merchant.familiar",
+    "operator": "in", "value": ["true"]}` is a legal stored rule, and it used to
+    raise straight out of the engine.
+
+    Compared as strings, with a numeric comparison first when both sides parse as
+    numbers, so `billing_amount_chf in ["50"]` means what a person would expect of
+    50.0 and not what `str()` happens to produce."""
+    values = expected if isinstance(expected, list) else [expected]
+    for candidate in values:
+        try:
+            if _as_decimal(actual) == _as_decimal(candidate):
+                return True
+            continue
+        except (InvalidOperation, ArithmeticError, TypeError, ValueError):
+            pass
+        if str(actual) == str(candidate):
+            return True
+    return False
+
+
 def _compare(operator: str, actual: Any, expected: Any) -> bool:
+    if operator == "in":
+        return _membership(actual, expected)
+    if operator == "not_in":
+        return not _membership(actual, expected)
+    # An ordering operator against a list is not a comparison anyone can perform.
+    # It is legal to STORE (the schema pairs no operator with a value type) and
+    # impossible to APPLY, which is the definition of UNKNOWN in this engine.
+    if isinstance(expected, list):
+        raise RuleNotInterpretable(
+            f"operator {operator!r} cannot be applied to a list of values")
     if operator == "<":
         return actual < expected
     if operator == "<=":
@@ -66,11 +110,54 @@ def _compare(operator: str, actual: Any, expected: Any) -> bool:
         return actual > expected
     if operator == ">=":
         return actual >= expected
-    raise ValueError(f"operator {operator!r} is not a scalar comparison")
+    raise RuleNotInterpretable(f"operator {operator!r} is not one this engine applies")
 
 
 def _as_decimal(value: Any) -> Decimal:
     return value if isinstance(value, Decimal) else Decimal(str(value))
+
+
+def evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> RuleEvaluation:
+    """Apply one stored rule, or say plainly that this engine cannot.
+
+    THE OUTER GUARD IS THE POINT. `_evaluate_rule` below interprets a rule the
+    customer's mandate stores, and the stored rule comes from a format far wider
+    than anything this compiler emits: eight operators, three value shapes, no
+    pairing rule between them, and a PATCH endpoint that lets any of them be added
+    to a live mandate. A combination we cannot apply used to raise straight out of
+    the engine -- `merchant.familiar in ["true"]` is schema-legal and produced an
+    uncaught ValueError, and an amount rule with a list value produced an
+    InvalidOperation from deep inside `decimal`.
+
+    In the live worker an exception means no decision is submitted at all and the
+    8-second deadline lapses into behaviour the specification does not define. That
+    is the worst of the three ways to fail to represent an absence -- filled in,
+    inferred, or THROWN -- and the file already had the right answer one level up:
+    an unrecognised FIELD returns UNKNOWN and is routed to `uncertainty_policy`. An
+    unrecognised operator-and-value now does the same.
+
+    Deliberately narrow: only `RuleNotInterpretable` and the arithmetic errors that
+    a wrong value type produces are caught. A bug in this engine still crashes,
+    because a bug quietly downgraded to "ask the customer" is a bug nobody finds.
+    """
+    try:
+        return _evaluate_rule(rule, facts, ctx)
+    except RuleNotInterpretable as exc:
+        return RuleEvaluation(rule, "unknown", str(exc))
+    except (InvalidOperation, ArithmeticError, TypeError) as exc:
+        return RuleEvaluation(
+            rule, "unknown",
+            f"rule on {rule.field!r} could not be applied as written "
+            f"({type(exc).__name__}); its value does not fit its operator")
+
+
+def _expected_amount(rule: HardRule):
+    """A money rule's right-hand side. Left as a LIST for `in`/`not_in`, which
+    `_compare` handles by membership; coerced to Decimal otherwise, where a list
+    would be `InvalidOperation` from inside `decimal` rather than a decision."""
+    if rule.operator in ("in", "not_in"):
+        return rule.value
+    return _as_decimal(rule.value)
 
 
 def _candidate_items(facts: PurchaseFacts, ctx: RuleContext) -> list:
@@ -91,7 +178,7 @@ def _candidate_items(facts: PurchaseFacts, ctx: RuleContext) -> list:
     return matching or list(facts.items)
 
 
-def evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> RuleEvaluation:
+def _evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> RuleEvaluation:
     field = rule.field
 
     # An item rule evaluated over an empty basket is not satisfied, it is UNCHECKABLE.
@@ -109,14 +196,14 @@ def evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Rul
 
     if field == "authorization.billing_amount_chf" and rule.scope != "period":
         actual = facts.billing_amount_chf
-        ok = _compare(rule.operator, actual, _as_decimal(rule.value))
+        ok = _compare(rule.operator, actual, _expected_amount(rule))
         return RuleEvaluation(rule, "pass" if ok else "fail", f"billing_amount_chf={actual} CHF")
 
     if field == "authorization.billing_amount_chf" and rule.scope == "period":
         projected = ctx.projected_period_spend_chf.get(rule.period_days or 0)
         if projected is None:
             return RuleEvaluation(rule, "unknown", "rolling-period spend could not be computed")
-        ok = _compare(rule.operator, projected, _as_decimal(rule.value))
+        ok = _compare(rule.operator, projected, _expected_amount(rule))
         detail = f"projected {rule.period_days}-day spend={projected} CHF (including this purchase)"
         return RuleEvaluation(rule, "pass" if ok else "fail", detail)
 

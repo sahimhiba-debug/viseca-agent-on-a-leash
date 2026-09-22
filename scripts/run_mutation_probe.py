@@ -33,6 +33,7 @@ what this probe is for.
 from __future__ import annotations
 
 import pathlib
+import os
 import subprocess
 import sys
 
@@ -173,38 +174,132 @@ MUTANTS: list[tuple[str, str, str, str]] = [
 
 
 def _run_suite() -> tuple[bool, str]:
+    # The suite carries a backstop asserting no stranded mutation is in the tree.
+    # During THIS script the tree is mutated on purpose, so that backstop would fire
+    # on every mutant and report 39 spurious kills -- a harness grading itself. The
+    # flag tells it to skip, and a skip is visible in the count rather than silent.
+    env = {**os.environ, "WALLET_MUTATION_PROBE": "1"}
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "-x", "-q", "--no-header", "-p", "no:cacheprovider"],
-        cwd=ROOT, capture_output=True, text=True,
+        cwd=ROOT, capture_output=True, text=True, env=env,
     )
     return result.returncode == 0, result.stdout
 
 
+def _tree_is_healthy() -> tuple[bool, str]:
+    """Is the engine working BEFORE we start cutting?
+
+    This probe mutates source files in place. A `try/finally` restores them on an
+    exception or Ctrl-C -- and not on SIGKILL, which is what a harness timeout
+    sends. Worse, each mutant used to read its baseline fresh from disk, so one
+    killed run poisoned every later one: mutant B would read A's stranded mutation
+    as "the original" and faithfully restore it afterwards.
+
+    That happened. `if failures:` sat in `_decide` as `if False:` through several
+    commits' worth of work, and the full suite still passed -- the only thing that
+    noticed was the planning benchmark falling from 11/11 to 4/11, which looked
+    like a regression in an unrelated refactor and cost an hour to trace.
+
+    So: check the patient is alive before operating, with an assertion no mutant in
+    this file would leave standing.
+    """
+    from datetime import datetime, timezone
+
+    # SRC FIRST, and before anything has imported `wallet_control`. The package is
+    # installed editable, so a plain import resolves to whatever checkout `pip`
+    # was pointed at -- which is not necessarily the tree this script is about to
+    # mutate. A health check that inspects a different copy of the engine than the
+    # one it cuts is worse than none: it reports healthy and proceeds.
+    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(ROOT / "src"))
+    for name in [m for m in sys.modules if m.startswith("wallet_control")]:
+        del sys.modules[name]
+    from tests.helpers import make_event, make_mandate
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.mandate import HardRule
+    from wallet_control.state import HistoryIndex, RunState
+
+    mandate = make_mandate(instruction="health check", hard_rules=[HardRule(
+        field="authorization.billing_amount_chf", operator="<=", value=5,
+        currency="CHF", scope="purchase")])
+    event = make_event(mandate=mandate, authorization_id="AU_HEALTH", amount=45.0,
+                       merchant_id="ME_KNOWN",
+                       timestamp=datetime(2026, 8, 12, tzinfo=timezone.utc))
+    event["authorization"]["items"][0].update(item_name="x", item_category="groceries")
+    state = RunState(history=HistoryIndex({"CA_TEST": frozenset({"ME_KNOWN"})},
+                                          available=True), card_id="CA_TEST")
+    decision = evaluate_authorization(event, mandate, state).decision
+    if decision != "block":
+        return False, (f"CHF 45 against a CHF 5 ceiling was {decision.upper()}, not BLOCK. "
+                       f"The working tree is already mutated -- almost certainly by an "
+                       f"interrupted run of this script. Restore it (git diff src/) "
+                       f"before trusting any result here.")
+    return True, ""
+
+
 def main() -> int:
+    # `--check-only` runs the health check and stops. It exists because
+    # `_tree_is_healthy` clears `wallet_control` out of `sys.modules` so it can
+    # import the tree being cut rather than the editable install -- which is right
+    # for a script and catastrophic in-process: calling it from a test unloads the
+    # package for every test that follows. So the suite exercises it the way a user
+    # does, in a subprocess.
+    check_only = "--check-only" in sys.argv
+    healthy, why = _tree_is_healthy()
+    if not healthy:
+        print("REFUSING TO RUN: " + why)
+        return 2
+    if check_only:
+        print("health check passed: the engine blocks an over-limit purchase")
+        return 0
+
+    # Read every target ONCE. A mutant must never take its baseline from a file a
+    # previous mutant may have left modified.
+    originals: dict[str, str] = {}
+    for module, _original, _mutated, _label in MUTANTS:
+        originals.setdefault(module, (SRC / module).read_text())
+
     print(f"{'mutant':56s} {'result':10s} killed by")
     print("-" * 118)
     survived: list[str] = []
     skipped: list[str] = []
 
-    for module, original, mutated, label in MUTANTS:
-        path = SRC / module
-        source = path.read_text()
-        if original not in source:
-            skipped.append(label)
-            print(f"{label:56s} {'SKIP':10s} pattern no longer present in {module}")
-            continue
-        path.write_text(source.replace(original, mutated, 1))
-        try:
-            passed, output = _run_suite()
-        finally:
-            path.write_text(source)  # always restore, even on Ctrl-C or a crash
-        if passed:
-            survived.append(label)
-            print(f"{label:56s} {'SURVIVED':10s} *** no test caught this ***")
-        else:
-            failures = [line for line in output.splitlines() if line.startswith("FAILED")]
-            name = failures[0].split("::")[-1].split(" ")[0] if failures else "(unnamed)"
-            print(f"{label:56s} {'killed':10s} {name[:56]}")
+    try:
+        for module, original, mutated, label in MUTANTS:
+            path = SRC / module
+            source = originals[module]
+            if original not in source:
+                skipped.append(label)
+                print(f"{label:56s} {'SKIP':10s} pattern no longer present in {module}")
+                continue
+            path.write_text(source.replace(original, mutated, 1))
+            try:
+                passed, output = _run_suite()
+            finally:
+                path.write_text(source)
+            if passed:
+                survived.append(label)
+                print(f"{label:56s} {'SURVIVED':10s} *** no test caught this ***")
+            else:
+                failures = [line for line in output.splitlines() if line.startswith("FAILED")]
+                name = failures[0].split("::")[-1].split(" ")[0] if failures else "(unnamed)"
+                print(f"{label:56s} {'killed':10s} {name[:56]}")
+    finally:
+        # Belt and braces: restore every target from the originals captured at the
+        # top, then VERIFY. A restore that silently failed is how the last one got
+        # through, so it is checked rather than assumed.
+        stranded = []
+        for module, text in originals.items():
+            path = SRC / module
+            try:
+                path.write_text(text)
+                if path.read_text() != text:
+                    stranded.append(module)
+            except OSError:
+                stranded.append(module)
+        if stranded:
+            print("\n*** COULD NOT RESTORE " + ", ".join(stranded) + " ***")
+            print("*** The working tree is MUTATED. Run: git checkout -- src/ ***")
 
     total = len(MUTANTS) - len(skipped)
     print(f"\n{total} mutants applied, {total - len(survived)} killed, {len(survived)} survived.")

@@ -27,6 +27,8 @@ the first place looked, and it was full of it.
 | 5 | the customer's sentence | a phrase the compiler knows | no rule, and no trace of one | causal read-back: 20 of 20 ordinary phrasings lost |
 | 6 | `/api/agent/propose` | the basket's merchant | `or "ME0001"` — a familiar shop | emptying every field of the event, one at a time |
 | 7 | `RunState.from_snapshot` | whether an authority was spent, or revoked | `d.get("consumed_at")` → unspent; `d.get("revoked", False)` → live | **predicted by this document**, then reproduced |
+| 8 | `LiveWorker.register_run` | the checkpoint file | a fresh run state with zero spend | reading the restore path for the same shape |
+| 9 | `rules._compare` and three others | how to apply a rule this engine does not implement | an **uncaught exception** | reading the official rule format and fuzzing it |
 
 Number 7 is the one that matters for whether any of this is a tool or a story.
 Measured on a real checkpoint with **one key removed**:
@@ -140,8 +142,43 @@ long.
 | `tests/security/test_absent_fields_are_not_values.py` | the agent's own boundary | 17 assertions, including the absences that must stay legal |
 | `tests/security/test_checkpoint_absence.py` | every key `to_snapshot` writes | any partial lifecycle refused; the coherent legacy shape still restores; key lists checked against `to_snapshot` itself |
 | `tests/security/test_absence_registry.py` | **every `x.get(k, default)` and `x.get(k) or y` in the runtime** | all 13 declared with a reason; a new one fails the build |
+| `tests/security/test_spec_conformance.py` | 1,344 field × operator × value × scope rules | no exception; nothing inapplicable is ever allowed |
 
 ---
+
+## The ninth came from the specification, not from us
+
+`reference/viseca-2026/technical_details.md` defines the rule format far more widely
+than anything our compiler emits — eight operators, three value shapes, **and no
+pairing rule between them**:
+
+> `operator` | Yes | `<`, `<=`, `=`, `!=`, `>`, `>=`, `in`, or `not_in`.
+> `value` | Yes | A number, a string, or a list containing only strings.
+
+So `{"field": "merchant.familiar", "operator": "in", "value": ["true"]}` is a legal
+stored rule, and `PATCH /v1/mandates/{id}` lets one be added to a live mandate. Four
+of them crashed this engine:
+
+```
+merchant.familiar in ["true"]        ValueError from _compare
+billing_amount_chf in ["50"]         InvalidOperation from inside decimal
+item.category in 20                  TypeError, BEFORE any rule was evaluated
+billing_amount_chf(period) in ["a"]  TypeError while writing the SENTENCE —
+                                     after the decision was already correct
+```
+
+The last is the sharpest in the whole document: **the engine computed the right
+answer and threw it away trying to say it in English.** And `rules.py` already had
+the right answer one level up — an unrecognised *field* returns `unknown` — so the
+gap was an unrecognised *operator-and-value*, which is the same absence one step
+further in.
+
+Now `in`/`not_in` are membership on every field, which is what the format plainly
+means, and anything still uninterpretable is `unknown` and goes to
+`uncertainty_policy`. Fuzzed over **1,344** field × operator × value × scope
+combinations: no exception, and a rule that cannot be applied is never allowed.
+The guard is deliberately narrow — a genuine engine bug still crashes, because a bug
+quietly downgraded to "ask the customer" is a bug nobody finds.
 
 ## The eighth, where the answer is neither a default nor a refusal
 
@@ -189,9 +226,10 @@ the test by name.
 
 ## What this does not claim
 
-* **It is not a proof.** Seven instances and five sweeps over *this* engine. An
-  eighth boundary may exist; every sweep is bounded by the fields it enumerates, and
-  each one says so. The field sweep was first-order until it was attacked for being
+* **It is not a proof.** Nine instances and six sweeps over *this* engine. A tenth
+  boundary may exist; every sweep is bounded by what it enumerates, and each one says
+  so. The ninth was found by reading the official specification rather than by any of
+  the sweeps, which is the honest measure of how much they cover. The field sweep was first-order until it was attacked for being
   first-order — 15,763 pairs later it still holds, which is evidence and not a
   theorem. Nothing here rules out a third- or higher-order vacuity.
 * **It does not close the seller channel.** `uncertainty_policy = decline` closes it
