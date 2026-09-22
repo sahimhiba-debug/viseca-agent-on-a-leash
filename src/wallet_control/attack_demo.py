@@ -9,7 +9,7 @@ before they confirm.
 
 Every attack here drives the SAME `evaluate_authorization` / `MockPSP.charge` code
 the official replay uses. There is no demo-only decision path: if one of these
-stopped reflecting the product, the official replay would move off 18/3/24 and the
+stopped reflecting the product, the official replay would move off 17/4/24 and the
 test suite would fail.
 
 Each demonstration answers four questions in the customer's language:

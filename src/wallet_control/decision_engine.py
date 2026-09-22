@@ -46,6 +46,12 @@ from .viseca_mapping import Decision
 _DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", value="false")
 _NO_RULES_RULE = HardRule(field="mandate.has_no_rules", operator="=", value="false")
 _AMOUNT_INTEGRITY_RULE = HardRule(field="authorization.amount_integrity", operator="=", value="true")
+# A seller writing to the machine that holds the card. Never a FAIL: the text is
+# ineffective against this engine by construction, so it is not evidence that the
+# purchase is bad -- it is evidence about the counterparty, and only the customer can
+# weigh that. UNKNOWN routes it through their own `uncertainty_policy`, exactly as the
+# session signal does.
+_MERCHANT_TEXT_RULE = HardRule(field="merchant.text_addresses_the_machine", operator="=", value="false")
 _BASKET_PRESENT_RULE = HardRule(field="authorization.basket_present", operator="=", value="true")
 _AMOUNT_INTEGRITY_TOLERANCE_CHF = Decimal("0.02")  # allows for independent double-rounding, nothing more
 
@@ -426,6 +432,7 @@ _PLAIN_FAIL = {
     "merchant.category": "this is not the kind of shop you allowed",
     "order.return_window_days": "the return window is shorter than you asked for",
     "item.size": "the size is not the one you asked for",
+    "merchant.text_addresses_the_machine": "this seller's product description is written at your wallet, not at you",
     "session.integrity_risk": "something about this session looks wrong",
     "order.duplicate_suspected": "this looks like the same order again",
     "authorization.amount_integrity": "the stated CHF amount does not match the currency conversion",
@@ -443,6 +450,9 @@ _PLAIN_UNKNOWN = {
     # laptop" in a second. "Something could not be verified" makes them guess, and a
     # question nobody can answer is a question they learn to click through. The AGENT
     # still sees only the class `session` -- `agent_view` never carries this string.
+    "merchant.text_addresses_the_machine": "this seller's product description "
+                                           "contains instructions aimed at an "
+                                           "automated buyer, not at you",
     "session.integrity_risk": "this purchase came from a device that has not been "
                               "used earlier in this session",
     "authorization.basket_present": "this purchase lists no items to check",
@@ -485,6 +495,9 @@ _AGENT_CONSTRAINT_CLASS = {
     "item.size": "item",
     "item.unrequested_present": "basket",
     "order.return_window_days": "order_terms",
+    # The agent is told `merchant`, which is both true and the useful direction: an
+    # honest planner answers it by shopping somewhere else, which is exactly right.
+    "merchant.text_addresses_the_machine": "merchant",
     "session.integrity_risk": "session",
     "order.duplicate_suspected": "duplicate",
 }
@@ -824,6 +837,13 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # 0), but a malformed or tampered event must not be trusted to have honored
         # that -- a non-positive amount is rejected here regardless of schema validation
         # upstream.
+        if facts.merchant_text_addresses_the_machine:
+            evaluations.append(RuleEvaluation(
+                rule=_MERCHANT_TEXT_RULE, outcome="unknown",
+                detail=("this listing speaks to an automated purchasing system about "
+                        "your authorization: "
+                        + "; ".join(facts.merchant_text_addresses_the_machine)),
+                source="safety"))
         if billing_amount_chf <= 0:
             evaluations.append(
                 RuleEvaluation(rule=_AMOUNT_INTEGRITY_RULE, outcome="fail", detail=f"billing_amount_chf={billing_amount_chf} is not positive", source="safety")

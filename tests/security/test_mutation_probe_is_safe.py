@@ -69,7 +69,9 @@ def test_the_probe_refuses_to_run_on_an_already_mutated_tree(tmp_path):
         # whatever the probe looked like at HEAD rather than what it looks like now.
         for relative in ("scripts/run_mutation_probe.py",
                          "src/wallet_control/decision_engine.py",
-                         "src/wallet_control/rules.py"):
+                         "src/wallet_control/rules.py",
+                         "src/wallet_control/facts.py",
+                         "src/wallet_control/state.py"):
             (work / relative).write_text((ROOT / relative).read_text())
         engine = work / "src" / "wallet_control" / "decision_engine.py"
         source = engine.read_text()

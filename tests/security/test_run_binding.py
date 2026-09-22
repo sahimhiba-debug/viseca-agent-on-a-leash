@@ -60,7 +60,7 @@ def test_an_event_for_another_mandate_is_not_evaluated_under_this_runs_rules():
 
 
 def test_a_matching_event_is_unaffected():
-    """What keeps the official replay at 18/3/24: every official event's card_id
+    """What keeps the official replay at 17/4/24: every official event's card_id
     matches its scenario authority's card (verified: 0 mismatches across all 45)."""
     mandate = make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=500, currency="CHF", scope="purchase")])
     state = RunState(history=_history(), card_id=OUR_CARD)

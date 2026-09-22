@@ -108,7 +108,7 @@ def test_an_explicitly_revoked_authority_blocks_even_under_an_approve_policy():
 
 def test_active_status_still_allows_normally():
     """The check must not disturb the ordinary path -- this is what keeps the
-    official replay at 18/3/24 (all 45 official rows are active/active)."""
+    official replay at 17/4/24 (all 45 official rows are active/active)."""
     mandate = _mandate()
     state = _state()
     result = evaluate_authorization(_event(mandate, authority_status="active", card_status_at_attempt="active"), mandate, state)

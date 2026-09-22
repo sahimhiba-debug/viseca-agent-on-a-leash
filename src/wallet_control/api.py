@@ -177,10 +177,10 @@ class ResolveRequest(BaseModel):
 # The regression boundary, written ONCE. It used to be here twice -- a dict shown to
 # the caller and the same four numbers again longhand in the comparison -- so moving
 # the boundary updated one and not the other, and this endpoint cheerfully answered
-# `expected: 18/3/24, matches_regression_boundary: false`. An internally
+# `expected: 17/4/24, matches_regression_boundary: false`. An internally
 # contradictory health check is worse than none: it is the surface a teammate reads
 # thirty seconds before going on stage.
-REGRESSION_BOUNDARY = {"events": 45, "allow": 18, "review": 3, "block": 24}
+REGRESSION_BOUNDARY = {"events": 45, "allow": 17, "review": 4, "block": 24}
 
 
 @app.get("/api/health")

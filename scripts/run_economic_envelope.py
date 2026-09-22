@@ -27,7 +27,7 @@ Read the output with two qualifications, both load-bearing:
     predict with -- which is the other half of the finding.
 
 Nothing here touches the decision path. `fulfillment` is not imported by
-`decision_engine`, `rules` or `facts`; the official replay stays 18/3/24.
+`decision_engine`, `rules` or `facts`; the official replay stays 17/4/24.
 """
 
 from __future__ import annotations

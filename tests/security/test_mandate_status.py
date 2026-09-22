@@ -64,7 +64,7 @@ def test_a_mandate_that_is_not_active_authorizes_nothing(status):
 
 
 def test_an_active_mandate_is_unaffected():
-    """What keeps the official replay at 18/3/24: every scenario mandate is
+    """What keeps the official replay at 17/4/24: every scenario mandate is
     compiled and confirmed, so all 45 events run under an ACTIVE mandate."""
     mandate = _snapshot_with_status(MandateStatus.ACTIVE)
     state = _state()
