@@ -1131,14 +1131,15 @@ async function renderScope(instruction){
   // electronics catalogue -- the page contradicting itself about its own subject.
   // "${category} purchases" produced "groceries purchases". The category is a
   // catalogue name, not an adjective, so it is used as one.
-  const noun = `purchases from the ${esc(d.category)} catalogue`;
+  const catalogue = esc(String(d.category || "").replace(/_/g, " "));
+  const noun = `purchases from the ${catalogue} catalogue`;
   const headline = (d.authorised === 0 && d.asks_you > 0)
     ? `<p class="scnum" style="font-size:26px">None without asking you
          <small style="display:block;margin-top:4px">${d.asks_you} of ${d.universe} ${noun}
          would come to you first — the wallet will not decide these alone</small></p>`
     : (d.authorised_upper === 0)
     ? `<p class="scnum" style="font-size:26px">None at all
-         <small style="display:block;margin-top:4px">no purchase this ${esc(d.category)}
+         <small style="display:block;margin-top:4px">no purchase this ${catalogue}
          catalogue can produce satisfies every rule. That is not a failure: it is what
          you wrote${cut ? `, and here is which words did it: ${cut} removed` : ''}.</small></p>`
     : (d.price_band && d.price_band.min !== d.price_band.typical)

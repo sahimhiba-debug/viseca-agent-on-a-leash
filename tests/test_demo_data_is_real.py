@@ -224,7 +224,7 @@ def test_the_delegation_panel_names_the_catalogue_it_counted_not_a_fixed_word():
     """
     page = (ROOT / "ui" / "index.html").read_text()
 
-    headline = page[page.index("const noun ="):page.index("const headline =")]
+    headline = page[page.index("const catalogue ="):page.index("const headline =")]
     assert "d.category" in headline, (
         "the panel's noun must come from the payload, not from a literal")
 
