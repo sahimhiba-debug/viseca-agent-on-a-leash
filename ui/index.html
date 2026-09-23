@@ -1141,7 +1141,7 @@ async function renderScope(instruction){
     ? `<p class="scnum" style="font-size:26px">None at all
          <small style="display:block;margin-top:4px">no purchase this ${catalogue}
          catalogue can produce satisfies every rule. That is not a failure: it is what
-         you wrote${cut ? `, and here is which words did it: ${cut} removed` : ''}.</small></p>`
+         you wrote${cut ? `. Removed by your own words: ${cut}` : ''}.</small></p>`
     : (d.price_band && d.price_band.min !== d.price_band.typical)
     // A RANGE, NOT A POINT. The count depends on what the seller charges, and every
     // item in the catalogue publishes a min/typical/max. Showing the floor alone made
@@ -1161,31 +1161,6 @@ async function renderScope(instruction){
   // customer handed over by a factor of four, in the one direction that costs them
   // something. The typical figure stays visible, because "what it usually is" is a
   // fair thing to want alongside "what it could be".
-  // WHAT THE UNCERTAINTY DIAL COSTS, fetched separately because it re-runs the whole
-  // enumeration three times and this panel updates as the customer types.
-  //
-  // The dial is the most consequential setting in a mandate and the least legible:
-  // "what should I do when I cannot tell?", asked once, in the abstract, about facts
-  // the customer has not met yet. `research/erasure.py` measures the security half --
-  // `decline` is the only setting in which saying less never buys the proposer more,
-  // over 8,124 erasures of the official events. This shows the price of that.
-  fetch('/api/mandates/uncertainty', {method:'POST',
-      headers:{'content-type':'application/json'}, body: JSON.stringify({instruction})})
-    .then(r=>r.json()).then(u=>{
-      const slot = document.getElementById('uncdial');
-      if(!slot || !u || !u.dial_changes_anything) return;
-      const row = (k,label) => `<div class="prov"><span class="pf">${label}</span>
-        <span class="pg">${u[k].approved} approved · ${u[k].asked} asked · ${u[k].refused} refused</span></div>`;
-      slot.innerHTML = `<div style="margin-top:12px"><div class="h" style="font-size:10px;
-          font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-bottom:6px">
-          What "when unsure" costs</div>
-        ${row('decline','decline')}${row('ask','ask me')}${row('approve','approve')}
-        <p class="tiny" style="margin:8px 0 0"><b>decline</b> is the only setting where a
-          seller who says nothing does no better than one who says something you refuse
-          — measured over 8,124 erasures of the official events. These are the purchases
-          that choice costs you.</p></div>`;
-    }).catch(()=>{});
-
   // Suppressed when nothing is authorised: "0 of them" beneath "None at all" is the
   // same fact twice, and the band only means something when there is a range to have.
   const band = (d.price_band && d.authorised_upper > 0)
@@ -1209,9 +1184,8 @@ async function renderScope(instruction){
       <span class="lbl">${d.how_many_times.bounded?'how many times':'how many times — unlimited'}</span>
       ${esc(d.how_many_times.note)}
     </div>
-    <div id="uncdial"></div>
     <p class="tiny" style="margin-top:8px">Counted, not estimated: every basket of up to
-      ${d.max_lines} lines that any one shop in the ${d.category} catalogue could sell you,
+      ${d.max_lines} lines that any one shop in the ${catalogue} catalogue could sell you,
       each put through the same engine that will judge the real ones. Add a condition
       above and watch this fall.</p>
   </div>`;
@@ -1296,15 +1270,36 @@ async function renderSilence(instruction){
     `<button class="${(SILENCE_DIAL||(data.witnesses[0]||{}).uncertainty_policy)===p?'on':''}"
        onclick="setSilenceDial('${p}')">when unsure: ${p}</button>`).join('');
 
+  // WHAT THE DIAL COSTS, BESIDE THE DIAL ITSELF.
+  //
+  // This was briefly its own panel under the size figure, which put the two halves
+  // of one decision in two places: what the setting does to a seller who says
+  // nothing (here, as a witness the customer can click through) and what it costs in
+  // purchases (there, as three numbers). A judge reading top to bottom met the
+  // subject twice and the connection nowhere. One control, both answers.
+  let cost = '';
+  try {
+    const u = await (await fetch('/api/mandates/uncertainty', {method:'POST',
+      headers:{'content-type':'application/json'}, body: JSON.stringify({instruction})})).json();
+    if (u && u.dial_changes_anything) {
+      const row = (k) => `<div class="prov"><span class="pf">${k}</span>
+        <span class="pg">${u[k].approved} approved · ${u[k].asked} asked · ${u[k].refused} refused</span></div>`;
+      cost = `<div style="margin-top:10px"><div class="h" style="font-size:10px;font-weight:800;
+          letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-bottom:6px">
+          and what each setting costs you</div>
+        ${row('decline')}${row('ask')}${row('approve')}</div>`;
+    }
+  } catch(e) { /* the dial still works without its price */ }
+
   if(!data.witnesses.length){
     box.innerHTML = `<div class="card sil" style="border-left-color:var(--allow)">
       <h2>No seller can get past your rules by saying nothing</h2>
       <p class="muted">Every rule you set is either checked from data a seller cannot
         withhold, or refused outright when it cannot be checked.</p>
-      <div class="dial">${dial}</div></div>`;
+      <div class="dial">${dial}</div>${cost}</div>`;
     return;
   }
-  box.innerHTML = data.witnesses.map(w=>{
+  box.innerHTML = data.witnesses.map((w, wi)=>{
     const seller = (label, cell) => `<div class="sr">
         <span class="says">${cell.says ? esc('“'+cell.says+'”') : '<i>says nothing about returns</i>'}</span>
         <span class="vd ${cell.verdict}">${cell.verdict==='allow'?'buys it':cell.verdict==='block'?'refuses it':'asks you'}</span>
@@ -1319,7 +1314,7 @@ async function renderSilence(instruction){
         ${seller('bad', w.states_unacceptable)}
         ${seller('silent', w.states_nothing)}
       </div>
-      <div class="dial">${dial}</div>
+      <div class="dial">${dial}</div>${wi === 0 ? cost : ''}
       <p class="tiny" style="margin:8px 0 0">The agent chooses where to shop. Set
         <b>decline</b> and a seller who publishes nothing gets nothing — this panel
         goes quiet, because there is then nothing to warn you about.</p>

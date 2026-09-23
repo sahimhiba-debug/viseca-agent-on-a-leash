@@ -233,3 +233,51 @@ def test_no_vacuity_hides_behind_a_pair_of_absences():
     result = pairs_of_emptied_fields()
     assert result["pairs"] > 10_000, result["pairs"]
     assert result["masked"] == [], result["masked"]
+
+
+def test_the_witness_isolates_the_one_fact_it_is_about():
+    """A WITNESS THAT VARIES TWO THINGS PROVES NOTHING, and this one silently did.
+
+    On the official shoes mandate -- which constrains a return window AND a size AND
+    the kind of shop -- all three sellers came back `review`, including the one
+    publishing perfectly acceptable terms. Two separate causes, both of them a second
+    unknown deciding the purchase before the fact under test could:
+
+      * the return-window witness published nothing about SIZE, so `item.size` was
+        unknown in every row;
+      * the witness shopped at the synthetic `ME_WITNESS`, which no merchant record
+        knows, so `merchant.matches_the_record` was unknown in every row -- a
+        regression introduced by adding that check, and visible only by reading the
+        page.
+
+    The panel read as though stating good terms gained a seller nothing, which is the
+    opposite of the finding it exists to show. A witness must differ from a real
+    purchase in the ONE fact under test and in nothing else.
+    """
+    from research.paraphrase_corpus import S2
+
+    witnesses = silence_witness(S2)
+    assert len(witnesses) == 2, [w["field"] for w in witnesses]
+
+    for witness in witnesses:
+        assert witness["states_acceptable"]["verdict"] == "allow", (
+            witness["field"], witness["states_acceptable"],
+            "a seller publishing acceptable terms must be APPROVED, or some other "
+            "unknown is deciding this purchase and the witness is about that instead")
+        assert witness["states_unacceptable"]["verdict"] == "block", witness["field"]
+        assert witness["states_nothing"]["verdict"] == "review", witness["field"]
+
+
+def test_the_witness_shops_somewhere_the_merchant_record_knows():
+    """The specific regression, named. `merchant_for` resolves the witness's shop to
+    a real `merchants.csv` id of the right kind, exactly as `catalogue_id_for`
+    resolves its item -- both because a synthetic identifier meeting a reference-data
+    check makes the witness about the identifier."""
+    from wallet_control.csv_data import load_merchants
+    from wallet_control.witness import merchant_for
+
+    records = load_merchants()
+    for category in ("groceries", "sporting_goods", "electronics"):
+        merchant = merchant_for(category)
+        assert merchant in records, (category, merchant)
+        assert records[merchant]["merchant_category"] == category

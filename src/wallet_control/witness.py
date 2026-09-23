@@ -105,10 +105,39 @@ def catalogue_id_for(category: str, fallback_index: int) -> str:
     return _catalogue_id_by_category().get(category, f"IT_W{fallback_index}")
 
 
+@lru_cache(maxsize=1)
+def _merchant_by_category() -> dict[str, str]:
+    """A REAL `merchants.csv` id for each kind of shop a witness can claim to be.
+
+    THE SAME REPAIR AS `_catalogue_id_by_category`, IN A SECOND PLACE, and made
+    necessary by the same kind of change. The engine now checks the shop's stated
+    kind against the merchant record, so the synthetic `ME_WITNESS` -- which no
+    record knows -- makes `merchant.matches_the_record` UNKNOWN on any mandate that
+    constrains the kind of shop. Every witness for the official shoes mandate came
+    back `review` for all three sellers, including the one publishing perfectly
+    acceptable terms, and the panel read as though stating good terms gained a seller
+    nothing.
+
+    A witness must differ from a real purchase in the ONE fact under test and in
+    nothing else. The shop's identity is not the fact under test, here or in the item
+    catalogue.
+    """
+    from .csv_data import load_merchants
+
+    out: dict[str, str] = {}
+    for merchant_id, row in load_merchants().items():
+        out.setdefault(row["merchant_category"], merchant_id)
+    return out
+
+
+def merchant_for(category: str) -> str:
+    return _merchant_by_category().get(category, MERCHANT)
+
+
 def event(mandate: MandateSnapshot, index: int, purchase: Purchase) -> dict[str, Any]:
     return event_for(
         mandate, index, amount=purchase.amount, category=purchase.category,
-        merchant=MERCHANT, returnable=purchase.returnable,
+        merchant=merchant_for(purchase.category), returnable=purchase.returnable,
         items=[{"line_no": 1,
                 "item_id": catalogue_id_for(purchase.category, index),
                 "item_name": f"{purchase.item_name} {index}",

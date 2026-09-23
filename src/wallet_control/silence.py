@@ -160,8 +160,31 @@ def silence_witness(instruction: str, *, uncertainty: UncertaintyPolicy | None =
         rule = next((r for r in rules if r.field == seller.field), None)
         if rule is None:
             continue
+
+        # HOLD EVERY OTHER SELLER-TEXT FACT AT A SATISFYING VALUE.
+        #
+        # The witness varies ONE thing; anything else left unstated is a second
+        # unknown, and a second unknown decides the purchase on its own. On the
+        # official shoes mandate -- a return window AND a size -- the return-window
+        # witness published nothing about size, so the "good" seller who stated a
+        # 30-day window still came back ASKS YOU. Three rows, two of them the same
+        # verdict, and the demonstration reading as though stating good terms gains
+        # the seller nothing.
+        #
+        # The suffix is not shown to the customer: `says` stays the isolated
+        # sentence, because what the panel is about is the one fact under test.
+        others = "; ".join(
+            other.good(other_rule)
+            for other in SELLERS if other.field != seller.field
+            for other_rule in [next((r for r in rules if r.field == other.field), None)]
+            if other_rule is not None)
+
+        def _details(text: str) -> str:
+            return "; ".join(part for part in (text, others) if part)
+
         verdicts = {
-            kind: judge(rules, policy, replace(base, details=details), unsupported=unsupported)
+            kind: judge(rules, policy, replace(base, details=_details(details)),
+                        unsupported=unsupported)
             for kind, details in (("good", seller.good(rule)),
                                   ("bad", seller.bad(rule)),
                                   ("silent", seller.silent))
