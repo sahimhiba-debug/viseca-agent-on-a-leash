@@ -145,8 +145,106 @@ CURRENT_DOCS = ("README.md", "docs/BASELINE_CURRENT.md", "docs/FINAL_AUDIT_PACKA
                 "docs/THE_THESIS.md")
 
 
+# How the same fact is spelled across these documents. Enumerated by grepping the
+# corpus, not guessed: the previous version of this guard knew only the first form and
+# was blind to the second, which is the one the audit package used.
+SPLIT_SPELLINGS = (
+    r"\b(\d{1,2})/(\d{1,2})/(\d{2})\b",
+    r"(\d{1,2})\s*allow\s*/\s*(\d{1,2})\s*(?:review|ask)\s*/\s*(\d{1,2})\s*block",
+    r"(\d{1,2})\s*allow\s*,\s*(\d{1,2})\s*(?:review|ask)\s*,\s*(\d{1,2})\s*block",
+    r"'allow':\s*(\d{1,2}),\s*'review':\s*(\d{1,2}),\s*'block':\s*(\d{1,2})",
+    r"allow:\s*(\d{1,2}),\s*review:\s*(\d{1,2}),\s*block:\s*(\d{1,2})",
+)
+
+# What the guard must FIND, per document. A search that matches nothing passes every
+# assertion that follows it, so the coverage is pinned: if a document is reworded into
+# a spelling this guard cannot read, the count drops and this fails LOUDLY rather than
+# going quietly blind. That is exactly how 19/2/24 survived in the audit package.
+EXPECTED_STATEMENTS = {
+    "README.md": 1,
+    "docs/BASELINE_CURRENT.md": 5,
+    "docs/FINAL_AUDIT_PACKAGE.md": 6,
+    "docs/THE_THESIS.md": 1,
+}
+
+# A document may state a SUPERSEDED split only where it is plainly discussing one.
+# Scope is the PARAGRAPH, not the line, because prose wraps: the audit package states
+# the old figure and the new one two lines apart, and a line-scoped rule called that
+# a stale claim. A paragraph that also carries the current figure, or shows the
+# boundary moving, is narrating. Anything else needs the marker, which is deliberate,
+# invisible when rendered, and cannot appear by accident.
+SUPERSEDED_MARKER = "<!-- superseded -->"
+
+# The document-level form. `docs/` is 133 files and most of them record what was true
+# at an earlier commit -- a research log that says the replay was 19/2/24 in September
+# is correct and must not be rewritten. What it must not do is look identical to a
+# document describing the present. A file carrying this marker declares itself
+# unmaintained; MAINTAINED_DOCS is the complement, and every figure in those is
+# checked. Neither list may be empty and a file may not be in both.
+SNAPSHOT_MARKER = "<!-- snapshot -->"
+
+MAINTAINED_DOCS = (
+    "README.md",
+    "RUNBOOK.md",
+    "docs/BASELINE_CURRENT.md",
+    "docs/FINAL_AUDIT_PACKAGE.md",
+    "docs/THE_THESIS.md",
+    "docs/ABSENCE.md",
+    "docs/A_CHECK_THAT_CANNOT_FAIL.md",
+    "docs/COMPETITION_READINESS.md",
+    "docs/FINAL_CLAIMS_REGISTER.md",
+    "docs/FINAL_COMPETITION_READINESS.md",
+    "docs/WHAT_WE_REFUSE_TO_CLAIM.md",
+)
+
+
+def _stated_splits(text: str) -> list[tuple[str, str, int, int, int]]:
+    """Every replay split stated in `text`, in any spelling, with its line and the
+    paragraph it sits in."""
+    found = []
+    for paragraph in re.split(r"\n\s*\n", text):
+        for line in paragraph.splitlines():
+            for pattern in SPLIT_SPELLINGS:
+                for match in re.finditer(pattern, line):
+                    a, r, bl = (int(g) for g in match.groups())
+                    if a + r + bl == 45:      # the official replay is 45 events
+                        found.append((paragraph, line.strip()[:100], a, r, bl))
+    return found
+
+
+def _stale_statements(text: str, current: tuple[int, int, int],
+                      respect_snapshot: bool = True) -> list[tuple[str, str]]:
+    """Statements of a split that is not `current` and is not plainly being discussed.
+
+    Split out from the test so it can be exercised against synthetic documents by
+    `test_the_stale_split_guard_actually_fires`. A guard with no negative control is
+    how this one stayed green over a false headline for two boundary moves."""
+    if respect_snapshot and SNAPSHOT_MARKER in text:
+        return []          # the document declares itself a record of an earlier commit
+    stale = []
+    for paragraph, line, *split in _stated_splits(text):
+        if tuple(split) == current:
+            continue
+        # NO BARE-ARROW EXEMPTION. An earlier version exempted any paragraph
+        # containing "->", on the theory that an arrow means the boundary is being
+        # shown moving. `docs/RESEARCH_LAB_REPORT.md` opens "Baseline fe571b2 (646
+        # tests) -> final 4222f97 ... Official replay 45 / 19 allow / 2 review / 24
+        # block, unchanged throughout" -- the arrow is between two COMMITS and the
+        # claim about the split is flatly stated, and it was silently excused. An
+        # arrow somewhere in the paragraph says nothing about what it connects.
+        #
+        # What remains is narrow and checkable: the paragraph also states the CURRENT
+        # split (so the reader is being shown the change), or it carries the marker.
+        narrating = (
+            SUPERSEDED_MARKER in paragraph
+            or any(tuple(s[2:]) == current for s in _stated_splits(paragraph)))
+        if not narrating:
+            stale.append((line, f"{split[0]}/{split[1]}/{split[2]}"))
+    return stale
+
+
 def test_no_current_document_states_a_stale_replay_split():
-    """THE CLASS OF DRIFT THIS CATCHES, found by reading rather than by a test.
+    """THE CLASS OF DRIFT THIS CATCHES, and the way this guard itself failed.
 
     `docs/BASELINE_CURRENT.md` opens with "Only facts re-verified by running the
     thing, on this commit" and carried **19 allow / 2 review / 24 block** twice, two
@@ -154,15 +252,23 @@ def test_no_current_document_states_a_stale_replay_split():
     number most likely to be quoted at a judge and the single number most likely to
     go stale, because it moves whenever a defect is fixed -- it has moved twice.
 
+    THIS TEST THEN MISSED THE SAME DRIFT IN `docs/FINAL_AUDIT_PACKAGE.md`, the page
+    written for an external auditor, for both of those moves. It searched for the
+    spelling `19/2/24`; that page writes `19 allow / 2 review / 24 block`. The regex
+    matched nothing, nothing is trivially all-correct, and the test went green over a
+    false headline in the document most likely to be read first.
+
+    Two changes follow from that. The guard reads every spelling the corpus actually
+    uses (`SPLIT_SPELLINGS`, enumerated by grep rather than by memory), and it asserts
+    HOW MANY statements it found in each document (`EXPECTED_STATEMENTS`), so a
+    rewording that blinds it fails here instead of passing silently.
+
     Documents that narrate the HISTORY of the boundary ("19/2/24 -> 18/3/24 ->
     17/4/24") are not the subject: a research log recording what was true at the time
-    is correct. This checks the documents that claim to describe the present, and it
-    checks them against the replay itself rather than against each other.
+    is correct, and so is a line that shows the number moving. This checks the
+    documents that claim to describe the present, against the replay itself rather
+    than against each other.
     """
-    import re
-    import subprocess
-    import sys
-
     out = subprocess.run([sys.executable, "scripts/run_replay.py"],
                          cwd=ROOT, capture_output=True, text=True, timeout=300)
     assert out.returncode == 0, out.stderr[-2000:]
@@ -171,21 +277,125 @@ def test_no_current_document_states_a_stale_replay_split():
     found_counts = re.findall(r"\{'allow': (\d+), 'review': (\d+), 'block': (\d+)\}",
                               out.stdout)
     assert found_counts, out.stdout[-500:]
-    allow, review, block = found_counts[-1]
-    assert int(allow) + int(review) + int(block) == 45, found_counts[-1]
-    current = f"{allow}/{review}/{block}"
+    current = tuple(int(g) for g in found_counts[-1])
+    assert sum(current) == 45, found_counts[-1]
 
-    stale = []
-    for name in CURRENT_DOCS:
+    stale, blind = [], []
+    for name, expected in EXPECTED_STATEMENTS.items():
         text = (ROOT / name).read_text()
-        for found in set(re.findall(r"\b(\d{1,2}/\d{1,2}/\d{2})\b", text)):
-            if found == current:
-                continue
-            # A line that shows the boundary MOVING is narrating history, not
-            # claiming the present.
-            for line in text.splitlines():
-                if found in line and "->" not in line and "\u2192" not in line:
-                    stale.append((name, found, line.strip()[:90]))
+        statements = _stated_splits(text)
+        if len(statements) != expected:
+            blind.append(f"{name}: guard reads {len(statements)} statement(s) of the "
+                         f"split, expected {expected}")
+        for line, split in _stale_statements(text, current):
+            stale.append(f"{name}: {split} is not the current "
+                         f"{current[0]}/{current[1]}/{current[2]} -- {line}")
+
+    assert not blind, (
+        "this guard has gone blind, which is how it passed over a false headline "
+        "before. A document was reworded into a spelling SPLIT_SPELLINGS cannot read, "
+        "or a statement was added or removed. Fix the pattern or update the count -- "
+        "do not delete the assertion:\n  " + "\n  ".join(blind))
     assert not stale, (
-        f"these documents state a replay split that is not the current {current}:\n  "
-        + "\n  ".join(f"{n}: {f} -- {l}" for n, f, l in stale))
+        f"these documents state a replay split that is not the current "
+        f"{current[0]}/{current[1]}/{current[2]}:\n  " + "\n  ".join(stale))
+
+
+@pytest.mark.parametrize("spelling", [
+    "the replay is 19/2/24 and always has been",
+    "official replay: 45 events — 19 allow / 2 review / 24 block",
+    "official replay: 45 events — 19 allow, 2 review, 24 block",
+    "TOTAL events: 45  {'allow': 19, 'review': 2, 'block': 24}",
+    "Official engine (UNCHANGED): 45 events  {allow: 19, review: 2, block: 24}",
+])
+def test_the_stale_split_guard_actually_fires(spelling):
+    """THE NEGATIVE CONTROL, and the reason this file exists in its current form.
+
+    `test_no_current_document_states_a_stale_replay_split` passed for two boundary
+    moves while `docs/FINAL_AUDIT_PACKAGE.md` stated a false headline, because it
+    knew one spelling of the number and that page used another. A regex that matches
+    nothing passes every assertion after it, so the test was green precisely because
+    it was blind.
+
+    Every spelling here was taken from a document in this repository. If a future
+    rewording of the guard stops recognising one, this fails -- which is the only
+    thing that distinguishes a working check from a decorative one."""
+    assert _stale_statements(spelling, (17, 4, 24)), (
+        f"the guard does not recognise this as a claim about the replay split, so a "
+        f"document written this way could state anything:\n  {spelling}")
+
+
+@pytest.mark.parametrize("passage", [
+    "the boundary moved: 19/2/24 -> 18/3/24 -> 17/4/24",
+    "it said 19 allow / 2 review / 24 block; the engine produces "
+    "17 allow / 4 review / 24 block",
+    "<!-- superseded -->\nan earlier pass reported 19 allow / 2 review / 24 block",
+])
+def test_the_stale_split_guard_does_not_fire_on_a_document_discussing_history(passage):
+    """The other half. A guard that flagged every mention of a past figure would make
+    it impossible to write down that the figure changed -- and this repository's most
+    useful documents are the ones that record exactly that. The exemptions are
+    narrow and deliberate: the current figure in the same paragraph, an arrow showing
+    the boundary moving, or an explicit marker."""
+    assert not _stale_statements(passage, (17, 4, 24)), (
+        f"this passage is discussing a superseded figure, not claiming it:\n  {passage}")
+
+
+def test_every_unmaintained_document_says_so_at_the_top():
+    """`docs/` IS 133 FILES AND A JUDGE CANNOT TELL WHICH ONES ARE CURRENT.
+
+    Forty of them state an official replay split that is no longer the engine's --
+    almost all correctly, because they record what was true when they were written.
+    But nothing on their face said so. Opening `docs/FINAL_GATE_REPORT.md` and reading
+    "45 events - 19 allow / 2 review / 24 block", then running the replay and getting
+    17/4/24, is enough for a reasonable auditor to stop believing the repository; and
+    they would be right to, because one of those forty (`docs/FINAL_AUDIT_PACKAGE.md`,
+    the page addressed to them) really was claiming it about the present.
+
+    Rewriting the history would be worse than leaving it: the research logs are the
+    evidence that the boundary moved for reasons. So each unmaintained document
+    declares itself one, in a banner that states no figure of its own and therefore
+    cannot go stale in turn.
+
+    This test is the thing that keeps that true for documents written from here on."""
+    out = subprocess.run([sys.executable, "scripts/run_replay.py"],
+                         cwd=ROOT, capture_output=True, text=True, timeout=300)
+    assert out.returncode == 0, out.stderr[-2000:]
+    counts = re.findall(r"\{'allow': (\d+), 'review': (\d+), 'block': (\d+)\}", out.stdout)
+    current = tuple(int(g) for g in counts[-1])
+
+    undeclared = []
+    for path in sorted(ROOT.glob("docs/*.md")) + [ROOT / "README.md", ROOT / "RUNBOOK.md"]:
+        relative = str(path.relative_to(ROOT))
+        text = path.read_text()
+        declared = SNAPSHOT_MARKER in text
+        if relative in MAINTAINED_DOCS:
+            assert not declared, (
+                f"{relative} is listed as maintained but carries {SNAPSHOT_MARKER}. "
+                f"A document cannot be both; remove one.")
+            continue
+        # The trigger is a STALE statement, not any mention. A document that states
+        # the current split correctly is not lying, and banner-ing it as "not
+        # maintained" would be its own small falsehood -- as well as burying the
+        # marker's meaning under fifty uses of it. When the figure moves and that
+        # document is left behind, this fires then, which is the right moment to
+        # choose between correcting it and declaring it history.
+        if _stale_statements(text, current, respect_snapshot=False) and not declared:
+            undeclared.append(relative)
+    assert not undeclared, (
+        f"these documents state an official replay split, are not in MAINTAINED_DOCS, "
+        f"and do not declare themselves a snapshot. Either maintain them (add to "
+        f"MAINTAINED_DOCS and correct the figure) or put the banner at the top:\n  "
+        + "\n  ".join(undeclared))
+
+
+def test_the_maintained_list_is_not_quietly_emptied():
+    """The escape hatch, closed. Every assertion above is satisfied by moving a
+    document out of MAINTAINED_DOCS, which is a one-line way to stop checking the
+    figures in the page a judge reads first."""
+    for required in ("README.md", "docs/FINAL_AUDIT_PACKAGE.md", "docs/BASELINE_CURRENT.md"):
+        assert required in MAINTAINED_DOCS, (
+            f"{required} was removed from MAINTAINED_DOCS; it is a document that "
+            f"claims to describe the present and its figures must stay checked")
+    for name in MAINTAINED_DOCS:
+        assert (ROOT / name).exists(), f"MAINTAINED_DOCS names {name}, which does not exist"

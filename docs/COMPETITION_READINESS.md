@@ -72,7 +72,7 @@ limits are not enforced". All three have evidence-backed answers below.
 6. **"Do you enforce the CHF 300/7-day limit across sessions?"** No. Run-scoped,
    measured at 10×, disclosed at confirmation. The record plausibly exists at team
    scope; its shape is under-documented; we chose not to rely on it.
-7. **"Is 19/2/24 a score?"** No — the pack ships `contains_expected_decisions: false`.
+7. **"Is 17/4/24 a score?"** No — the pack ships `contains_expected_decisions: false`.
    It is a regression boundary, and it is conditional on our reading of five sentences.
 8. **"Could a merchant lie its way to an approval?"** On two fields, yes: return
    window and item size. It cannot raise a ceiling, fake familiarity or override a

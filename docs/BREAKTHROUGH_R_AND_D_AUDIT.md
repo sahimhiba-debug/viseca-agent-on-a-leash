@@ -1,5 +1,13 @@
 # Breakthrough R&D audit
 
+<!-- snapshot -->
+> **SNAPSHOT — written 19 September 2026, not maintained.** Every figure below was measured
+> when this was written. Several have moved since, including the official replay
+> split, the test count and the mutation count. This page is kept because the
+> reasoning in it is the evidence for why the boundary moved; it is not a
+> description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
+> or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
+
 Research only. **No code was changed.** The frozen product at `f988974` is the
 experimental baseline; the analysis below used throwaway scripts against it.
 

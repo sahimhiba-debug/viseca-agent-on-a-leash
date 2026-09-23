@@ -1,5 +1,13 @@
 # Economic delegation — what the customer actually hands over
 
+<!-- snapshot -->
+> **SNAPSHOT — written 18 September 2026, not maintained.** Every figure below was measured
+> when this was written. Several have moved since, including the official replay
+> split, the test count and the mutation count. This page is kept because the
+> reasoning in it is the evidence for why the boundary moved; it is not a
+> description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
+> or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
+
 The mission was to find out what a customer delegates *economically* when they
 confirm a mandate, without assuming the answer is "a CHF budget", and without
 building a second mutable budget ledger.

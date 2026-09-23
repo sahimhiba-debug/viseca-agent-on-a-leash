@@ -32,6 +32,7 @@ what this probe is for.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import os
 import signal
@@ -40,6 +41,12 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "wallet_control"
+
+# Written to disk BEFORE each cut and removed after the restore is verified. A
+# breadcrumb survives SIGKILL because it is already on disk when the killing
+# happens; a signal handler does not. Finding one at startup is proof that a
+# previous run died holding a scalpel, and it names which one.
+INFLIGHT = ROOT / ".mutation-probe-inflight.json"
 
 # (module, original source, mutated source, what protection it removes)
 MUTANTS: list[tuple[str, str, str, str]] = [
@@ -198,8 +205,68 @@ def _run_suite() -> tuple[bool, str]:
     return result.returncode == 0, result.stdout
 
 
-def _src_is_pristine() -> tuple[bool, str]:
-    """Is `src/` exactly what git has, BEFORE we start cutting?
+def _inflight_refusal() -> str:
+    """The definitive check, and the only one that does not depend on guessing.
+
+    The two textual checks below reason about what the tree LOOKS like. This one reads
+    what the previous run SAID it was doing: the breadcrumb is written before the cut
+    and removed after the restore is verified, so finding one means a run died between
+    those two moments. It covers the shapes the textual net cannot -- including a
+    mutant from a table that has since been edited, which is precisely the case the
+    textual net is blind to by construction.
+
+    It does not repair anything. A file may have been edited since, and this project
+    has already destroyed a morning's work once by restoring a baseline over somebody
+    else's edits. So it refuses, and prints the exact text to put back."""
+    if not INFLIGHT.exists():
+        return ""
+    try:
+        crumb = json.loads(INFLIGHT.read_text())
+    except (OSError, ValueError):
+        return (f"{INFLIGHT.name} exists but could not be read. A previous run died "
+                f"mid-cut and left no usable trace of what it was holding. Check "
+                f"`git diff src/`, then delete the file.")
+    still_there = ""
+    try:
+        if crumb["mutated"] in (SRC / crumb["module"]).read_text():
+            still_there = "\n\n  THE MUTATION IS STILL IN THE FILE."
+    except OSError:
+        pass
+    return (f"a previous run died while {crumb['module']} was cut open.\n"
+            f"    mutant : {crumb['label']}\n"
+            f"    cut    : {crumb['original'].strip()!r}\n"
+            f"    to     : {crumb['mutated'].strip()!r}"
+            f"{still_there}\n\n"
+            f"  Put the original back (`git diff src/` will show it), then delete "
+            f"{INFLIGHT.name} to re-enable this script.")
+
+
+def _looks_stranded(text: str, original: str, mutated: str) -> bool:
+    """Does `text` carry this mutation?
+
+    Two shapes, and assuming one shape is how the first draft of this missed three of
+    the forty-one. Most mutants REPLACE a line, so the original goes and the
+    replacement arrives -- both halves needed, because two mutants replace a line with
+    text that legitimately appears elsewhere in the same file, and testing only for
+    the replacement would refuse to run on a healthy tree forever.
+
+    Three mutants EXTEND the line instead (`for end, _ in trial` becomes
+    `for end, _ in trial[:1]`). The original is a substring of its own replacement, so
+    it survives the cut and "the original is gone" is never true. For those the
+    arrival of the replacement is the whole signal.
+
+    Which mutants fall in which class is measured, not assumed:
+    `test_the_strand_detector_would_catch_every_mutant_in_the_table` simulates every
+    entry and fails if any becomes invisible here."""
+    if not mutated or mutated not in text:
+        return False
+    if original in mutated:
+        return True
+    return original not in text
+
+
+def _no_stranded_mutant() -> tuple[bool, str]:
+    """Is `src/` carrying a mutation this script left behind?
 
     NO SIGNAL HANDLER SURVIVES SIGKILL, and a process killed by a supervisor, an OOM,
     or a session ending gets no chance to restore anything. The handlers installed in
@@ -207,27 +274,67 @@ def _src_is_pristine() -> tuple[bool, str]:
     happened twice in one day -- a run cut short by the harness, leaving a live mutant
     in `decision_engine.py`.
 
-    The second occurrence disabled the platform's reported-mandate-status check, which
-    `_tree_is_healthy` below would NOT have caught: that check proves an over-limit
-    purchase still blocks, and a broken status comparison does not touch it. A
-    functional smoke test can only notice the mutants it happens to exercise.
+    So the real defence is at the START of the NEXT run, and it has now been wrong
+    twice. The first version grepped for `if False:` -- ONE mutant shape out of
+    forty-one -- and duly reported a clean tree over a mutated one. The second asked
+    git whether `src/` was dirty, which is sound evidence and the wrong question: it
+    cannot tell a stranded mutant from a morning's uncommitted work, so it refused to
+    run during exactly the development it exists to protect. A safety check that must
+    be bypassed to get work done is a safety check that gets bypassed.
 
-    So the real defence is at the START of the NEXT run: refuse to operate on a tree
-    that is not what the repository says it is. A stranded mutant becomes a loud
-    refusal instead of a baseline that every later mutant faithfully restores.
+    This version asks the precise question, and asks it of the MUTANT TABLE rather than
+    of a hand-written pattern, so it cannot drift from the set of edits this script
+    makes: for each mutant, has the original text gone while the mutated text is here?
+
+    Both halves are load-bearing. `mutated in text` alone false-positives -- two
+    mutants replace a line with text that legitimately appears elsewhere in the same
+    file. `original not in text` alone fires on any honest refactor that moves a line.
+    Together they are specific to the damage: each original is unique in its module
+    (pinned by `test_the_strand_detector_would_catch_every_mutant_in_the_table`), so a
+    successful mutation is exactly "the original is gone and its replacement is here".
+
+    WHAT THIS DOES NOT CATCH, stated because the last two versions of this check were
+    trusted further than they deserved: a mutant stranded by an OLDER version of this
+    table, and any other tool's droppings. `_tree_is_healthy` is the independent second
+    opinion -- a functional assertion rather than a textual one, which fails for
+    different reasons -- and `main` warns separately when git says `src/` is dirty.
+    """
+    stranded = []
+    for module, original, mutated, label in MUTANTS:
+        if _looks_stranded((SRC / module).read_text(), original, mutated):
+            stranded.append(f"{module}: {label}\n        "
+                            f"{original.strip()!r} -> {mutated.strip()!r}")
+    if stranded:
+        return False, (
+            "the working tree is already mutated -- almost certainly by an "
+            "interrupted run of this script:\n    "
+            + "\n    ".join(stranded)
+            + "\n\n  Restore it before trusting any result here. If you have no other "
+              "uncommitted work in src/, `git checkout -- src/`; if you do, read "
+              "`git diff src/` and revert only the lines above.")
+    return True, ""
+
+
+def _uncommitted_src_warning() -> list[str]:
+    """Advisory, and deliberately NOT a refusal.
+
+    Uncommitted work in `src/` is the ordinary state of a repository somebody is
+    working in, and the previous version of this script treated it as fatal -- which
+    made the probe unrunnable for most of a working day and told nobody anything they
+    did not know. It is still worth SAYING: if a run was killed before the current
+    mutant table existed, the table-driven check above cannot see it, and this is the
+    only trace left.
     """
     result = subprocess.run(["git", "status", "--porcelain", "--", str(SRC)],
                             cwd=ROOT, capture_output=True, text=True)
-    if result.returncode != 0:
-        return True, "not a git checkout; cannot verify, proceeding"
+    if result.returncode != 0 or not result.stdout.strip():
+        return []
     dirty = [line for line in result.stdout.splitlines() if line.strip()]
-    if dirty:
-        return False, (
-            "src/ has uncommitted changes:\n    "
-            + "\n    ".join(dirty[:10])
-            + "\n\n  If these are yours, commit or stash them. If a previous probe was "
-              "killed, this is its stranded mutant: `git checkout -- src/`.")
-    return True, ""
+    return ["NOTE: src/ has uncommitted changes. None of them is a mutant this script",
+            "      knows how to make -- but a run killed before the current mutant",
+            "      table existed would look exactly like this:",
+            *(f"        {line}" for line in dirty[:10]),
+            ""]
 
 
 def _tree_is_healthy() -> tuple[bool, str]:
@@ -289,14 +396,20 @@ def main() -> int:
     # package for every test that follows. So the suite exercises it the way a user
     # does, in a subprocess.
     check_only = "--check-only" in sys.argv
-    pristine, why = _src_is_pristine()
-    if not pristine:
+    refusal = _inflight_refusal()
+    if refusal:
+        print("REFUSING TO RUN: " + refusal)
+        return 2
+    clean, why = _no_stranded_mutant()
+    if not clean:
         print("REFUSING TO RUN: " + why)
         return 2
     healthy, why = _tree_is_healthy()
     if not healthy:
         print("REFUSING TO RUN: " + why)
         return 2
+    for line in _uncommitted_src_warning():
+        print(line)
     if check_only:
         print("health check passed: the engine blocks an over-limit purchase")
         return 0
@@ -326,6 +439,10 @@ def main() -> int:
                 (SRC / module_name).write_text(text)
             except OSError:
                 pass
+        try:
+            INFLIGHT.unlink(missing_ok=True)
+        except OSError:
+            pass
         print(f"\n[signal {signum}] restored {len(originals)} file(s) before exiting. "
               f"This run is INCOMPLETE -- re-run it on a quiet tree.", flush=True)
         # `os._exit`, not `sys.exit`: raising SystemExit from a handler unwinds into
@@ -353,6 +470,12 @@ def main() -> int:
                 print(f"{label:56s} {'SKIP':10s} pattern no longer present in {module}")
                 continue
             mutated_text = source.replace(original, mutated, 1)
+            # BEFORE the cut, not after: the window this closes is the one between
+            # writing the mutant and restoring it, and a breadcrumb written after the
+            # edit would be missing for exactly the kill it is meant to survive.
+            INFLIGHT.write_text(json.dumps(
+                {"module": module, "label": label,
+                 "original": original, "mutated": mutated}, indent=2))
             path.write_text(mutated_text)
             try:
                 passed, output = _run_suite()
@@ -369,6 +492,7 @@ def main() -> int:
                           f"leaving it alone")
                     break
                 path.write_text(source)
+                INFLIGHT.unlink(missing_ok=True)
             if passed:
                 survived.append(label)
                 print(f"{label:56s} {'SURVIVED':10s} *** no test caught this ***")
@@ -395,6 +519,10 @@ def main() -> int:
         if stranded:
             print("\n*** COULD NOT RESTORE " + ", ".join(stranded) + " ***")
             print("*** The working tree is MUTATED. Run: git checkout -- src/ ***")
+        if not stranded and not edited:
+            # Only now. A file somebody else edited was deliberately NOT restored, so
+            # the breadcrumb stays and the next run refuses -- which is the point.
+            INFLIGHT.unlink(missing_ok=True)
 
     if edited:
         print(f"\n*** STOPPED EARLY: {', '.join(sorted(set(edited)))} was edited while "

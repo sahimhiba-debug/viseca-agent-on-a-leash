@@ -5,22 +5,53 @@ this repository, start here.
 
 | | |
 | --- | --- |
-| commit | see `git log -1` on `rnd/productization` |
-| `main` | `1aa3bac`, untouched — all work is on the R&D branch |
-| tests | 1794 collected, 5 reported skips (6 in a fresh clone — one needs the organisers' example fixture, which is in their repo, not ours) |
-| official replay | **45 events — 19 allow / 2 review / 24 block**, unchanged across every pass |
-| runtime | 5,086 lines / 19 modules · research apparatus separated into `research/` |
+| commit | see `git log -1` on `main` |
+| branch | all work is on `main`. Earlier revisions of this page said `main` was untouched at `1aa3bac` and that the work lived on `rnd/productization`; that branch is gone and the statement was false by the time you read it |
+| tests | 1808 collected, 5 reported skips (6 in a fresh clone — one needs the organisers' example fixture, which is in their repo, not ours) |
+| official replay | **45 events — 17 allow / 4 review / 24 block**. THIS PAGE SAID 19/2/24 FOR TWO BOUNDARY MOVES: see "The number on this page was wrong" below |
+| runtime | 5,112 code lines across 27 modules — 9,986 with the comments, which carry most of the reasoning · research apparatus separated into `research/` |
 | dependencies | 4 runtime (fastapi, uvicorn, httpx, pydantic), 3 dev |
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
-python3 -m pytest -q                      # 1487 collected
-python3 scripts/run_replay.py             # 45 / 19 / 2 / 24
+python3 -m pytest -q                      # 1808 collected
+python3 scripts/run_replay.py             # 45 / 17 / 4 / 24
 python3 scripts/run_red_team_corpus.py    # 133/133
 python3 scripts/run_red_team.py           # 17/17
 python3 scripts/run_mutation_probe.py     # 41 mutants, 41 killed — breaks the core on purpose
 uvicorn wallet_control.api:app --port 8420
 ```
+
+## The number on this page was wrong
+
+The replay split is the headline result of this project, and until this commit the
+table above stated **19 allow / 2 review / 24 block** while the engine produced
+**17 allow / 4 review / 24 block**. Two defects were fixed, each moved one event from
+`allow` to `review`, and this page was not updated. An auditor who ran the command in
+the box would have got a different answer from the table three lines above it.
+
+<!-- superseded -->
+There was a test against exactly this. `test_no_current_document_states_a_stale_replay_split`
+names this file, runs the replay, and fails any "current" document that states a
+different split. It passed throughout, because it searched for the spelling `19/2/24`
+and this page writes the same fact as `19 allow / 2 review / 24 block`. **The guard
+was blind to the spelling the drifting document actually used, and a search that
+matched nothing was indistinguishable from a search that found everything correct.**
+
+That is the same defect the repository names elsewhere as *a check that cannot fail is
+not a check* (`docs/A_CHECK_THAT_CANNOT_FAIL.md`), found for the eighth time, in the
+instrument built to prevent this precise drift. The guard now reads both spellings and
+asserts how many statements it found, so going blind fails instead of passing.
+
+Two things follow that are worth more than the corrected number:
+
+* **Do not trust a figure in `docs/` because a test exists for it.** Ask what the test
+  matched. Every headline number in this package can be re-derived with one command
+  from the box above; prefer that to any table, including this one.
+* **`docs/` is 133 files and most of them are historical.** Documents that record what
+  was true at an earlier commit now say so in a banner at the top. The ones that claim
+  to describe the present are `README.md`, `docs/BASELINE_CURRENT.md`, `docs/THE_THESIS.md`
+  and this page, and only those four are covered by the guard.
 
 ## Where to attack first
 

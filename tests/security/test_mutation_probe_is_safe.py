@@ -232,3 +232,117 @@ def test_the_probe_sets_the_flag_it_claims_to():
     assert "WALLET_MUTATION_PROBE" not in (
         ROOT / "src" / "wallet_control" / "decision_engine.py").read_text(), (
         "the runtime must never read this flag")
+
+
+def _load_probe():
+    """Import the script as a module. Safe in-process: nothing at module level does
+    anything but define constants and functions. `_tree_is_healthy` is the one that
+    must never be called here -- it unloads `wallet_control` -- and
+    `test_the_health_check_is_never_called_in_process_by_the_suite` enforces that."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_probe_under_test", PROBE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_strand_detector_would_catch_every_mutant_in_the_table():
+    """The check that the startup check is not a check that cannot fail.
+
+    Three versions of the "is the tree already mutated?" guard have now been wrong.
+    The first grepped for `if False:` -- one shape out of forty-one -- and reported a
+    clean tree over a mutated one. The second asked git whether `src/` was dirty,
+    which cannot distinguish a stranded mutant from uncommitted work and so refused
+    to run during ordinary development. The third reasons from the mutant table
+    itself, and its first draft silently missed three entries: those mutants EXTEND
+    the line they cut (`for end, _ in trial` -> `for end, _ in trial[:1]`), so the
+    original text survives inside its own replacement and "the original is gone" is
+    never true.
+
+    That was found by measuring rather than by reading, which is the only reason this
+    test exists in this form: it does not inspect the predicate, it SIMULATES every
+    mutation in the table and asserts the detector sees it. A new mutant whose strand
+    would be invisible fails here instead of being discovered by a benchmark score
+    nobody can explain."""
+    probe = _load_probe()
+    invisible, false_positives, not_unique = [], [], []
+    for module, original, mutated, label in probe.MUTANTS:
+        text = (probe.SRC / module).read_text()
+        if text.count(original) != 1:
+            not_unique.append(f"{label}: {text.count(original)} occurrences in {module}")
+        if probe._looks_stranded(text, original, mutated):
+            false_positives.append(label)
+        if not probe._looks_stranded(text.replace(original, mutated, 1), original, mutated):
+            invisible.append(label)
+
+    assert not_unique == [], (
+        "a mutant's original text is not unique in its module, so `replace(..., 1)` "
+        "cuts an arbitrary one of them and the mutant's label is a guess:\n  "
+        + "\n  ".join(not_unique))
+    assert false_positives == [], (
+        "the detector fires on the PRISTINE tree for these mutants, which would make "
+        "the probe refuse to run forever:\n  " + "\n  ".join(false_positives))
+    assert invisible == [], (
+        "these mutants would be INVISIBLE if a killed run stranded them, which is the "
+        "exact failure this guard exists to prevent:\n  " + "\n  ".join(invisible))
+    assert len(probe.MUTANTS) >= 41, "mutants disappeared from the table"
+
+
+def test_a_breadcrumb_from_a_dead_run_stops_the_next_one(tmp_path, monkeypatch):
+    """The textual detector above is a heuristic; this is the proof.
+
+    It reasons about what the tree LOOKS like, and it is blind by construction to one
+    case: a mutant stranded by a version of the table that has since been edited. The
+    breadcrumb is written before the cut and removed after the restore is verified, so
+    finding one is evidence of what the previous run SAID it was doing, not an
+    inference from the damage.
+
+    Run against a copy of the repo so a failure cannot leave a real breadcrumb behind.
+    """
+    work = tmp_path / "repo"
+    subprocess.run(["git", "worktree", "add", "--detach", str(work), "HEAD"],
+                   cwd=ROOT, check=True, capture_output=True)
+    try:
+        (work / "scripts" / "run_mutation_probe.py").write_text(PROBE.read_text())
+        (work / ".mutation-probe-inflight.json").write_text(
+            '{"module": "state.py", "label": "a mutant from a table that no longer '
+            'exists", "original": "ORIGINAL TEXT", "mutated": "MUTATED TEXT"}')
+
+        result = subprocess.run(
+            [sys.executable, "scripts/run_mutation_probe.py", "--check-only"],
+            cwd=work, capture_output=True, text=True, timeout=120)
+        assert result.returncode == 2, result.stdout[-2000:]
+        assert "REFUSING TO RUN" in result.stdout
+        assert "died while state.py was cut open" in result.stdout
+        assert "a mutant from a table that no longer exists" in result.stdout, (
+            "the refusal must name the mutant; a bare 'tree is dirty' is what the "
+            "previous version said and it is not actionable")
+        assert "ORIGINAL TEXT" in result.stdout, "it must print the text to put back"
+    finally:
+        subprocess.run(["git", "worktree", "remove", "--force", str(work)],
+                       cwd=ROOT, capture_output=True)
+
+
+def test_the_breadcrumb_is_written_before_the_cut_and_cleared_after_the_restore():
+    """Order is the whole mechanism.
+
+    A breadcrumb written after the edit is missing for exactly the kill it exists to
+    survive, and one cleared before the restore is verified says the tree is clean
+    while it is not. Pinned in the source because the race is not reproducible in a
+    test: you cannot SIGKILL a process reliably between two adjacent statements."""
+    body = PROBE.read_text()
+    # Anchored inside `main`, because the same loop header appears in the strand
+    # detector above it and splitting on the first match reads the wrong function.
+    loop = body.split("def main()")[1].split(
+        "for module, original, mutated, label in MUTANTS:")[1]
+    cut = loop.index("path.write_text(mutated_text)")
+    crumb = loop.index("INFLIGHT.write_text")
+    assert crumb < cut, "the breadcrumb must be written BEFORE the mutation is applied"
+
+    restore = loop.index("path.write_text(source)")
+    cleared = loop.index("INFLIGHT.unlink", restore)
+    assert restore < cleared, "the breadcrumb must be cleared AFTER the file is restored"
+
+    assert "if not stranded and not edited:" in body, (
+        "the outer restore must keep the breadcrumb when a file was left mutated or "
+        "was edited by someone else -- those are the runs the next one must refuse")

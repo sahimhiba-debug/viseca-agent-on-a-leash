@@ -80,7 +80,7 @@ made tempting to say.
 | The test suite is not theatre | **PROVEN** | 41 mutants, 41 killed; has found 5 real gaps |
 | The numbers we state about ourselves are true | **PROVEN** | `test_stated_numbers` |
 | Replay and agent episode are reproducible | **PROVEN** | byte-identical; no network, no key |
-| 19/2/24 is a score | **DO NOT CLAIM** | `contains_expected_decisions: false` |
+| 17/4/24 is a score | **DO NOT CLAIM** | `contains_expected_decisions: false` |
 | Our adversarial suites are exhaustive | **DO NOT CLAIM** | samples |
 | Anything here is formally proved | **DO NOT CLAIM** | all measured |
 

@@ -1,5 +1,13 @@
 # Viseca integration: official contract vs. local extensions
 
+<!-- snapshot -->
+> **SNAPSHOT — written 19 September 2026, not maintained.** Every figure below was measured
+> when this was written. Several have moved since, including the official replay
+> split, the test count and the mutation count. This page is kept because the
+> reasoning in it is the evidence for why the boundary moved; it is not a
+> description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
+> or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
+
 This document exists specifically so a reviewer can tell, at a glance, which parts
 of this codebase are the official challenge contract and which are this team's own
 design choices layered on top.

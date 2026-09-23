@@ -6,7 +6,7 @@ Where this project is strong, where a jury can hurt it, and exactly what to say.
 
 ## A. Technical strengths
 
-- **Deterministic, reproducible, offline.** Official replay 45 events (19/2/24),
+- **Deterministic, reproducible, offline.** Official replay 45 events (17/4/24),
   byte-identical run to run. Planning benchmark and architecture comparison likewise.
   40 demo runs across two server lifetimes plus 8 concurrent sessions: identical.
   No network, no key, no model in the judged path.

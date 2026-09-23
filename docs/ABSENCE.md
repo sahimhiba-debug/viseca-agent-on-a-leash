@@ -324,6 +324,7 @@ is where the customer had already answered. The signal is now three-valued:
 | a new device on its own | `None` — *it looks like someone might be* |
 | back to a device already seen | `False` — the commonest benign pattern in the data |
 
+<!-- superseded -->
 **It cost one approval and moved the official replay from 19/2/24 to 18/3/24.** Only
 the session scenario moved: `session.integrity_risk` is compiled only from an
 instruction that asks for it, so no customer who did not write those words is

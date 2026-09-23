@@ -1,5 +1,13 @@
 # Post-remediation final validation
 
+<!-- snapshot -->
+> **SNAPSHOT — written 20 September 2026, not maintained.** Every figure below was measured
+> when this was written. Several have moved since, including the official replay
+> split, the test count and the mutation count. This page is kept because the
+> reasoning in it is the evidence for why the boundary moved; it is not a
+> description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
+> or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
+
 Focused verification that the four findings of `docs/FABLE_INDEPENDENT_AUDIT.md`,
 remediated in `0e6e17e`, are actually closed. Invariants were re-derived from source
 and then attacked; the remediation report was not taken as evidence.

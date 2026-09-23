@@ -1,5 +1,13 @@
 # Claims register
 
+<!-- snapshot -->
+> **SNAPSHOT — written 20 September 2026, not maintained.** Every figure below was measured
+> when this was written. Several have moved since, including the official replay
+> split, the test count and the mutation count. This page is kept because the
+> reasoning in it is the evidence for why the boundary moved; it is not a
+> description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
+> or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
+
 Every claim this project makes in public, with its scope, its evidence, the test that
 would fail if it stopped being true, and **what must not be inferred from it**.
 

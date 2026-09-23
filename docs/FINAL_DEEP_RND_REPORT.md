@@ -1,5 +1,13 @@
 # Final deep R&D report
 
+<!-- snapshot -->
+> **SNAPSHOT — written 22 September 2026, not maintained.** Every figure below was measured
+> when this was written. Several have moved since, including the official replay
+> split, the test count and the mutation count. This page is kept because the
+> reasoning in it is the evidence for why the boundary moved; it is not a
+> description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
+> or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
+
 **The question:** given everything already proven and everything explicitly refused,
 is there still a fundamental weakness, missing abstraction, or architectural
 opportunity that would materially improve this wallet?
