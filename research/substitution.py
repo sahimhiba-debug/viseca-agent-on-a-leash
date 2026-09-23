@@ -59,6 +59,58 @@ IDENTITY = {
 }
 
 
+# Which DECLARED fact each restatable field speaks for. The table in `provenance.py`
+# is indexed by RULE field; an event carries the same fact under different names, and
+# sometimes under more than one:
+#
+#   `item_details`     carries the return window AND the stated size AND the
+#                      injection flag -- three facts, one channel.
+#   `order_returnable` is a SECOND expression of the return window. In the official
+#                      replay the platform supplies it; in `/api/agent/propose` this
+#                      wallet derives it from the agent's own `return_days`, so on
+#                      that path it is as advisory as the text it was derived from.
+#
+# Anything a sweep finds that is not in here is a decision input nobody has
+# classified -- which is exactly how the clock and the merchant record were missed.
+SPEAKS_FOR = {
+    "item_details": ("order.return_window_days", "item.size"),
+    "order_returnable": ("order.return_window_days",),
+    "item_name": ("item.name_contains",),
+    "item_category": ("item.category",),
+    "merchant_category": ("merchant.category",),
+    "customer_device_id": ("session.integrity_risk",),
+    "recent_attempt_count_10m": ("session.integrity_risk",),
+}
+
+
+def unexplained(findings) -> list[tuple[str, str]]:
+    """Forgeries this repository's own provenance table does NOT account for.
+
+    A forgery is accounted for when the field it moved speaks for a fact declared
+    `advisory` -- nothing can contradict it, so restating it is expected to work and
+    is disclosed to the customer at the moment they write the rule -- or for a FLAG,
+    where absence is the ordinary case and removing it cannot be a defect.
+
+    Anything else is a fact that decides authority and has no declaration.
+    """
+    from wallet_control.provenance import ADVISORY, BY_FIELD, FLAG
+
+    out = []
+    for finding in findings:
+        if finding[5]:                       # the purchase changed; not a forgery
+            continue
+        leaf = _leaf(finding[2])
+        fields = SPEAKS_FOR.get(leaf)
+        if not fields:
+            out.append((leaf, "no fact declared for this field"))
+            continue
+        classes = {BY_FIELD[f].binding for f in fields if f in BY_FIELD}
+        polarities = {BY_FIELD[f].polarity for f in fields if f in BY_FIELD}
+        if ADVISORY not in classes and FLAG not in polarities:
+            out.append((leaf, f"declared {sorted(classes)}, yet restating it helped"))
+    return out
+
+
 def _leaf(path: str) -> str:
     return _split(path)[-1] if not isinstance(_split(path)[-1], int) else ""
 
@@ -155,6 +207,18 @@ def main() -> None:
     else:
         print("  No substitution bought the same purchase a better answer.\n"
               "  A statement about THIS corpus and THIS vocabulary, not a proof.\n")
+
+    gaps = unexplained(findings)
+    if gaps:
+        print("  UNEXPLAINED -- a field that buys a better answer and has no declared fact:")
+        for leaf, why in dict(gaps).items():
+            print(f"    {leaf:34s} {why}")
+        print()
+    else:
+        print("  Every forgery above is accounted for by a fact this repository has\n"
+              "  already declared `advisory` -- nothing can contradict it -- or by a\n"
+              "  flag, whose absence is the ordinary case. No undeclared decision\n"
+              "  input remains in this sweep's reach.\n")
 
     if raised:
         print(f"  NO ANSWER on {len(raised)} restatements:")
