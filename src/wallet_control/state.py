@@ -35,7 +35,14 @@ from typing import Literal
 Decision = Literal["allow", "review", "block"]
 
 # One basket line as it is frozen into a purchase fingerprint:
-#   (item_id, item_name, quantity, return_window_days, final_sale, stated_size)
+#   (item_id, item_name, quantity, return_window_days, final_sale, stated_size,
+#    order_returnable)
+# The last element is ORDER-level, repeated on every line. It is here because it was
+# once left out on the reasoning that it is platform-supplied and therefore a
+# different trust tier -- true of the offline replay, false of `/api/agent/propose`,
+# which derives it from the agent's own `return_days`. A re-delivery that changed
+# only that field matched the fingerprint and inherited an ALLOW the same event would
+# not have been given fresh.
 # The last three are facts DERIVED from the merchant's untrusted `item_details`,
 # never the raw text -- see `decision_engine._basket_key`, which is the only
 # producer of this type, for why that distinction is load-bearing in both

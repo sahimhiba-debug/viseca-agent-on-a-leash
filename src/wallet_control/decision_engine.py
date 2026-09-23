@@ -413,7 +413,7 @@ class EngineDecision:
 _TERMINAL_INTERVENTION: dict[Decision, InterventionKind] = {"allow": "allow", "block": "never", "review": "ask_this_time"}
 
 
-def _basket_key(items: list[dict[str, Any]]) -> BasketKey:
+def _basket_key(items: list[dict[str, Any]], order_returnable: Any = None) -> BasketKey:
     """Fingerprint of what was actually in the basket, used to tell a harmless
     repeated delivery from the same authorization_id arriving with a DIFFERENT
     purchase (`authorization_id_conflict`).
@@ -445,10 +445,26 @@ def _basket_key(items: list[dict[str, Any]]) -> BasketKey:
         already NFKC-normalize and strip invisible characters, so obfuscation
         noise that moves no fact moves no fingerprint either.
 
-    `order_returnable` also feeds the effective return window but is a
+    `order_returnable` USED TO BE EXCLUDED, on the reasoning that it is "a
     PLATFORM-supplied field rather than merchant text, so it sits in a different
-    trust tier and is not fingerprinted here; see docs/FINAL_ARCHITECTURE_ATTACK.md
-    for that residual and why it was scoped out rather than silently folded in.
+    trust tier". That is true of the offline replay and FALSE of this service's own
+    agent endpoint, where `/api/agent/propose` derives it from the agent's own
+    `return_days` -- so the field left out of the fingerprint for being trustworthy
+    is one the proposing party determines. Measured, same authorization_id, with
+    `item_details` held identical so only this field moves:
+
+        first delivery,  order_returnable=true    allow
+        re-delivery,     order_returnable=false   allow   (repeated_delivery)
+        the same event judged fresh               BLOCK
+
+    An approval inherited by a purchase whose terms the customer's rule refuses --
+    which is exactly the defect the fingerprint exists to prevent (the "Monitor" ->
+    "Gold bar" rename above), in the one field deliberately left out of it.
+
+    It is now fingerprinted. That can only make a conflict MORE detectable: a
+    re-delivery whose terms genuinely match still matches, and one whose terms have
+    changed is flagged instead of answered with a stale decision. The official replay
+    is unmoved.
     """
     fingerprints = [
         (
@@ -463,6 +479,13 @@ def _basket_key(items: list[dict[str, Any]]) -> BasketKey:
             extract_return_window_days(line.get("item_details", "")),
             mentions_final_sale(line.get("item_details", "")),
             extract_stated_size(line.get("item_details", "")),
+            # The ORDER-level term, carried on every line rather than as a row of its
+            # own. A separate synthetic line would sort into the basket and surface in
+            # the audit timeline as "0 x order_returnable", and positional readers of
+            # this tuple would start finding it first. As a seventh element it changes
+            # every line's fingerprint when the term changes, which is what the
+            # conflict check needs, and nothing that reads elements 1 and 2 notices.
+            str(order_returnable) if order_returnable is not None else None,
         )
         for line in items
     ]
@@ -998,7 +1021,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         auth = event["authorization"]
         authorization_id = auth["authorization_id"]
         merchant_id = auth["merchant"]["merchant_id"]
-        basket_key = _basket_key(auth["items"])
+        basket_key = _basket_key(auth["items"], auth.get("order_returnable"))
         billing_amount_chf = to_decimal(auth["billing_amount_chf"])
 
         # "Is this event even ours?" is answered BEFORE "have we seen this purchase?".

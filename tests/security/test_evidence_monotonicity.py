@@ -209,3 +209,55 @@ def _decide_qty(mandate, quantity, amount=100.0,
                        merchant_id=M, items=items)
     event["authorization"]["order_returnable"] = "true"
     return evaluate_authorization(event, mandate, state).decision
+
+
+def test_a_redelivery_cannot_change_the_order_terms_and_keep_the_answer():
+    """THE ONE FIELD LEFT OUT OF THE BASKET FINGERPRINT, and why it is now in it.
+
+    `_basket_key` excluded `order_returnable` on the reasoning that it is "a
+    PLATFORM-supplied field rather than merchant text, so it sits in a different
+    trust tier". True of the offline replay. False of this service's own agent
+    endpoint, where `/api/agent/propose` derives it from the agent's `return_days` --
+    so the field left out for being trustworthy is one the proposing party
+    determines.
+
+    Measured with `item_details` held identical, so only this field moves:
+
+        first delivery,  order_returnable=true    allow
+        re-delivery,     order_returnable=false   allow   (repeated_delivery)
+        the same event judged fresh               BLOCK
+
+    An approval inherited by a purchase whose terms the customer's rule refuses --
+    the very defect the fingerprint exists to prevent, in the one field deliberately
+    outside it. Found by `research/substitution.py` flagging `order_returnable` as a
+    field that buys a better answer.
+    """
+    from wallet_control.mandate import HardRule
+    from wallet_control.state import HistoryIndex, RunState
+
+    mandate = make_mandate(hard_rules=[HardRule(
+        field="order.return_window_days", operator=">=", value=14)])
+    state = RunState(history=HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})},
+                                          available=True), card_id="CA_TEST")
+    details = "returns accepted within 30 days"
+
+    def delivery(returnable):
+        return make_event(
+            mandate=mandate, authorization_id="AU_TERMS", amount=100.0,
+            order_returnable=returnable,
+            items=[{"line_no": 1, "item_id": "IT0001",
+                    "item_name": "Fresh produce selection",
+                    "item_category": "groceries", "quantity": 1, "unit_price": 100.0,
+                    "currency": "CHF", "item_details": details}])
+
+    assert evaluate_authorization(delivery("true"), mandate, state).decision == "allow"
+
+    changed = evaluate_authorization(delivery("false"), mandate, state)
+    assert changed.decision == "block"
+    assert "authorization_id_conflict" in changed.reason_codes, changed.reason_codes
+
+    # ...and an HONEST retry is still a retry. A fingerprint that flags everything
+    # would satisfy the assertion above while making idempotency useless.
+    honest = evaluate_authorization(delivery("true"), mandate, state)
+    assert "repeated_delivery" in honest.reason_codes, honest.reason_codes
+    assert honest.decision == "allow"
