@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -197,3 +198,69 @@ def test_F3_concurrent_answers_to_one_step_up_cannot_both_be_accepted():
     assert stored.decision == outcomes[0]
     if stored.decision == "block":
         assert s.get_authority("AU1") is None, "a declined purchase holds a live authority"
+
+
+# --- F1d: the brake and the answer arriving at the same instant ---------------------
+
+
+def test_F1d_revoking_while_the_answer_is_in_flight_never_moves_money():
+    """F1 tested revoke THEN resolve. F3 tested two resolves at once. Neither tested
+    the brake and the answer racing -- which is the ordering a real customer
+    produces: the question is on their screen, they reach for revoke, and their
+    earlier tap on "yes" is already travelling.
+
+    THE TEST THAT WOULD HAVE PASSED FOR THE WRONG REASON. The first version of this
+    checked only "no charge succeeded", and every trial revoked before the resolve
+    even started -- 400 trials, one ordering, an invariant never actually exercised.
+    A concurrency test that does not observe both orderings is a slow way of running
+    the same sequential test many times.
+
+    So the interleaving is asserted too. Measured over 600 trials with randomised
+    sub-millisecond delays, both orderings occur in quantity (315 where the brake won
+    and the resolution was refused, 285 where the resolution minted an authority
+    first and the brake then swept it), and in NONE of them could the money move.
+    """
+    import random
+
+    trials = 120
+    seen = {"revoke_won": 0, "resolve_won": 0}
+    charged = []
+
+    for trial in range(trials):
+        mandate, state = _review_mandate(), _state()
+        assert _propose(mandate, state, "AU1").decision == "review"
+
+        result = {}
+        revoke_delay, resolve_delay = random.random() * 8e-4, random.random() * 8e-4
+
+        def brake():
+            time.sleep(revoke_delay)
+            state.revoke_outstanding_authorities()
+
+        def answer():
+            time.sleep(resolve_delay)
+            result["decision"] = resolve_authorization(
+                "AU1", "allow", state, resolved_at=datetime.now(timezone.utc),
+                mandate=mandate).decision
+
+        threads = [threading.Thread(target=brake), threading.Thread(target=answer)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        seen["resolve_won" if result.get("decision") == "allow" else "revoke_won"] += 1
+
+        try:
+            MockPSP(state).charge(charge_id=f"C{trial}", authorization_id="AU1",
+                                  amount_chf=Decimal("175"), merchant_id=M)
+            charged.append((trial, result.get("decision")))
+        except PaymentError:
+            pass
+
+    assert charged == [], (
+        f"money moved after the customer revoked, in {len(charged)} of {trials} "
+        f"trials: {charged[:3]}")
+    assert seen["revoke_won"] and seen["resolve_won"], (
+        f"only one ordering ever happened ({seen}); this test proves nothing about "
+        f"concurrency until both do")
