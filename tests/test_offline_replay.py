@@ -56,6 +56,78 @@ def test_engine_does_not_branch_on_scenario_id_or_authorization_id():
         assert '"AU0' not in source and "'AU0" not in source
 
 
+def test_the_deciding_path_reads_no_sequence_position():
+    """THE THIRD CLAUSE OF THE BRIEF'S SENTENCE, which had no test.
+
+    "Do not hard-code decisions to scenario names, request IDs, or SEQUENCE
+    POSITIONS." Two guards existed for the first two. Nothing checked the third, and
+    it is the subtlest of the three: `replay_order` and `request_id` are carried in
+    every event, they look like ordinary context, and a decision that consulted
+    either would be right on the official pack and meaningless anywhere else --
+    because the pack's ordering is the only ordering it will ever have.
+
+    Checked by SOURCE rather than by behaviour, because a behavioural test would have
+    to guess which permutation exposes the dependence; a module that never names the
+    field cannot depend on it.
+
+    `state.py` is allowed to mention `replay_order` in prose: it records there that
+    delivery order agrees with simulated time in 45 of 45 official rows, which is the
+    assumption the resumed-state horizon rests on and is checked rather than relied
+    upon. The test looks at CODE, not comments."""
+    import ast
+
+    from wallet_control import decision_engine, facts, rules, state
+
+    forbidden = {"replay_order", "request_id"}
+    for module in (decision_engine, rules, facts, state):
+        tree = ast.parse(inspect.getsource(module))
+        named = {node.value for node in ast.walk(tree)
+                 if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+        attrs = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+        leaked = forbidden & (named | attrs)
+        assert not leaked, (
+            f"{module.__name__} reads {sorted(leaked)}; the brief forbids deciding on "
+            f"sequence positions or request ids")
+
+
+def test_the_replay_is_order_independent_where_the_brief_requires_it():
+    """And the behavioural half: the same event decided from the same state must not
+    depend on where it sat in the pack. Re-running one scenario's events against
+    fresh state, in the pack's order and reversed, must give the same MULTISET of
+    decisions for the events whose outcome does not legitimately depend on history.
+
+    Scoped honestly: rolling windows and duplicate detection are SUPPOSED to depend
+    on what came before, so this holds state fixed and varies only delivery order."""
+    from wallet_control.csv_data import (
+        history_csv_path, load_merchants, load_purchase_attempt_items, scenario_rows,
+    )
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.offline_replay import (
+        build_event, compile_and_confirm_mandate_for_scenario,
+    )
+    from wallet_control.state import HistoryIndex, RunState
+
+    snapshot = compile_and_confirm_mandate_for_scenario("SCEN0002").snapshot()
+    history = HistoryIndex.from_csv(history_csv_path())
+    items, merchants = load_purchase_attempt_items(), load_merchants()
+    rows = list(scenario_rows("SCEN0002"))
+
+    def decide_each(ordered):
+        out = {}
+        for row in ordered:
+            event = build_event(row, items[row["authorization_id"]],
+                                merchants[row["merchant_id"]], snapshot,
+                                {"approved_spend_in_period_chf": 0.0,
+                                 "recent_authorizations": []})
+            fresh = RunState(history=history, card_id=snapshot.card_id)
+            out[row["authorization_id"]] = evaluate_authorization(
+                event, snapshot, fresh).decision
+        return out
+
+    assert decide_each(rows) == decide_each(list(reversed(rows))), (
+        "a decision changed with delivery order, from an identical state")
+
+
 def test_mandate_is_compiled_fresh_per_scenario_from_its_own_instruction():
     result = replay_scenario("SCEN0002")
     assert "road-running" in result.cardholder_instruction.lower()

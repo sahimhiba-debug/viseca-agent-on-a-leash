@@ -111,8 +111,33 @@ def test_paraphrased_return_window():
 
 
 def test_paraphrased_no_addons():
-    compiled = compile_instruction("Buy exactly what I asked for, don't add anything extra.")
-    assert "item.unrequested_present" in _rule_fields(compiled)
+    """"Nothing beyond what I asked for" is only a rule once the instruction says
+    WHAT was asked for.
+
+    This used to assert the rule appeared on its own. It cannot be evaluated on its
+    own -- `item.unrequested_present` is checked against the categories the mandate's
+    OWN `item.category` rules name, so with none it answers `unknown` for every
+    purchase: everything waved through under `approve`, everything questioned under
+    `ask`.
+
+    It also broke the tighten-only contract the brief requires, because the missing
+    fact could arrive later:
+
+        "nothing unrequested"                       review  (unknown)
+        "nothing unrequested" + "groceries only"    ALLOW   (pass)
+
+    Appending a rule made the wallet MORE permissive. So the unenforceable form is
+    now reported as unsupported intent -- which blocks automatic confirmation --
+    rather than compiled into a rule that checks nothing."""
+    alone = compile_instruction("Buy exactly what I asked for, don't add anything extra.")
+    assert "item.unrequested_present" not in _rule_fields(alone)
+    assert any("never says WHAT you requested" in u
+               for u in alone.unsupported_restrictions), alone.unsupported_restrictions
+
+    together = compile_instruction(
+        "Order our household groceries, and don't add anything extra.")
+    assert "item.unrequested_present" in _rule_fields(together)
+    assert "item.category" in _rule_fields(together)
 
 
 def test_paraphrased_size_and_variant():

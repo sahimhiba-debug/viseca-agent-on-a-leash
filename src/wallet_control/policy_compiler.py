@@ -489,6 +489,11 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     # matching text is normalised; nothing the customer wrote is rewritten for them.
     text = re.sub(r"\s+", " ", instruction).strip()
     rules: list[HardRule] = []
+    # Intent that was RECOGNISED but cannot be turned into an enforceable rule, as
+    # opposed to intent `_coverage_questions` failed to recognise at all. Merged into
+    # `unsupported_restrictions` below; the two are different failures and the
+    # customer is owed the difference.
+    unenforceable: list[str] = []
     guidance: list[str] = []
     open_questions: list[str] = []
 
@@ -689,8 +694,33 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
 
     # --- no unrequested add-ons -----------------------------------------------------
     if _NO_ADDONS_RE.search(text):
-        rules.append(HardRule(field="item.unrequested_present", operator="=", value="false"))
-        guidance.append("The basket must not contain items beyond what was requested.")
+        # "UNREQUESTED" IS MEANINGLESS WITHOUT "REQUESTED". This rule is evaluated
+        # against the categories the mandate's own `item.category` rules name, so on
+        # its own it has nothing to compare a basket to -- it answers `unknown` for
+        # every purchase, which under `approve` waves everything through and under
+        # `ask` questions everything. "Do not add anything I did not ask for." on its
+        # own compiled to exactly that, while the sibling phrasing "Only buy what I
+        # asked for" was already being flagged unsupported.
+        #
+        # IT ALSO BROKE THE TIGHTEN-ONLY CONTRACT the brief requires, because the
+        # missing fact could arrive later:
+        #
+        #     "nothing unrequested"                        review  (unknown)
+        #     "nothing unrequested" + "groceries only"     ALLOW   (pass)
+        #
+        # Appending a rule -- the canonical tightening -- made the wallet MORE
+        # permissive, because the second rule supplied the fact the first one needed.
+        # Refusing to emit an unenforceable rule removes the non-monotonicity at its
+        # source rather than policing it at the PATCH boundary.
+        if any(r.field == "item.category" for r in rules):
+            rules.append(HardRule(field="item.unrequested_present", operator="=", value="false"))
+            guidance.append("The basket must not contain items beyond what was requested.")
+        else:
+            unenforceable.append(
+                "You asked for nothing beyond what you requested, but the instruction "
+                "never says WHAT you requested -- so there is nothing to compare a "
+                "basket against, and this part is NOT enforced. Name the kind of thing "
+                "you are buying (for example \"groceries\") and it becomes a rule.")
 
     # --- session integrity ----------------------------------------------------------
     if _SESSION_INTEGRITY_RE.search(text):
@@ -830,7 +860,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
             "it is NOT enforced -- please restate it, for example \"no more than CHF X per order\"."
         )
 
-    unsupported = _coverage_questions(text, rules)
+    unsupported = unenforceable + _coverage_questions(text, rules)
     if not rules:
         # No executable rule at all is the strongest form of unsupported intent: the
         # customer wrote an instruction and got a mandate that checks nothing.

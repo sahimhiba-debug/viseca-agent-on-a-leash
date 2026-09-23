@@ -7,7 +7,7 @@ this repository, start here.
 | --- | --- |
 | commit | see `git log -1` on `rnd/productization` |
 | `main` | `1aa3bac`, untouched — all work is on the R&D branch |
-| tests | 1746 collected, 5 of them reported skips |
+| tests | 1754 collected, 5 of them reported skips |
 | official replay | **45 events — 19 allow / 2 review / 24 block**, unchanged across every pass |
 | runtime | 5,086 lines / 19 modules · research apparatus separated into `research/` |
 | dependencies | 4 runtime (fastapi, uvicorn, httpx, pydantic), 3 dev |
