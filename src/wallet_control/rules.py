@@ -288,7 +288,7 @@ def _evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Ru
         if mismatched:
             return RuleEvaluation(rule, "fail", f"item_sizes={[i.stated_size for i in sized]}")
         silent = [i.item_name for i in candidates if i.stated_size is None]
-        if False:
+        if silent:
             return RuleEvaluation(
                 rule, "unknown",
                 f"a size was stated for some items but not for {silent}; "
