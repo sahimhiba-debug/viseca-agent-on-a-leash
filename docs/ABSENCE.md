@@ -9,7 +9,7 @@ different vocabularies. It took the sixth to see the pattern.
 
 ---
 
-## The fourteen
+## The seventeen
 
 The first six were found one at a time, by six unrelated methods, over several
 campaigns. **The seventh was predicted:** once the rule was written down, the next
@@ -48,6 +48,38 @@ live, and the fix for one is a good place to look for the next.**
 | 12 | `HistoryIndex.from_csv` | **whose** past purchase made a shop familiar | the agent's own history, counted as the customer's | mining `authorization_history.csv`'s `initiator_type` |
 | 13 | `_catalogue_agreement` | whether the catalogue recognises this item at all | the agent's own label, accepted in silence | asking what the ◐ mark on the Delegate tab actually promises |
 | 14 | `_basket_key` | a return window or size the seller never stated | an **uncaught exception** — HTTP 500, no decision at all | repairing the fixtures for 13, which made two lines collide |
+| 15 | `RunState`'s empty ledger | whether this run's state was *lost* or genuinely new | zero spend — the rolling allowance reopened | asking what an empty collection is evidence *of* |
+| 16 | both reference-data checks | an id the wallet cannot resolve, where the customer constrained nothing | the refutation branch fired and the unknown branch did not — so deleting the id escaped both | generated events the official pack does not contain |
+| 17 | `_unreadable_event` | a required field present but **empty** | `is None` said it was there; `""` is an absence wearing a type | the same generated corpus, one layer down |
+
+**Fifteen is the most expensive.** An empty ledger had always MEANT "nothing has been
+spent". True for a new run; false for one whose checkpoint is missing. Measured on a
+CHF 300 / 7-day cap with baskets varied so the duplicate check is not what stops it:
+**CHF 900 approved inside one window across three restarts**, and the bound is per
+restart, not per window. The previous mitigation was a log line.
+
+The absence could be filled after all — not with the amount, which really is
+unrecoverable, but with the *truth that the amount is unknown*. And the two cases are
+distinguishable: a genuinely new run has no decision recorded anywhere, while a lost
+one has its earlier decisions sitting in a platform listing this worker **already
+calls** one method down for another purpose. Nothing new had to become available;
+something already fetched had to be asked a different question.
+
+**Sixteen and seventeen were made by the fixes for thirteen.** The catalogue check
+grew a proportionality gate — an unidentifiable item is `unknown` only where the
+mandate constrains the kind of goods — and the gate guarded only that branch. A
+*contradiction* still blocked regardless. So:
+
+```
+mandate: CHF ≤ 100, no category rule
+a line the catalogue lists as groceries, stated as `clothing`   block  (refuted)
+the same line with no item id at all                            ALLOW
+```
+
+Saying less beat saying something false, at the check written to stop that. The
+merchant-record check, written in the same shape a few hours later, had the identical
+hole. **A fix is a new place for this mistake to live, and the shape of a fix
+propagates to the next thing written in its image.**
 
 **Thirteen rewarded saying less.** A real item id carrying a false category was
 refuted; an id the catalogue had never seen was waved through. So naming the goods

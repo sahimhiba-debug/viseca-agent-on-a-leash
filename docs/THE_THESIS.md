@@ -317,12 +317,12 @@ and a price on the other is a choice; shown as one number it is a guess.
 
 ## The engineering idea
 
-**Absence is not a value.** Fourteen instances of one mistake, at fourteen boundaries:
+**Absence is not a value.** Seventeen instances of one mistake, at seventeen boundaries:
 *something was missing, and something present was quietly put in its place*
 ([`ABSENCE.md`](ABSENCE.md)).
 
-It connects to the first idea directly: **thirteen of the fourteen were a place where
-A was secretly bigger than it looked.** A default that approves is the only kind of
+It connects to the first idea directly: **all but one were a place where A was
+secretly bigger than it looked.** A default that approves is the only kind of
 bug that is quiet, because nothing complains.
 
 The fourteenth is the exception, and it is the worst by consequence: the same
@@ -338,6 +338,20 @@ The thirteenth is where a defence this repository had already built was overstat
 itself: the Delegate tab told the customer the catalogue could refuse their category
 rule, while an item id the catalogue had never seen was waved through — so the agent
 chose whether that promise was true, and **saying less beat saying something false**.
+
+**The last three arrived after that fix, and two of them were made by it.** Fifteen
+is the most expensive: an empty ledger had always meant *"nothing was spent"*, which
+is true for a new run and false for one whose checkpoint was lost — **CHF 900 against
+a CHF 300 weekly cap across three restarts**, bounded per restart rather than per
+window. Sixteen and seventeen are the fix for thirteen turning into the next defect:
+its proportionality gate guarded only the *unknown* branch, so deleting an item id
+moved a purchase from the branch that refutes to the branch that ignores — *saying
+less beating saying something false, at the check written to stop that*. The
+merchant-record check, written in the same shape hours later, had the identical hole.
+
+**A fix is a new place for this mistake to live, and the shape of a fix propagates to
+the next thing written in its image.** Neither was reachable by any sweep built for
+the official data; both came from generated events the pack does not contain.
 
 Four of them were found by reading the organizers' own material rather than by
 any sweep we built — and they produced three sentences a card cannot say:
