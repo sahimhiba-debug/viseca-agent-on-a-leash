@@ -198,6 +198,38 @@ def _run_suite() -> tuple[bool, str]:
     return result.returncode == 0, result.stdout
 
 
+def _src_is_pristine() -> tuple[bool, str]:
+    """Is `src/` exactly what git has, BEFORE we start cutting?
+
+    NO SIGNAL HANDLER SURVIVES SIGKILL, and a process killed by a supervisor, an OOM,
+    or a session ending gets no chance to restore anything. The handlers installed in
+    `main` cover SIGTERM/SIGINT/SIGHUP; they cannot cover the case that actually
+    happened twice in one day -- a run cut short by the harness, leaving a live mutant
+    in `decision_engine.py`.
+
+    The second occurrence disabled the platform's reported-mandate-status check, which
+    `_tree_is_healthy` below would NOT have caught: that check proves an over-limit
+    purchase still blocks, and a broken status comparison does not touch it. A
+    functional smoke test can only notice the mutants it happens to exercise.
+
+    So the real defence is at the START of the NEXT run: refuse to operate on a tree
+    that is not what the repository says it is. A stranded mutant becomes a loud
+    refusal instead of a baseline that every later mutant faithfully restores.
+    """
+    result = subprocess.run(["git", "status", "--porcelain", "--", str(SRC)],
+                            cwd=ROOT, capture_output=True, text=True)
+    if result.returncode != 0:
+        return True, "not a git checkout; cannot verify, proceeding"
+    dirty = [line for line in result.stdout.splitlines() if line.strip()]
+    if dirty:
+        return False, (
+            "src/ has uncommitted changes:\n    "
+            + "\n    ".join(dirty[:10])
+            + "\n\n  If these are yours, commit or stash them. If a previous probe was "
+              "killed, this is its stranded mutant: `git checkout -- src/`.")
+    return True, ""
+
+
 def _tree_is_healthy() -> tuple[bool, str]:
     """Is the engine working BEFORE we start cutting?
 
@@ -257,6 +289,10 @@ def main() -> int:
     # package for every test that follows. So the suite exercises it the way a user
     # does, in a subprocess.
     check_only = "--check-only" in sys.argv
+    pristine, why = _src_is_pristine()
+    if not pristine:
+        print("REFUSING TO RUN: " + why)
+        return 2
     healthy, why = _tree_is_healthy()
     if not healthy:
         print("REFUSING TO RUN: " + why)
