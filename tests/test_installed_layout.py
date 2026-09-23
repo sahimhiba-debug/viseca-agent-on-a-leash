@@ -66,3 +66,35 @@ def test_the_dockerfile_and_compose_exist_and_bake_no_secrets():
             if "API_KEY" in line and "=" in line:
                 assert "${" in line or line.strip().startswith("#"), (
                     f"{name} appears to hard-code a key: {line.strip()}")
+
+
+def test_the_verify_profile_cannot_pass_without_running_the_suite():
+    """A GATE THAT GOES GREEN ON AN EMPTY SUITE.
+
+    `docker compose --profile verify up` is documented as "everything that must be
+    true before a demo". The image copied `data/`, `ui/`, `research/` and `scripts/`
+    and NOT `tests/`, so the `pytest -q` in that chain collected nothing and exited
+    0 -- and the rest of the chain ran and the profile reported success, having
+    executed no tests at all.
+
+    Measured: `pytest -q` in a directory with no tests prints "no tests ran" and
+    exits **0**, so nothing downstream notices.
+
+    The same shape as a mutation probe printing "41 killed" after examining two: a
+    check that reports success without running is worse than no check, because
+    everything decided afterwards rests on it. Two fixes, both asserted here -- the
+    tests are in the image, and the profile refuses to trust a collection count that
+    is implausibly small."""
+    root = Path(__file__).resolve().parents[1]
+    dockerfile = (root / "Dockerfile").read_text()
+    assert "COPY tests/" in dockerfile, (
+        "the verify profile runs pytest; without tests/ in the image it collects "
+        "nothing and exits 0")
+
+    compose = (root / "docker-compose.yml").read_text()
+    assert "--collect-only" in compose and "REFUSING" in compose, (
+        "verify must assert that pytest collected a plausible number of tests "
+        "before trusting the suite")
+    # The guard must come BEFORE the suite it guards.
+    assert compose.index("--collect-only") < compose.index("python3 -m pytest -q"), (
+        "the collection guard runs after the suite it is supposed to guard")

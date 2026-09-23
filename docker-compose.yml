@@ -28,8 +28,15 @@ services:
     build: .
     image: agent-on-a-leash
     profiles: ["verify"]
+    # The collection guard is not belt-and-braces. Without `tests/` in the image
+    # `pytest -q` collects nothing and exits 0, so this profile reported a clean
+    # pre-demo gate having run no tests at all. A check that passes without running
+    # is worse than no check, so the count is asserted before the suite is trusted.
     command: >
       sh -c "pip install --no-cache-dir '.[dev]' >/dev/null &&
+             python3 -m pytest --collect-only -q 2>/dev/null | tail -1 |
+               grep -qE '^[0-9]{4,} tests? collected' ||
+               { echo 'REFUSING: pytest collected fewer than 1000 tests -- is tests/ in the image?'; exit 1; } &&
              python3 -m pytest -q &&
              python3 scripts/run_authorship_audit.py &&
              python3 scripts/run_replay.py &&

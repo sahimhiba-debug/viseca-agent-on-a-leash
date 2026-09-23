@@ -21,6 +21,12 @@ COPY data/ ./data/
 COPY ui/ ./ui/
 COPY research/ ./research/
 COPY scripts/ ./scripts/
+# `tests/` is in the image because the `verify` compose profile runs the suite, and
+# without it `pytest -q` collected NOTHING and exited 0 -- a pre-demo gate going
+# green on an empty suite. Same failure as a mutation probe reporting a full pass
+# after two mutants: the check that reports success without running is worse than no
+# check. `verify` now refuses to proceed unless the collection count is plausible.
+COPY tests/ ./tests/
 
 EXPOSE 8420
 
