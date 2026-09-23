@@ -223,7 +223,11 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1792 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**1792 tests**, of which 5 are reported skips rather than silent ones — **6 in a
+fresh clone**, because one test validates the organisers' own example fixture and
+that file lives in their repository rather than this one (`reference/` is not
+vendored). Our events are still checked against the official schema everywhere: that
+file *is* vendored, at `data/official/schemas/`. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say
