@@ -1,6 +1,21 @@
 # Agent on a Leash -- Wallet Control
 
+> **A policy is not a list of rules. It is a set of purchases.**
 > The agent is autonomous. The authority is not.
+
+**[docs/THE_THESIS.md](docs/THE_THESIS.md) is the one page to read.** One product idea
+with five faces, one engineering idea underneath it, and every number checkable:
+
+```
+ 595 / 595   "Order our household groceries."
+ 145 / 595   "…at or below CHF 120."                       -450
+ 116 / 595   "…from a shop I have used before."             -29
+```
+
+Every wallet answers a customer's sentence by showing them *rules*. This one answers
+the question they actually have -- **how much did I just hand over?** -- by putting
+every purchase this world can produce through the same engine that will judge the
+real ones, and reporting the set that comes back. 18 ms, live, as they type.
 
 A prototype **wallet control layer** for Viseca's Swiss {ai} Weeks 2026 challenge,
 ["Agent on a Leash"](https://github.com/Swiss-ai-Weeks/viseca-2026). An AI shopping

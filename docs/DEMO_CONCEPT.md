@@ -1,4 +1,16 @@
-# Demo concept — one mission, two brains, one authority
+# Demo concept — one idea, five faces
+
+> **A policy is not a list of rules. It is a set of purchases.**
+> [docs/THE_THESIS.md](THE_THESIS.md)
+
+Every beat below shows the same object from a different side: how big the set is,
+which of your words made it that size, where its boundary is undetermined, what can
+step into it from outside, and that no agent can make it bigger. That is why there
+are six panels and not six features.
+
+---
+
+## The old framing, kept for the record
 
 90 seconds. No slide explains the architecture; the screen does.
 

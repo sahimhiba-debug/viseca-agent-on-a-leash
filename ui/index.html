@@ -1116,6 +1116,8 @@ async function renderScope(instruction){
 
   box.innerHTML = `<div class="card sc">
     <h2>What you are about to authorise</h2>
+    <p class="tiny" style="margin:-2px 0 10px">A policy is not a list of rules.
+      It is a <b>set of purchases</b> — so here is the set.</p>
     ${headline}
     <div class="scbar"><i style="width:${pct}%"></i><u style="width:${askPct}%"></u></div>
     <p class="tiny">${pct}% approved outright${d.asks_you?` · ${askPct}% put to you`:''}. ${delta}</p>
