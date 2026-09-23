@@ -73,6 +73,16 @@
     text-transform:uppercase; opacity:.75; margin-bottom:3px; }
   .screp.ok { background:var(--allow-bg); color:var(--allow); }
   .screp.no { background:var(--block-bg); color:var(--block); }
+  .prov { display:flex; align-items:baseline; gap:8px; font-size:12.5px; padding:4px 0;
+    border-bottom:1px solid var(--line); }
+  .prov:last-of-type { border-bottom:0; }
+  .prov .pm { font-size:11px; width:12px; flex:0 0 12px; }
+  .prov .pf { flex:1 1 auto; font-weight:600; }
+  .prov .pg { flex:0 0 auto; font-size:11px; opacity:.72; text-align:right; }
+  .prov.bound .pm { color:var(--allow); }
+  .prov.refutable .pm { color:var(--ask); }
+  .prov.advisory .pm { color:var(--block); }
+  .prov.advisory .pf { color:var(--block); }
   .card.rb { border-left:4px solid var(--line); }
   .rbtext { font-size:15px; line-height:2.1; }
   .rbtext .w { padding:2px 1px; border-radius:4px; }
@@ -995,6 +1005,7 @@ async function compile(){
         x.scope?' · '+esc(x.scope):''}${x.period_days?' · '+x.period_days+'d':''}</div>`).join('')}
       <div class="ev">uncertainty_policy = ${esc(r.uncertainty_policy)}</div></details>
     ${r.open_questions?.length ? r.open_questions.map(q=>`<div class="warn" style="margin-top:10px">${esc(q)}</div>`).join('') : ''}
+    ${provenanceHtml(r.provenance)}
     </div>`;
 
   // Delegation renders from the mandate alone -- it needs no run.
@@ -1240,6 +1251,41 @@ async function renderSilence(instruction){
         goes quiet, because there is then nothing to warn you about.</p>
     </div>`;
   }).join('');
+}
+// WHAT EACH RULE IS ACTUALLY WORTH.
+//
+// Two rules look identical on this page and are not. One is checked against the
+// card's own history, which the agent cannot touch. One is checked against whatever
+// the seller typed, which nothing can confirm. The customer wrote both and was never
+// told the difference.
+//
+// The classes are measured, not asserted: `research/forgeable_facts.py` puts a
+// violating purchase through the real engine, then talks it into compliance without
+// changing the goods, the shop, the price or the moment, and fails the build if a
+// declared class does not survive.
+const PROV = {
+  bound:     ['\u25cf', 'the agent cannot affect this'],
+  refutable: ['\u25d0', 'the agent says this; the catalogue can refuse it'],
+  advisory:  ['\u25cb', 'the seller says this; nothing can confirm it'],
+};
+function provenanceHtml(p){
+  if(!p || !p.rules?.length) return '';
+  const rows = p.rules.map(x=>{
+    const [mark, gloss] = PROV[x.binding] || ['?',''];
+    return `<div class="prov ${esc(x.binding)}"><span class="pm">${mark}</span>
+      <span class="pf">${esc(x.field.replace(/^[a-z]+\./,'').replace(/[._]/g,' '))}</span>
+      <span class="pg">${esc(gloss)}</span></div>`;
+  }).join('');
+  const n = p.forgeable.length;
+  const lead = n === 0
+    ? 'Every rule above is checked against something the agent cannot write.'
+    : `<b>${n} of your ${p.rules.length} rules ${n===1?'is':'are'} checked against
+       something the seller writes.</b> Nothing independent can confirm ${n===1?'it':'them'} —
+       a seller who states what you asked for satisfies ${n===1?'that rule':'those rules'}.`;
+  return `<div style="margin-top:14px"><div class="h" style="font-size:10px;font-weight:800;
+      letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-bottom:6px">
+      What each rule is worth</div>${rows}
+    <p class="tiny" style="margin:8px 0 0">${lead}</p></div>`;
 }
 function row(k,v,enforced,note){
   return `<div class="kv"><span class="k">${esc(k)}<br><span class="tiny">${esc(note)}</span></span>

@@ -742,6 +742,25 @@ def mandate_silence(req: CompileRequest) -> dict[str, Any]:
     return {"instruction": req.instruction, "witnesses": found, "available": True}
 
 
+def _provenance_for(rules) -> dict[str, Any]:
+    """Per rule, and the weakest across the whole policy -- because a mandate is only
+    as strong as the least-owned fact it depends on."""
+    from .provenance import ADVISORY, for_rule, weakest
+
+    fields = [r.field for r in rules]
+    per_rule = []
+    for rule in rules:
+        fact = for_rule(rule.field)
+        if fact is None:
+            continue
+        per_rule.append({"field": rule.field, "binding": fact.binding,
+                         "author": fact.author, "checked_by": fact.checked_by,
+                         "customer_line": fact.customer_line})
+    overall = weakest(fields)
+    forgeable = [p["field"] for p in per_rule if p["binding"] == ADVISORY]
+    return {"rules": per_rule, "weakest": overall, "forgeable": forgeable}
+
+
 @app.post("/api/mandates/compile")
 def compile_preview(req: CompileRequest) -> dict[str, Any]:
     """Preview the rules a customer's instruction would compile to, for them to
@@ -751,6 +770,11 @@ def compile_preview(req: CompileRequest) -> dict[str, Any]:
     return {
         "instruction": req.instruction,
         "hard_rules": [r.as_dict() for r in compiled.hard_rules],
+        # WHO SUPPLIES THE FACT EACH RULE IS CHECKED AGAINST. Two rules can look
+        # equally solid on screen and be worth entirely different things: one read
+        # from the card's own history, one from whatever the seller typed. Measured
+        # by attack in `research/forgeable_facts.py`, not asserted here.
+        "provenance": _provenance_for(compiled.hard_rules),
         "uncertainty_policy": compiled.uncertainty_policy.value,
         "guidance": compiled.guidance,
         "open_questions": compiled.open_questions,

@@ -44,6 +44,25 @@ from .state import BasketKey, PaymentAuthority, RunState
 from .viseca_mapping import Decision
 
 _DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", value="false")
+# WHAT THE AGENT SAYS IT IS BUYING, against what the catalogue says that thing IS.
+#
+# `item.category` is the rule doing the most work across all five official scenarios,
+# and the category arrives IN THE EVENT, supplied for each line. Through
+# `/api/agent/propose` it is supplied by the agent -- the party being judged. Nothing
+# checked it, and `data/official/items.csv` was already loaded in the same process:
+#
+#     a gift card labelled `gift_card`   ->  BLOCK on a grocery mandate
+#     the same gift card labelled
+#     `groceries`                        ->  ALLOW, "matches the rules you set"
+#     a hotel room labelled `groceries`  ->  ALLOW
+#     an item id that does not exist     ->  ALLOW
+#
+# CHF 100 of stored value, on a mandate that says groceries, by writing a different
+# word. This is not the silence channel -- that one withholds a fact and is routed to
+# `uncertainty_policy`. This one MISSTATES a fact, and misstatement is not absence:
+# the event names an id and then contradicts what that id is. A contradiction is a
+# FAIL, which is what keeps `approve when unsure` from waving it through.
+_CATALOGUE_RULE = HardRule(field="item.matches_the_catalogue", operator="=", value="true")
 _NO_RULES_RULE = HardRule(field="mandate.has_no_rules", operator="=", value="false")
 _AMOUNT_INTEGRITY_RULE = HardRule(field="authorization.amount_integrity", operator="=", value="true")
 # A seller writing to the machine that holds the card. Never a FAIL: the text is
@@ -439,6 +458,8 @@ _PLAIN_FAIL = {
     "order.return_window_days": "the return window is shorter than you asked for",
     "item.size": "the size is not the one you asked for",
     "merchant.text_addresses_the_machine": "this seller's product description is written at your wallet, not at you",
+    "item.matches_the_catalogue": "this is not the kind of thing the seller's own "
+                                  "catalogue says it is",
     "session.integrity_risk": "something about this session looks wrong",
     "order.duplicate_suspected": "this looks like the same order again",
     "authorization.amount_integrity": "the stated CHF amount does not match the currency conversion",
@@ -466,6 +487,8 @@ _PLAIN_UNKNOWN = {
                      "against what you asked for",
     "item.unrequested_present": "your instruction did not say what you were asking "
                                 "for, so the wallet cannot tell what is extra",
+    "item.matches_the_catalogue": "the wallet has no catalogue entry for one of "
+                                  "these items, so it cannot check what it is",
     "merchant.text_addresses_the_machine": "this seller's product description "
                                            "contains instructions aimed at an "
                                            "automated buyer, not at you",
@@ -521,6 +544,9 @@ _AGENT_CONSTRAINT_CLASS = {
     "order.return_window_days": "order_terms",
     # The agent is told `merchant`, which is both true and the useful direction: an
     # honest planner answers it by shopping somewhere else, which is exactly right.
+    # `item` is both true and the useful direction: an honest planner answers it by
+    # proposing something else. It never learns WHAT the catalogue says.
+    "item.matches_the_catalogue": "item",
     "merchant.text_addresses_the_machine": "merchant",
     "session.integrity_risk": "session",
     "order.duplicate_suspected": "duplicate",
@@ -623,6 +649,60 @@ def _window_retry(evaluations: list[RuleEvaluation], state: "RunState",
         return state.earliest_window_retry(facts.timestamp, facts.billing_amount_chf,
                                            rule.period_days, cap)
     return None
+
+
+def _catalogue_agreement(items: list[dict[str, Any]]) -> tuple[str | None, str]:
+    """Does each line agree with the official catalogue about what it is?
+
+    CATEGORY ONLY, and the narrowness is the point. The catalogue also carries each
+    item's NAME and a plausible PRICE BAND, and on the official pack all three agree
+    perfectly -- 56/56 names exact, 52/52 prices inside band. Checking all three
+    would look stronger here and be worse in the world: a marketplace listing's
+    display name varies legitimately, and prices move. Neither would catch anything
+    the amount rules do not already bound, so neither is checked. Recorded as a
+    decision rather than left as a silent omission.
+
+        id known, category agrees                    pass
+        id known, category CONTRADICTS the catalogue fail
+        id not in the catalogue                      SILENT
+
+    THE CATALOGUE CAN REFUTE A CLAIM. IT CAN NEVER CONFIRM ONE, and the difference
+    is the whole honest scope of this check.
+
+    My first version escalated an unknown id, which closes the obvious bypass -- an
+    attacker who reads this file simply stops supplying a real id -- and is wrong
+    anyway. The official pack is a closed world of 66 items; a wallet in the real one
+    sees goods it has no entry for constantly, and the challenge is explicit that
+    "blocking ordinary shopping unnecessarily is also a failure". Escalating every
+    unrecognised item would make the control useless in exchange for a defence a
+    competent attacker steps around in one field.
+
+    So this refutes and does not confirm. It catches the agent that is honest about
+    WHICH item and dishonest about WHAT it is. Against one that invents the id too it
+    does nothing, and the audit in `provenance.py` is where that is faced rather than
+    papered over.
+
+    Reference data is read-only and never a rule: this compares two claims and
+    reports which, it does not compile anything.
+    """
+    from .csv_data import load_items
+
+    catalogue = load_items()
+    contradicted, unknown = [], []
+    for line in items:
+        item_id = line.get("item_id")
+        claimed = line.get("item_category")
+        if not item_id or item_id not in catalogue:
+            unknown.append(str(item_id))
+            continue      # silent: see the docstring. Refutes, never confirms.
+        actual = catalogue[item_id]["item_category"]
+        if claimed != actual:
+            contradicted.append(f"{item_id} is described as {claimed!r} but the "
+                                f"catalogue lists it as {actual!r} "
+                                f"({catalogue[item_id]['item_name']})")
+    if contradicted:
+        return "fail", "; ".join(contradicted)
+    return None, ""
 
 
 def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], facts: PurchaseFacts,
@@ -862,6 +942,10 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # 0), but a malformed or tampered event must not be trusted to have honored
         # that -- a non-positive amount is rejected here regardless of schema validation
         # upstream.
+        catalogue_verdict, catalogue_detail = _catalogue_agreement(auth["items"])
+        if catalogue_verdict is not None:
+            evaluations.append(RuleEvaluation(rule=_CATALOGUE_RULE, outcome=catalogue_verdict,
+                                              detail=catalogue_detail, source="safety"))
         if facts.merchant_text_addresses_the_machine:
             evaluations.append(RuleEvaluation(
                 rule=_MERCHANT_TEXT_RULE, outcome="unknown",

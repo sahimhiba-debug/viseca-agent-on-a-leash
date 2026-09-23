@@ -1,0 +1,122 @@
+"""A rule is worth only as much as the provenance of the fact it reads.
+
+THE QUESTION THIS ANSWERS
+
+`policy_compiler` turns a sentence into rules and the Delegate tab shows them, each
+looking equally solid:
+
+    Purchases must be for the requested kind of item (groceries).
+    The order must be returnable within at least 14 days.
+    Purchases must be from a shop you have paid before.
+
+They are not equally solid. Each is checked against a FACT, and the facts have
+different authors:
+
+    merchant.familiar          read from the card's own authorization history.
+                               The agent picks WHICH shop; it cannot pick what that
+                               shop is to this card.                        BOUND
+
+    item.category              supplied per line, by the party proposing the
+                               purchase. It is REFUTABLE where the item id is in the
+                               official catalogue -- a gift card labelled `groceries`
+                               is caught -- and nothing at all where it is not.
+                                                                       REFUTABLE
+
+    order.return_window_days   read from what the seller wrote. There is no second
+                               source. A plausible claim satisfies it.   ADVISORY
+
+The customer wrote three requirements and got one guarantee, one refutation and one
+promise. Nobody told them which was which.
+
+THE CRITERION, STATED PRECISELY
+
+A fact is FORGEABLE if misstating it changes the decision **while leaving the purchase
+itself unchanged** -- same goods, same shop, same price, same moment. That last clause
+is what separates a real hole from an apparent one: an agent can also write
+`billing_amount_chf`, and understating it turns a BLOCK into an ALLOW -- for less
+money, since the understated figure is what is charged. Writing it is not forging it.
+
+So the classes are about what a misstatement BUYS, not about who holds the pen.
+
+NOT A TABLE THAT CLAIMS THIS -- A TABLE THAT IS ATTACKED.
+`research/forgeable_facts.py` runs the misstatement through the real engine for every
+field below and fails if the measured class differs from the declared one. The
+declaration is a hypothesis; the experiment is the evidence.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+BOUND = "bound"          # the agent cannot author this fact at all
+REFUTABLE = "refutable"  # it can, and an independent source can contradict it
+ADVISORY = "advisory"    # it can, and nothing can contradict it
+
+
+@dataclass(frozen=True)
+class Provenance:
+    field: str
+    author: str          # who supplies the fact the rule is evaluated against
+    binding: str         # BOUND | REFUTABLE | ADVISORY
+    checked_by: str      # what, if anything, can contradict the claim
+    customer_line: str   # what to tell the customer, in their language
+
+
+FACTS: tuple[Provenance, ...] = (
+    Provenance(
+        "merchant.familiar", "the card's own authorization history", BOUND,
+        "nothing needs to: the agent never supplies it",
+        "The agent cannot affect this. It chooses which shop to use; it cannot change "
+        "what that shop is to your card."),
+    Provenance(
+        "merchant.category", "the official merchant record", BOUND,
+        "loaded from reference data, never from the proposal",
+        "The agent cannot affect this. The shop's kind comes from the shop's record."),
+    Provenance(
+        "session.integrity_risk", "the platform, plus this run's own observations", BOUND,
+        "the event's velocity claim is cross-checked against what this run has seen, "
+        "and only ever raised",
+        "The agent cannot affect this. It is what the wallet itself saw happen."),
+    Provenance(
+        "authorization.billing_amount_chf", "the proposal, cross-checked", BOUND,
+        "amount x the fixed FX rate, to within 2 rappen -- and understating it only "
+        "charges less",
+        "The agent names the amount, and naming a smaller one buys a smaller thing. "
+        "The figure it names is the figure that is charged."),
+    Provenance(
+        "item.category", "the party proposing the purchase", REFUTABLE,
+        "the official item catalogue, where the item id is one it knows",
+        "The agent says what kind of thing this is. The wallet checks that against "
+        "the catalogue and refuses a mismatch -- but it cannot check an item the "
+        "catalogue has never heard of."),
+    Provenance(
+        "item.unrequested_present", "the party proposing the purchase", REFUTABLE,
+        "derived from item.category, so it inherits that check",
+        "Derived from the kinds of thing in the basket, so it is as strong as those."),
+    Provenance(
+        "item.name_contains", "the party proposing the purchase", ADVISORY,
+        "nothing: a name is a name",
+        "The agent says what this is called. Nothing can check a name."),
+    Provenance(
+        "item.size", "the seller's own product text", ADVISORY,
+        "nothing: there is no second source for a stated size",
+        "This is what the seller wrote. Nothing independent confirms it."),
+    Provenance(
+        "order.return_window_days", "the seller's own product text", ADVISORY,
+        "nothing: there is no second source for a stated return window",
+        "This is what the seller wrote. A seller who states a long window satisfies "
+        "it; a seller who states nothing is put to you. Nothing can confirm either."),
+)
+
+BY_FIELD = {p.field: p for p in FACTS}
+
+
+def for_rule(field: str) -> Provenance | None:
+    return BY_FIELD.get(field)
+
+
+def weakest(fields: list[str]) -> str:
+    """A policy is only as strong as its weakest-provenance rule."""
+    order = {BOUND: 0, REFUTABLE: 1, ADVISORY: 2}
+    known = [BY_FIELD[f].binding for f in fields if f in BY_FIELD]
+    return max(known, key=lambda b: order[b]) if known else BOUND
