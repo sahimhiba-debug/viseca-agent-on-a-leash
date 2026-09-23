@@ -235,7 +235,7 @@ def test_the_delegation_size_was_measured_at_one_point_of_a_wide_band():
 
     sized = delegation_size(INSTRUCTION)
     band = sized["price_band"]
-    assert band["max"] < band["typical"] < band["min"], band
+    assert band["typical"] < band["min"], band
     assert sized["authorised"] == band["typical"]
     assert sized["authorised_upper"] == band["min"]
     assert sized["authorised_upper"] >= 4 * sized["authorised"], band
@@ -270,5 +270,7 @@ def test_the_customer_is_shown_both_numbers():
     from wallet_control.scope import delegation_size
 
     sized = delegation_size(INSTRUCTION)
-    assert set(sized["price_band"]) == {"min", "typical", "max"}
+    # TWO points, not three. `max` is the count nobody is delegating and it cost a
+    # third of the panel's latency; the research sweeps still walk the whole band.
+    assert set(sized["price_band"]) == {"min", "typical"}
     assert sized["authorised_upper"] != sized["authorised"]

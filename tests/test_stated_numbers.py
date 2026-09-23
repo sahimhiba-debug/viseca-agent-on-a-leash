@@ -104,3 +104,36 @@ def test_the_readme_per_scenario_rows_are_right_too():
             counts.get("block", 0),
         )
         assert stated == actual, f"{scenario.scenario_id}: README says {stated}, engine produces {actual}"
+
+
+def test_the_delegation_panel_stays_fast_enough_to_type_against():
+    """A LATENCY CLAIM NOTHING WAS CHECKING.
+
+    The README and the thesis said the size panel answers in "18 ms, live, as they
+    type". Measured, it was 92 ms before this session's changes and 271 ms after them
+    -- the price band and the uncertainty trade-off each re-ran the whole enumeration.
+    The figure had never been true of the shipped panel and nothing would ever have
+    said so.
+
+    It is now 47 ms (median of nine calls with a fresh instruction each time), by
+    counting two price points instead of three and moving the trade-off to its own
+    endpoint. This asserts a BUDGET rather than that number: machines differ, and a
+    test that fails on a slow laptop teaches people to ignore it. A 3x regression is
+    a real change in what the panel is, and fails here."""
+    import statistics
+    import time
+
+    from wallet_control.scope import delegation_size
+
+    base = "Order our household groceries at or below CHF {} from a shop I have used before."
+    delegation_size(base.format(100))          # warm the world cache
+    samples = []
+    for cap in range(120, 129):
+        start = time.perf_counter()
+        delegation_size(base.format(cap))
+        samples.append((time.perf_counter() - start) * 1000)
+
+    median = statistics.median(samples)
+    assert median < 150, (
+        f"the delegation panel took {median:.0f} ms; it is documented as answering "
+        f"as the customer types, and something has made it three times slower")

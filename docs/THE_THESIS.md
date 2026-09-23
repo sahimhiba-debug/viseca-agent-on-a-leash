@@ -110,7 +110,10 @@ report the set that comes back.
   28 / 595   "…at or below CHF 60…"                         −88
 ```
 
-Live, at 18 ms, as they type. That set — call it **A** — is what was delegated.
+Live, at **47 ms**, as they type — median of nine calls with a fresh instruction
+each time. (It was documented as *18 ms*. That figure was never true of the shipped
+panel, and nothing checked it; there is now a test that fails if it drifts again.)
+That set — call it **A** — is what was delegated.
 
 ### …and `|A|` is not a number, it is an interval
 
@@ -259,6 +262,59 @@ ten fields rather than all of them.
 
 ---
 
+## What the thesis got wrong
+
+`A` is a set of **purchases**. A rolling ceiling is not a property of any purchase —
+so three mandates that differ only in their rate have *identical* acceptance sets:
+
+```
+CHF 300 per 7 days    CHF 3000 per 7 days    CHF 300 per 30 days
+    |A| = 145              |A| = 145              |A| = 145
+```
+
+Comparing 43 declared paraphrase relations as sets turned up three kinds of meaning
+that live outside `A` entirely:
+
+| what | why `A` cannot see it |
+| --- | --- |
+| **the rate** | a ceiling across a window is not a property of a single purchase |
+| **what will be asked** | `A` counts approvals, so `ask → decline` — the strictest edit available — moves nothing in it |
+| **what could not be expressed** | *"buy **one** grocery item"* and *"buy **twenty**"* compile identically; the rule format has no quantity field |
+
+So the delegation is five things, and the thesis named one:
+
+> **(approved, asked, per-window ceiling, pace, what could not be expressed)**
+
+All five are now measured, and the last is why the compiler emits
+`unsupported_restrictions` — a distinction it cannot enforce is one it must at least
+admit to, and that admission blocks automatic confirmation.
+
+**Where the corpus disagrees with the wallet, it is usually the *world* that is
+silent, not the compiler.** `"Decline when unsure"` really is stricter than `"ask
+me"` — but no basket in the grocery enumeration is ever `unknown`, so nothing
+observes it. That is 9 of the 10 disagreements. The tenth is the quantity case above.
+Conflating the two would be a false accusation against the compiler, so they are
+counted apart.
+
+### What "when unsure" costs, in purchases
+
+The most consequential setting in a mandate is the least legible — *what should I do
+when I cannot tell?*, asked once, in the abstract, about facts the customer has not
+met yet. Measured on a mandate whose return window nothing can confirm:
+
+```
+decline      0 approved     0 asked    595 refused
+ask          0 approved   116 asked    479 refused
+approve    116 approved     0 asked    479 refused
+```
+
+`decline` is the **only** setting in which saying less never buys the proposer more —
+measured over 8,124 erasures. This is what that costs: 116 purchases the customer
+cannot have without being asked again. A dial with a security property on one side
+and a price on the other is a choice; shown as one number it is a guess.
+
+---
+
 ## The engineering idea
 
 **Absence is not a value.** Fourteen instances of one mistake, at fourteen boundaries:
@@ -334,7 +390,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,732 passed · 5 reported skips
+tests                1,741 passed · 5 reported skips
 mutation             39 mutants applied · 39 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)

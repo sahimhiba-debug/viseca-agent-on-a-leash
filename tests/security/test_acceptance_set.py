@@ -247,7 +247,16 @@ def test_a_count_of_purchases_does_not_answer_how_much_rope():
     times = bounded["how_many_times"]
     assert times["bounded"] is True
     assert times["cap_chf"] == 300 and times["period_days"] == 7
-    assert times["most_purchases_per_period"] == int(300 // times["cheapest_chf"])
+    # NOT `cap // cheapest`. That assumed the agent could buy the cheapest basket
+    # over and over, which is what the duplicate check exists to stop -- so a patient
+    # agent works down the DISTINCT baskets and the second-cheapest costs more. The
+    # division predicted 25 where the strongest ordering achieved 20. What is
+    # asserted now is the property the number has to have: a real upper bound, and
+    # one the cheapest basket alone cannot explain.
+    most = times["most_purchases_per_period"]
+    assert most < int(300 // times["cheapest_chf"]), (
+        "counting distinct baskets must be tighter than dividing by the cheapest")
+    assert most * times["cheapest_chf"] <= 300
     assert bounded["authorised"] == unbounded["authorised"], (
         "a rolling rule bounds the RATE, not the set of purchases -- if this ever "
         "changes, the two numbers are measuring different things and the panel is "
@@ -320,10 +329,24 @@ def test_the_panel_predicts_this_adversary_and_is_an_upper_bound():
     """The customer-facing number, checked against the strongest prober that can
     exist against this world.
 
-    The delegation panel tells the customer "at most N of these purchases" from
-    cap / cheapest-authorised. An exhaustive adversary with perfect knowledge must
-    never beat that figure -- and gets close enough to it that the figure is not
-    idle. Predicted 10, achieved 9: the tenth does not fit at real prices."""
+    The delegation panel tells the customer "at most N of these purchases". An
+    exhaustive adversary with perfect knowledge must never beat that figure -- and
+    must get close enough to it that the figure is not idle.
+
+    BOTH HALVES OF THAT BROKE AND WERE REPAIRED, in opposite directions:
+
+      * The ceiling divided `cap / cheapest authorised basket`, which assumes the
+        agent can buy the cheapest basket over and over. It cannot -- repeating one
+        is what the duplicate check is for -- so a patient agent works down the list
+        of DIFFERENT baskets and the second-cheapest costs more. Predicted 25 where
+        the best ordering achieved 20. Counting distinct baskets until the cap is
+        exhausted is still an upper bound and is tight.
+
+      * The adversary shopped at `typical` prices while the ceiling was drawn for the
+        band's floor, so it was being measured against a world it was not allowed to
+        shop in (9 against 25). Both now come from the same world.
+
+    Predicted 20, achieved 20: an upper bound the strongest prober meets exactly."""
     from wallet_control.scope import delegation_size
     from research.acceptance_set import exhaustive_adversary
 

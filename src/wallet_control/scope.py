@@ -138,18 +138,22 @@ def _categories(rules: list[HardRule]) -> str:
 def _count(mandate: MandateSnapshot, category: str,
            price_point: str = "typical") -> dict[str, Any]:
     counts = {"allow": 0, "review": 0, "block": 0}
-    cheapest: Decimal | None = None
+    totals: list[Decimal] = []
     for index, (merchant, combo) in enumerate(_world(category, price_point)):
         verdict = judge_event(mandate, index, merchant, category, combo, familiar=FAMILIAR)
         counts[verdict] += 1
         if verdict == "allow":
-            total = sum((price for _id, _name, price in combo), Decimal("0"))
-            cheapest = total if cheapest is None else min(cheapest, total)
-    counts["cheapest_chf"] = float(cheapest) if cheapest is not None else None
+            totals.append(sum((price for _id, _name, price in combo), Decimal("0")))
+    totals.sort()
+    counts["cheapest_chf"] = float(totals[0]) if totals else None
+    # Every authorised basket's price, cheapest first, so "how many times" can be
+    # counted rather than divided. See `_repetition`.
+    counts["authorised_totals"] = totals
     return counts
 
 
-def _repetition(rules: list[HardRule], cheapest: float | None) -> dict[str, Any]:
+def _repetition(rules: list[HardRule], cheapest: float | None,
+                totals: list[Decimal] | None = None) -> dict[str, Any]:
     """HOW MANY TIMES, which is the half of "how much rope" that a count of purchases
     does not answer.
 
@@ -161,7 +165,21 @@ def _repetition(rules: list[HardRule], cheapest: float | None) -> dict[str, Any]
 
     With a rolling cap the bound is real and computable: the sum over any window must
     stay under the cap, so at most `cap / cheapest authorised basket` purchases fit
-    in one. Reported as the ceiling it is, not as a forecast."""
+    in one. Reported as the ceiling it is, not as a forecast.
+
+    TWO THINGS THIS GOT WRONG, BOTH FOUND BY ATTACKING IT RATHER THAN TESTING IT.
+
+    1. `cheapest` was the cheapest basket AT TYPICAL PRICES, so the ceiling on how
+       many times understated itself exactly as `authorised` did -- the seller picks
+       the price, and the cheapest basket the catalogue admits is cheaper than the
+       cheapest typical one. The caller now passes the band's floor.
+
+    2. THE PERIOD WAS INVISIBLE IN THE NUMBER. `cap / cheapest` does not mention
+       `period_days`, so "CHF 300 per 7 days" and "CHF 300 per 30 days" both reported
+       "at most 10 purchases" -- a customer who tightened the window by a factor of
+       four saw the headline figure not move. The rate does move, and is reported
+       beside it, because a ceiling without a period is not a pace."""
+    totals = totals or []
     window = next((r for r in rules
                    if r.field == "authorization.billing_amount_chf"
                    and r.scope == "period" and r.period_days), None)
@@ -179,14 +197,42 @@ def _repetition(rules: list[HardRule], cheapest: float | None) -> dict[str, Any]
         return {"bounded": False, "cap_chf": None, "period_days": window.period_days,
                 "most_purchases_per_period": None, "cheapest_chf": cheapest,
                 "note": "This mandate's rolling limit is not a number the engine can apply."}
-    most = (int(cap // Decimal(str(cheapest)))
-            if cheapest and Decimal(str(cheapest)) > 0 else None)
+    # HOW MANY DISTINCT BASKETS FIT, not `cap / cheapest`.
+    #
+    # Dividing assumes the agent can buy the cheapest basket over and over. It
+    # cannot: repeating one is what the duplicate check is for, so a patient agent
+    # works down the list of DIFFERENT authorised baskets, and the second-cheapest
+    # costs more than the first. Measured against the exhaustive adversary on the
+    # shipped mandate, the division predicted 25 where the best any ordering achieved
+    # was 20 -- a ceiling loose enough to tell the customer nothing.
+    #
+    # Counting the cheapest distinct baskets until the cap is exhausted is still an
+    # upper bound (it ignores the duplicate check, which can only reduce it further)
+    # and it is tight enough to mean something.
+    if totals:
+        most, running = 0, Decimal("0")
+        for price in totals:
+            if running + price > cap:
+                break
+            running += price
+            most += 1
+        most = most or None
+    else:
+        most = None
+    days = window.period_days or 0
+    rate = float(cap / Decimal(days)) if days else None
+    pace = (f" That is CHF {rate:,.0f} a day sustained."
+            if rate is not None else "")
     return {"bounded": True, "cap_chf": float(cap), "period_days": window.period_days,
             "most_purchases_per_period": most, "cheapest_chf": cheapest,
-            "note": (f"At most CHF {float(cap):g} in any {window.period_days} days "
+            # The PACE, so that shortening the window changes a number and not only a
+            # word. Two mandates with the same ceiling over different periods are not
+            # the same delegation, and the panel has to be able to say so.
+            "chf_per_day": rate,
+            "note": (f"At most CHF {float(cap):g} in any {days} days "
                      f"\u2014 {most} of these purchases at the cheapest, fewer at any "
-                     f"other price." if most else
-                     f"At most CHF {float(cap):g} in any {window.period_days} days.")}
+                     f"other price.{pace}" if most else
+                     f"At most CHF {float(cap):g} in any {days} days.{pace}")}
 
 
 def authorised_baskets(instruction: str, price_point: str = "typical",
@@ -214,6 +260,74 @@ def authorised_baskets(instruction: str, price_point: str = "typical",
                        familiar=FAMILIAR) == "allow")
 
 
+def uncertainty_tradeoff(instruction: str) -> dict[str, Any]:
+    """WHAT THE UNCERTAINTY DIAL COSTS, counted in purchases.
+
+    `uncertainty_policy` is the most consequential setting in a mandate and the least
+    legible: "what should I do when I cannot tell?" is asked once, in the abstract,
+    about facts the customer has not met yet. Three words, and nothing shows what any
+    of them does.
+
+    Measured, it is not abstract at all. On "groceries under CHF 120 from a shop I
+    have used before, only if returnable within 14 days" -- a return window being a
+    fact no independent source can confirm:
+
+        decline    0 approved,   0 asked,  595 refused
+        ask        0 approved, 116 asked,  479 refused
+        approve  116 approved,   0 asked,  479 refused
+
+    WHY THIS IS THE PAIR OF NUMBERS THAT MATTERS. `research/erasure.py` measures,
+    over 8,124 erasures of the official events, that `decline` is the ONLY setting in
+    which saying less never buys the proposer more -- a seller who publishes nothing
+    beats one who publishes bad terms under `ask` and `approve`, and under `decline`
+    beats nobody. That is the security half. This is the price: on this mandate,
+    `decline` is 116 purchases the customer cannot make without being asked again.
+
+    A dial with a security property on one side and a cost on the other is a choice.
+    Shown as one number it is a guess.
+
+    Returns identical counts for all three where the mandate has no unknowable fact,
+    which is correct and worth seeing: the dial only spends what uncertainty exists.
+    """
+    out = {}
+    for policy in (UncertaintyPolicy.DECLINE, UncertaintyPolicy.ASK,
+                   UncertaintyPolicy.APPROVE):
+        sized = delegation_size(instruction, policy)
+        out[policy.value] = {"approved": sized["authorised"],
+                             "asked": sized["asks_you"],
+                             "refused": sized["refused"]}
+    spread = {v["approved"] for v in out.values()}
+    out["dial_changes_anything"] = len(spread) > 1 or len({v["asked"] for v in out.values()}) > 1
+    return out
+
+
+def outcome_sets(instruction: str, price_point: str = "typical",
+                 uncertainty: UncertaintyPolicy | None = None) -> tuple[frozenset, frozenset]:
+    """(approved, put-to-you) -- because what the wallet will ASK about is part of
+    what was delegated, not a leftover.
+
+    `authorised_baskets` counts approvals alone, which makes the strictest edit a
+    customer can make invisible: changing `ask` to `decline` moves purchases from
+    review to block and leaves the approved set untouched. It also makes every
+    variant of a mandate whose purchases all end in review look identical, since the
+    approved set is empty under all of them.
+    """
+    compiled = compile_instruction(instruction)
+    rules = list(compiled.hard_rules)
+    category = _categories(rules)
+    mandate = snapshot(rules, uncertainty or compiled.uncertainty_policy,
+                       list(compiled.unsupported_restrictions))
+    approved, asked = set(), set()
+    for index, (merchant, combo) in enumerate(_world(category, price_point)):
+        verdict = judge_event(mandate, index, merchant, category, combo, familiar=FAMILIAR)
+        key = (merchant, tuple(item_id for item_id, _n, _p in combo))
+        if verdict == "allow":
+            approved.add(key)
+        elif verdict == "review":
+            asked.add(key)
+    return frozenset(approved), frozenset(asked)
+
+
 def delegation_size(instruction: str,
                     uncertainty: UncertaintyPolicy | None = None) -> dict[str, Any]:
     """How many purchases this sentence authorises, right now, out of how many exist."""
@@ -224,7 +338,13 @@ def delegation_size(instruction: str,
                        list(compiled.unsupported_restrictions))
     counts = _count(mandate, category)
     universe = counts["allow"] + counts["review"] + counts["block"]
-    band = {point: _count(mandate, category, point)["allow"] for point in PRICE_POINTS}
+    # TWO PASSES, NOT THREE. The headline needs the band's floor and the context
+    # line needs `typical`; `max` is the least informative of the three -- it is the
+    # count nobody is delegating -- and it cost a third of the panel's latency. It
+    # stays reachable through `_count(..., "max")` for the research sweeps that
+    # actually compare the whole band.
+    at_floor = _count(mandate, category, "min")
+    band = {"min": at_floor["allow"], "typical": counts["allow"]}
     return {
         # THE SIZE OF THE DELEGATION, over the prices the catalogue itself says these
         # goods can have. `authorised` stays the count at typical prices so the
@@ -232,7 +352,15 @@ def delegation_size(instruction: str,
         # actually handed over, because the seller picks the price.
         "price_band": band,
         "authorised_upper": band["min"],
-        "how_many_times": _repetition(rules, counts["cheapest_chf"]),
+        # NOT computed here. `uncertainty_tradeoff` runs this whole enumeration three
+        # more times, which tripled the latency of a panel that updates as the
+        # customer types. It has its own endpoint, asked for when the customer looks
+        # at the dial rather than on every keystroke.
+        # The band's FLOOR, not the typical point: "how many times" is a ceiling, and
+        # a ceiling computed from the dearer of two possible prices is not one.
+        "how_many_times": _repetition(rules,
+                                      at_floor["cheapest_chf"] or counts["cheapest_chf"],
+                                      at_floor["authorised_totals"]),
         "instruction": instruction,
         "universe": universe,
         "authorised": counts["allow"],

@@ -16,7 +16,9 @@ authorised, and how much of it is actually enforceable — with every number che
 Every wallet answers a customer's sentence by showing them *rules*. This one answers
 the question they actually have -- **how much did I just hand over?** -- by putting
 every purchase this world can produce through the same engine that will judge the
-real ones, and reporting the set that comes back. 18 ms, live, as they type.
+real ones, and reporting the set that comes back. **47 ms**, live, as they type
+(median of nine calls with a fresh instruction each time; it was documented as 18 ms
+and that figure was never true of the shipped panel).
 
 A prototype **wallet control layer** for Viseca's Swiss {ai} Weeks 2026 challenge,
 ["Agent on a Leash"](https://github.com/Swiss-ai-Weeks/viseca-2026). An AI shopping
@@ -82,7 +84,7 @@ learn to click through.
 | panel | the question | how it answers |
 | --- | --- | --- |
 | **read-back** ([`unconsumed.py`](src/wallet_control/unconsumed.py)) | which of your words did the compiler actually read? | every word deleted in turn and the sentence compiled again. Green changed a rule; struck through changed nothing; red means *deleting it would create* one. 19 of 20 silently-lost restrictions caught, 0 false alarms on 33 well-formed sentences |
-| **scope** ([`scope.py`](src/wallet_control/scope.py)) | how much rope did you just hand over? | every basket this world can produce, through the real engine. `"Order our household groceries"` authorises **595 of 595**; adding `"at or below CHF 120"` removes **450**. Counted, not described — 18 ms |
+| **scope** ([`scope.py`](src/wallet_control/scope.py)) | how much rope did you just hand over? | every basket this world can produce, through the real engine. `"Order our household groceries"` authorises **595 of 595**; adding `"at or below CHF 120"` removes **450**. Counted, not described — 47 ms |
 | **ambiguity** ([`ambiguity.py`](src/wallet_control/ambiguity.py)) | does your sentence decide this purchase? | compile it two defensible ways and search the whole world, sequences included, for where they part. `"up to CHF 250 per week"` is ambiguous about **470 of 595** purchases; the cheapest witness is three orders of CHF 87. Quiet on three of five sentences |
 | **silence** ([`silence.py`](src/wallet_control/silence.py)) | can a seller get past your rule by publishing nothing? | three sellers, same goods, same price. States 30 days → *buys it*; states 13 → *refuses it*; **says nothing → depends on one dial you can move** |
 
@@ -163,7 +165,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     1740 tests
+tests/                     1746 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -216,7 +218,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1740 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**1746 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say

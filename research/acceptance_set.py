@@ -377,8 +377,18 @@ def _ordering(name: str, world) -> list[int]:
 
 
 def exhaustive_adversary(window_cap: int | None = None,
-                         period_days: int = 7) -> dict[str, Any]:
-    """Propose the whole world, in five orders, and see what it gets."""
+                         period_days: int = 7,
+                         price_point: str = "min") -> dict[str, Any]:
+    """Propose the whole world, in five orders, and see what it gets.
+
+    SHOPS AT THE BAND'S FLOOR, because the panel's ceiling is computed there. The
+    delegation panel tells the customer "at most N of these purchases" from
+    `cap / cheapest authorised basket`, and the cheapest basket is the one at the
+    cheapest prices the catalogue publishes -- the seller picks the price. An
+    adversary held to `typical` prices would be measured against a ceiling drawn for
+    a world it was not allowed to shop in, and the comparison would say nothing about
+    either. Both numbers now come from the same world.
+    """
     rules = list(RULES)
     if window_cap is not None:
         rules = rules + [HardRule(field="authorization.billing_amount_chf", operator="<=",
@@ -389,7 +399,7 @@ def exhaustive_adversary(window_cap: int | None = None,
         return make_mandate(instruction=INSTRUCTION, uncertainty_policy=UncertaintyPolicy.ASK,
                             hard_rules=rules, card_id=CARD)
 
-    world = universe()
+    world = universe(sa.CatalogueShop(price_point=price_point))
     reference = fresh_mandate()
     reachable = {_key(m, o) for i, (m, o) in enumerate(world)
                  if evaluate_authorization(_basket_event(reference, o, m, i),

@@ -651,6 +651,26 @@ def mandate_ambiguity(req: CompileRequest) -> dict[str, Any]:
     return {"instruction": req.instruction, "witnesses": found_all, "available": True}
 
 
+@app.post("/api/mandates/uncertainty")
+def mandate_uncertainty(req: CompileRequest) -> dict[str, Any]:
+    """What the uncertainty dial costs, counted in purchases.
+
+    Its own endpoint rather than part of `/size`, because it runs the whole
+    enumeration three more times and `/size` answers as the customer types.
+
+    The dial is the most consequential setting in a mandate and the least legible:
+    "what should I do when I cannot tell?" asked once, in the abstract, about facts
+    the customer has not met yet. `research/erasure.py` measures the security half --
+    `decline` is the only setting in which saying less never buys the proposer more,
+    over 8,124 erasures of the official events. This is the other half: on a mandate
+    with a return-window rule, `decline` costs 116 purchases that `approve` would
+    have taken without asking.
+    """
+    from .scope import uncertainty_tradeoff
+
+    return uncertainty_tradeoff(req.instruction)
+
+
 @app.post("/api/mandates/size")
 def mandate_size(req: CompileRequest) -> dict[str, Any]:
     """How many purchases does this sentence authorise, out of how many exist?

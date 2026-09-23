@@ -69,111 +69,134 @@ from wallet_control.policy_compiler import compile_instruction  # noqa: E402
 from wallet_control.state import HistoryIndex, RunState  # noqa: E402
 
 CARD = "CA0001"
-MAX_LINES = 2          # enough to separate basket-composition rules; see `world()`
-AT_MERCHANTS = 6       # shops per category, to keep the world honest but bounded
 
 
-def world() -> list[tuple[str, tuple]]:
-    """Baskets spanning EVERY category, not just groceries.
+def signature(instruction: str):
+    """THE DELEGATION -- all five parts of it, because A is only the first.
 
-    The corpus covers five mandates about groceries, running shoes, clothing and a
-    monitor, so a grocery-only world would score four of them on an empty set and
-    call every pair equivalent. Two lines per basket rather than five: the rules
-    these instructions produce are about price, category, familiarity, size and
-    return terms, and none of them needs a third line to be observable -- while the
-    basket count grows quadratically.
+    "A policy is a set of purchases" is the thesis this repository is built on, and
+    comparing paraphrases as sets is what showed it to be INCOMPLETE. Three separate
+    kinds of meaning turn out to live outside A:
+
+    1. A RATE. A is a set of single purchases, and a rolling ceiling is not a
+       property of any single purchase, so three mandates differing only in their
+       rate have identical acceptance sets:
+
+           CHF 300 / 7 days | CHF 3000 / 7 days | CHF 300 / 30 days   all |A| = 145
+
+       Two more components separate them: purchases-per-window (which sees the
+       ceiling) and CHF-per-day (which sees the period). Neither is derivable from A.
+
+    2. WHAT WILL BE ASKED. A counts what is APPROVED. Changing `ask` to `decline`
+       moves purchases from review to block and leaves the approved set untouched --
+       so the strictest edit a customer can make was invisible. And a mandate whose
+       every purchase is `review` (the official shoes mandate, whose return-window
+       rule nothing can confirm) has |A| = 0 under every wording, which made all its
+       variants trivially equal. What is put to the customer is part of what they
+       delegated.
+
+    3. WHAT COULD NOT BE EXPRESSED AT ALL. "Buy ONE grocery item" and "buy TWENTY"
+       compile to identical rules, because the official rule format has no quantity
+       field. The compiler does not hide this -- both produce an
+       `unsupported_restrictions` entry, which is shown to the customer and blocks
+       automatic confirmation -- but a signature that ignored it called two clearly
+       different instructions the same.
+
+    So the delegation is:
+
+        (approved, asked, per-window ceiling, pace, what could not be expressed)
+
+    and the thesis names the first of five. That is the correction this module
+    produced; it is in `docs/THE_THESIS.md` rather than only here.
     """
-    shop = sa.CatalogueShop()
-    by_merchant: dict[str, list] = {}
-    for offer in shop.search(None):
-        by_merchant.setdefault(offer.merchant, []).append(offer)
-    out: list[tuple[str, tuple]] = []
-    for merchant in sorted(by_merchant)[:AT_MERCHANTS * 4]:
-        offers = sorted(by_merchant[merchant], key=lambda o: o.item_id)
-        for size in range(1, min(MAX_LINES, len(offers)) + 1):
-            for combo in combinations(offers, size):
-                out.append((merchant, combo))
-    return out
+    from wallet_control.policy_compiler import compile_instruction
+    from wallet_control.scope import delegation_size, outcome_sets
+
+    approved, asked = outcome_sets(instruction, "min")
+    repetition = delegation_size(instruction)["how_many_times"]
+    unsupported = frozenset(compile_instruction(instruction).unsupported_restrictions)
+    return (approved, asked,
+            repetition.get("most_purchases_per_period"),
+            repetition.get("chf_per_day"),
+            unsupported)
 
 
-_WORLD: list[tuple[str, tuple]] | None = None
+def _compiled(instruction: str) -> frozenset:
+    """The rules themselves, used ONLY to tell two different failures apart."""
+    from wallet_control.policy_compiler import compile_instruction
 
-
-def _the_world():
-    global _WORLD
-    if _WORLD is None:
-        _WORLD = world()
-    return _WORLD
-
-
-def _history():
-    return HistoryIndex.from_csv(history_csv_path())
-
-
-def _event(mandate, merchant: str, offers: tuple, index: int) -> dict[str, Any]:
-    total = float(sum(o.unit_price for o in offers))
-    return make_event(
-        mandate=mandate, authorization_id=f"AU_SEM_{index}", amount=total,
-        merchant_id=merchant, merchant_category=offers[0].category,
-        card_id=CARD, order_returnable="true",
-        items=[{"line_no": i + 1, "item_id": o.item_id, "item_name": o.name,
-                "item_category": o.category, "quantity": 1,
-                "unit_price": float(o.unit_price), "currency": "CHF",
-                "item_details": (f"returns accepted within {o.stated_return_days} days"
-                                 if o.stated_return_days else "")}
-               for i, o in enumerate(offers)])
-
-
-def acceptance_set(instruction: str) -> frozenset[tuple[str, tuple[str, ...]]]:
-    """Every basket the REAL ENGINE allows under this instruction, freshly judged."""
     compiled = compile_instruction(instruction)
-    mandate = make_mandate(instruction=instruction,
-                           uncertainty_policy=compiled.uncertainty_policy,
-                           hard_rules=list(compiled.hard_rules), card_id=CARD)
-    history = _history()
-    allowed = set()
-    for index, (merchant, offers) in enumerate(_the_world()):
-        state = RunState(history=history, card_id=CARD)
-        if evaluate_authorization(_event(mandate, merchant, offers, index),
-                                  mandate, state).decision == "allow":
-            allowed.add((merchant, tuple(o.item_id for o in offers)))
-    return frozenset(allowed)
+    return frozenset(
+        (r.field, r.operator, str(r.value), r.scope, r.period_days)
+        for r in compiled.hard_rules) | frozenset(
+        ("__uncertainty__", compiled.uncertainty_policy.value, "", None, None)
+        for _ in (0,))
 
 
-def check(relation: str, base: frozenset, variant: frozenset) -> str | None:
-    """None when the relation holds; otherwise the name of how it failed."""
+def check(relation: str, base, variant) -> str | None:
+    """None when the declared relation holds; otherwise how it failed."""
+    same = base == variant
+
+    def permits_at_least(a, b) -> bool:
+        """`a` permits everything `b` does: a superset of approved purchases, no
+        tighter pace, and nothing left unexpressed that `b` managed to express."""
+        if not (a[0] >= b[0]):
+            return False
+        for mine, theirs in ((a[2], b[2]), (a[3], b[3])):
+            if mine is None:                    # unbounded permits more than bounded
+                continue
+            if theirs is None or mine < theirs:
+                return False
+        return True
+
     if relation == EQUIVALENT:
-        return None if base == variant else "false distinction"
+        return None if same else "false distinction"
     if relation == STRICTER:
-        if variant == base:
+        if same:
             return "false equivalence"
-        return None if variant <= base else "not stricter"
+        return None if permits_at_least(base, variant) else "not stricter"
     if relation == WEAKER:
-        if variant == base:
+        if same:
             return "false equivalence"
-        return None if variant >= base else "not weaker"
+        return None if permits_at_least(variant, base) else "not weaker"
     if relation == DIFFERENT:
-        return None if variant != base else "false equivalence"
+        return None if not same else "false equivalence"
     raise ValueError(relation)
 
 
 def sweep():
-    cache: dict[str, frozenset] = {}
+    cache: dict[str, tuple] = {}
 
-    def setof(text: str) -> frozenset:
+    def sig(text: str):
         if text not in cache:
-            cache[text] = acceptance_set(text)
+            cache[text] = signature(text)
         return cache[text]
 
     rows = []
     for base_text, variant_text, relation, why in CASES:
-        base, variant = setof(base_text), setof(variant_text)
+        base, variant = sig(base_text), sig(variant_text)
+        failure = check(relation, base, variant)
+        # TWO VERY DIFFERENT FAILURES LOOK THE SAME FROM HERE, and calling them both
+        # "the compiler is blind" would be a false accusation.
+        #
+        #   the RULES differ and the signature does not
+        #       -> the compiler understood the difference; this WORLD has no purchase
+        #          that can show it. `Decline it when unsure` really is stricter, but
+        #          no basket in the grocery enumeration is ever `unknown`, so nothing
+        #          observes it. A statement about the enumeration, not the compiler.
+        #
+        #   the RULES are identical
+        #       -> the compiler produced the same policy from two instructions a
+        #          reader would not call the same. That is the real finding.
+        if failure == "false equivalence" and _compiled(base_text) != _compiled(variant_text):
+            failure = "no witness in this world"
         rows.append({
             "relation": relation, "why": why,
             "base": base_text, "variant": variant_text,
-            "n_base": len(base), "n_variant": len(variant),
-            "failure": check(relation, base, variant),
-            "gained": len(variant - base), "lost": len(base - variant),
+            "n_base": len(base[0]), "n_variant": len(variant[0]),
+            "rate_base": (base[2], base[3]), "rate_variant": (variant[2], variant[3]),
+            "failure": failure,
+            "gained": len(variant[0] - base[0]), "lost": len(base[0] - variant[0]),
         })
     return rows
 
@@ -182,27 +205,33 @@ def main() -> None:
     rows = sweep()
     bad = [r for r in rows if r["failure"]]
     dangerous = [r for r in bad if r["failure"] == "false equivalence"]
+    _ = dangerous
 
-    print(f"\n  SEMANTIC STABILITY -- {len(rows)} declared relations, judged as SETS OF")
-    print(f"  PURCHASES by the real engine over {len(_the_world()):,} baskets\n")
+    print(f"\n  SEMANTIC STABILITY -- {len(rows)} declared relations, compared as")
+    print("  (set of purchases, purchases per window, CHF per day)\n")
 
     for relation in (EQUIVALENT, STRICTER, WEAKER, DIFFERENT):
         group = [r for r in rows if r["relation"] == relation]
         held = len([r for r in group if not r["failure"]])
         print(f"    {relation:11s} {held:>3} / {len(group):<3} held")
 
-    print(f"\n  false equivalence (the compiler is BLIND to wording that matters): "
-          f"{len(dangerous)}")
-    print(f"  false distinction (sensitive to wording that does not):            "
+    blind = [r for r in bad if r["failure"] == "false equivalence"]
+    unwitnessed = [r for r in bad if r["failure"] == "no witness in this world"]
+    print(f"\n  false equivalence -- SAME RULES from instructions a reader would not")
+    print(f"  call the same, the compiler really is blind:        {len(blind)}")
+    print(f"  no witness in this world -- the rules DO differ and no purchase in the")
+    print(f"  enumeration can tell them apart:                    {len(unwitnessed)}")
+    print(f"  false distinction (sensitive to wording that does not): "
           f"{len([r for r in bad if r['failure'] == 'false distinction'])}")
-    print(f"  wrong direction:                                                   "
+    print(f"  wrong direction: "
           f"{len([r for r in bad if r['failure'] in ('not stricter', 'not weaker')])}\n")
 
-    for row in bad[:20]:
+    for row in bad[:14]:
         print(f"    [{row['failure']}] declared {row['relation']}  "
-              f"|A| {row['n_base']} -> {row['n_variant']}  (+{row['gained']}/-{row['lost']})")
+              f"|A| {row['n_base']}->{row['n_variant']} (+{row['gained']}/-{row['lost']})  "
+              f"rate {row['rate_base']}->{row['rate_variant']}")
         print(f"       why: {row['why']}")
-        print(f"       {row['variant'][:96]}")
+        print(f"       {row['variant'][:94]}")
     print()
 
 

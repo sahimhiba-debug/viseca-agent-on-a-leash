@@ -1134,6 +1134,31 @@ async function renderScope(instruction){
   // customer handed over by a factor of four, in the one direction that costs them
   // something. The typical figure stays visible, because "what it usually is" is a
   // fair thing to want alongside "what it could be".
+  // WHAT THE UNCERTAINTY DIAL COSTS, fetched separately because it re-runs the whole
+  // enumeration three times and this panel updates as the customer types.
+  //
+  // The dial is the most consequential setting in a mandate and the least legible:
+  // "what should I do when I cannot tell?", asked once, in the abstract, about facts
+  // the customer has not met yet. `research/erasure.py` measures the security half --
+  // `decline` is the only setting in which saying less never buys the proposer more,
+  // over 8,124 erasures of the official events. This shows the price of that.
+  fetch('/api/mandates/uncertainty', {method:'POST',
+      headers:{'content-type':'application/json'}, body: JSON.stringify({instruction})})
+    .then(r=>r.json()).then(u=>{
+      const slot = document.getElementById('uncdial');
+      if(!slot || !u || !u.dial_changes_anything) return;
+      const row = (k,label) => `<div class="prov"><span class="pf">${label}</span>
+        <span class="pg">${u[k].approved} approved · ${u[k].asked} asked · ${u[k].refused} refused</span></div>`;
+      slot.innerHTML = `<div style="margin-top:12px"><div class="h" style="font-size:10px;
+          font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-bottom:6px">
+          What "when unsure" costs</div>
+        ${row('decline','decline')}${row('ask','ask me')}${row('approve','approve')}
+        <p class="tiny" style="margin:8px 0 0"><b>decline</b> is the only setting where a
+          seller who says nothing does no better than one who says something you refuse
+          — measured over 8,124 erasures of the official events. These are the purchases
+          that choice costs you.</p></div>`;
+    }).catch(()=>{});
+
   const band = d.price_band
     ? `<p class="tiny" style="margin:6px 0 0">At the prices this catalogue says these
          goods usually cost, <b>${d.price_band.typical}</b> of them — but the seller
@@ -1153,6 +1178,7 @@ async function renderScope(instruction){
       <span class="lbl">${d.how_many_times.bounded?'how many times':'how many times — unlimited'}</span>
       ${esc(d.how_many_times.note)}
     </div>
+    <div id="uncdial"></div>
     <p class="tiny" style="margin-top:8px">Counted, not estimated: every basket of up to
       ${d.max_lines} lines that any one shop in the ${d.category} catalogue could sell you,
       each put through the same engine that will judge the real ones. Add a condition
