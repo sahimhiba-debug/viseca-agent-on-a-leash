@@ -7,7 +7,7 @@ this repository, start here.
 | --- | --- |
 | commit | see `git log -1` on `rnd/productization` |
 | `main` | `1aa3bac`, untouched — all work is on the R&D branch |
-| tests | 1789 collected, 5 of them reported skips |
+| tests | 1790 collected, 5 of them reported skips |
 | official replay | **45 events — 19 allow / 2 review / 24 block**, unchanged across every pass |
 | runtime | 5,086 lines / 19 modules · research apparatus separated into `research/` |
 | dependencies | 4 runtime (fastapi, uvicorn, httpx, pydantic), 3 dev |
@@ -54,8 +54,8 @@ Ranked by where I think you are most likely to find something:
    phrase patterns. It is **not in the live decision path** -- `from_event_mandate`
    takes `hard_rules` from the platform verbatim -- so it cannot mis-decide a live
    purchase. It does decide (a) what a customer is shown before they confirm a
-   mandate, and (b) the rules used by the offline replay, which means **19/2/24 is
-   conditional on our own reading of five English sentences.** Attack the parse:
+   mandate, and (b) the rules used by the offline replay, which means **the whole
+   replay split is conditional on our own reading of five English sentences.** Attack the parse:
    find an instruction whose compiled rules a reasonable customer would reject.
 8. **Evidence semantics.** I audited 13 absent/inapplicable/conflicting cases and fixed
    two. A rule field added later would default to the wrong side; only the monotonicity

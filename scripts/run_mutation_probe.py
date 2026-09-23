@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import pathlib
 import os
+import signal
 import subprocess
 import sys
 
@@ -270,11 +271,42 @@ def main() -> int:
     for module, _original, _mutated, _label in MUTANTS:
         originals.setdefault(module, (SRC / module).read_text())
 
+    # RESTORE ON A SIGNAL, NOT ONLY ON AN EXCEPTION.
+    #
+    # The `try/finally` below survives an exception and Ctrl-C. It does NOT survive
+    # SIGTERM, which is what `pkill`, a harness timeout and most supervisors send --
+    # and this run is long enough that being killed part-way is the ordinary case,
+    # not the exotic one. Measured the hard way: a probe stopped with `pkill` left
+    # `decision_engine.py` carrying a live mutant (the session-velocity cross-check
+    # replaced by the event's own claim), and the check that was supposed to catch
+    # that grepped for `if False:` -- one mutant SHAPE out of the dozen here -- so it
+    # reported a clean tree over a mutated one.
+    #
+    # A probe that can leave the tree silently wrong is worse than no probe: every
+    # measurement taken afterwards is against a source nobody inspected.
+    def _restore_and_exit(signum, _frame):
+        for module_name, text in originals.items():
+            try:
+                (SRC / module_name).write_text(text)
+            except OSError:
+                pass
+        print(f"\n[signal {signum}] restored {len(originals)} file(s) before exiting. "
+              f"This run is INCOMPLETE -- re-run it on a quiet tree.", flush=True)
+        # `os._exit`, not `sys.exit`: raising SystemExit from a handler unwinds into
+        # the mutant loop, whose race guard then sees the files this handler just
+        # rewrote and reports them as edited by someone else -- and the summary at
+        # the bottom still prints. Leave immediately; the files are already restored.
+        os._exit(130)
+
+    for _sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(_sig, _restore_and_exit)
+
     print(f"{'mutant':56s} {'result':10s} killed by")
     print("-" * 118)
     survived: list[str] = []
     skipped: list[str] = []
     edited: list[str] = []
+    applied = 0        # mutants actually applied and judged -- see the summary
 
     try:
         for module, original, mutated, label in MUTANTS:
@@ -308,6 +340,7 @@ def main() -> int:
                 failures = [line for line in output.splitlines() if line.startswith("FAILED")]
                 name = failures[0].split("::")[-1].split(" ")[0] if failures else "(unnamed)"
                 print(f"{label:56s} {'killed':10s} {name[:56]}")
+            applied += 1
     finally:
         # Belt and braces: restore every target from the originals captured at the
         # top, then VERIFY. A restore that silently failed is how the last one got
@@ -331,8 +364,19 @@ def main() -> int:
         print(f"\n*** STOPPED EARLY: {', '.join(sorted(set(edited)))} was edited while "
               f"this ran. Its baseline is stale, so nothing was restored for it and "
               f"the results below are incomplete. Re-run on a quiet tree. ***")
-    total = len(MUTANTS) - len(skipped)
-    print(f"\n{total} mutants applied, {total - len(survived)} killed, {len(survived)} survived.")
+    # WHAT ACTUALLY RAN, not how many mutants are listed.
+    #
+    # This printed `len(MUTANTS) - len(skipped)` regardless of how far the loop got,
+    # so a probe stopped part-way -- by a signal, a harness timeout, or the race
+    # guard below -- still ended with "41 mutants applied, 41 killed, 0 survived".
+    # Anyone reading the tail of the log saw a full pass over a run that had examined
+    # two. A gate that reports success when it was interrupted is worse than no gate.
+    total = applied
+    complete = (applied + len(skipped)) == len(MUTANTS) and not edited
+    print(f"\n{total} mutants applied, {total - len(survived)} killed, {len(survived)} survived."
+          + ("" if complete else
+             f"  *** INCOMPLETE: {len(MUTANTS)} are defined and this run examined "
+             f"{applied + len(skipped)}. Nothing here is a pass. ***"))
     if skipped:
         print(f"{len(skipped)} skipped -- the code moved and the mutant needs rewriting:")
         for label in skipped:
@@ -341,8 +385,9 @@ def main() -> int:
         print("\nEach survivor is an unprotected mechanism. Write the test that kills it:")
         for label in survived:
             print(f"  - {label}")
-    # A skipped mutant is a silently weakened probe, so it fails too.
-    return 1 if (survived or skipped) else 0
+    # A skipped mutant is a silently weakened probe, and an incomplete run is not a
+    # pass, so both fail.
+    return 1 if (survived or skipped or not complete) else 0
 
 
 if __name__ == "__main__":

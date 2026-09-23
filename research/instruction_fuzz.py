@@ -131,12 +131,15 @@ def sweep():
             variant = rewrite(original)
             if variant is None or variant == original:
                 continue
-            moved = signature(variant) != base
+            # ONCE. This called `signature(variant)` four times per row -- once to
+            # decide `moved` and three more inside the dict -- and each call runs two
+            # full acceptance-set enumerations. It was the slowest thing in the test
+            # suite, and the suite is run 41 times by the mutation probe.
+            after = signature(variant)
             rows.append({"scenario": scenario, "rewrite": name, "why": why,
-                         "variant": variant, "moved": moved,
+                         "variant": variant, "moved": after != base,
                          "before": (len(base[0]), len(base[2]), base[4], base[5]),
-                         "after": (len(signature(variant)[0]), len(signature(variant)[2]),
-                                   signature(variant)[4], signature(variant)[5])})
+                         "after": (len(after[0]), len(after[2]), after[4], after[5])})
     return rows
 
 

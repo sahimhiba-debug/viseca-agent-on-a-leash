@@ -371,6 +371,35 @@ what the third value is for.
 
 ---
 
+## The explanation is the product, and it had drifted from the decision
+
+The brief asks that judges understand *"what the system permitted, what evidence it
+considered, why it acted."* This repository answers that on two paths, and nobody had
+compared them: `POST /run` builds a decision from live rule evaluations, `GET /runs`
+rebuilds it from the ledger — and **the page re-renders from the second after every
+step-up.** So the moment a customer presses *Approve once*, every card on screen is
+redrawn from a path that had never been diffed against the first.
+
+Three ways it disagreed, none visible without the diff:
+
+| | |
+| --- | --- |
+| **evidence considered was discarded** | a purchase blocked on its amount, from a seller whose listing *also* carried instructions aimed at an automated buyer, was recorded with the amount alone. Approve anything and the page stopped mentioning the injection |
+| **the wallet's checks were credited to the customer** | the read-back split "your rule stopped this" from "the wallet stopped this" using a hand-written list of **seven** fields while the engine has **fourteen** — and one of the seven wasn't a field this engine emits at all |
+| **the wrong boundary was blamed** | a rolling-window breach read back as a per-order one. `_plain_reason` carries a comment warning about exactly this; the defect was one layer beneath it |
+
+All five scenarios now agree on every field, asserted per scenario — plus a check
+that the corpus actually *contains* the three shapes, so the parity test cannot pass
+on a corpus incapable of failing it.
+
+**And correcting the second one improved the demo.** It surfaced a second
+policy-allow/security-block case in the official *Manipulated agent* scenario: a
+seller writing instructions to the machine that holds the card, which is a better
+instance of the demo's own sentence — *"Every rule you wrote was satisfied. The
+wallet stopped this anyway"* — than the repeated order it had been built on.
+
+---
+
 ## What this is not
 
 * **Not an LLM product.** No model has been run: the public Apertus endpoint answers
@@ -404,7 +433,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,784 passed · 5 reported skips
+tests                1,785 passed · 5 reported skips
 mutation             41 mutants applied · 41 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)

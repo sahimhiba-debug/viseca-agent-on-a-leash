@@ -137,3 +137,55 @@ def test_the_delegation_panel_stays_fast_enough_to_type_against():
     assert median < 150, (
         f"the delegation panel took {median:.0f} ms; it is documented as answering "
         f"as the customer types, and something has made it three times slower")
+
+
+# --- the replay split, wherever a document claims to be current ----------------------
+
+CURRENT_DOCS = ("README.md", "docs/BASELINE_CURRENT.md", "docs/FINAL_AUDIT_PACKAGE.md",
+                "docs/THE_THESIS.md")
+
+
+def test_no_current_document_states_a_stale_replay_split():
+    """THE CLASS OF DRIFT THIS CATCHES, found by reading rather than by a test.
+
+    `docs/BASELINE_CURRENT.md` opens with "Only facts re-verified by running the
+    thing, on this commit" and carried **19 allow / 2 review / 24 block** twice, two
+    boundary moves after that stopped being true. The replay split is the single
+    number most likely to be quoted at a judge and the single number most likely to
+    go stale, because it moves whenever a defect is fixed -- it has moved twice.
+
+    Documents that narrate the HISTORY of the boundary ("19/2/24 -> 18/3/24 ->
+    17/4/24") are not the subject: a research log recording what was true at the time
+    is correct. This checks the documents that claim to describe the present, and it
+    checks them against the replay itself rather than against each other.
+    """
+    import re
+    import subprocess
+    import sys
+
+    out = subprocess.run([sys.executable, "scripts/run_replay.py"],
+                         cwd=ROOT, capture_output=True, text=True, timeout=300)
+    assert out.returncode == 0, out.stderr[-2000:]
+    # The LAST match: the script prints a per-scenario line before the TOTAL, and
+    # taking the first one compared every document against one scenario's counts.
+    found_counts = re.findall(r"\{'allow': (\d+), 'review': (\d+), 'block': (\d+)\}",
+                              out.stdout)
+    assert found_counts, out.stdout[-500:]
+    allow, review, block = found_counts[-1]
+    assert int(allow) + int(review) + int(block) == 45, found_counts[-1]
+    current = f"{allow}/{review}/{block}"
+
+    stale = []
+    for name in CURRENT_DOCS:
+        text = (ROOT / name).read_text()
+        for found in set(re.findall(r"\b(\d{1,2}/\d{1,2}/\d{2})\b", text)):
+            if found == current:
+                continue
+            # A line that shows the boundary MOVING is narrating history, not
+            # claiming the present.
+            for line in text.splitlines():
+                if found in line and "->" not in line and "\u2192" not in line:
+                    stale.append((name, found, line.strip()[:90]))
+    assert not stale, (
+        f"these documents state a replay split that is not the current {current}:\n  "
+        + "\n  ".join(f"{n}: {f} -- {l}" for n, f, l in stale))

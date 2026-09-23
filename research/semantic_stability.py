@@ -55,6 +55,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from functools import lru_cache  # noqa: E402
 from itertools import combinations  # noqa: E402
 
 import research.shopping_agent as sa  # noqa: E402
@@ -71,6 +72,7 @@ from wallet_control.state import HistoryIndex, RunState  # noqa: E402
 CARD = "CA0001"
 
 
+@lru_cache(maxsize=512)
 def signature(instruction: str):
     """THE DELEGATION -- all five parts of it, because A is only the first.
 

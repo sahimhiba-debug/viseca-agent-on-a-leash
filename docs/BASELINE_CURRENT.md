@@ -15,7 +15,7 @@ disagreed with the code, the code won and the document was corrected.
 | suite | command | result |
 | --- | --- | --- |
 | tests | `python3 -m pytest -q` | **981 pass, 5 reported skips** (986 collected) |
-| official replay | `python3 scripts/run_replay.py` | **45 events — 19 allow / 2 review / 24 block** |
+| official replay | `python3 scripts/run_replay.py` | **45 events — 17 allow / 4 review / 24 block** |
 | adversarial corpus | `python3 scripts/run_red_team_corpus.py` | **133/133** across 10 categories |
 | attack matrix | `python3 scripts/run_red_team.py` | **17/17** |
 | mutation probe | `python3 scripts/run_mutation_probe.py` | **41 applied, 41 killed, 0 survived** |
@@ -50,5 +50,6 @@ insets. No framework, no build step.
 * That the suites are *sufficient* — only that they pass. The mutation probe is the
   evidence for sufficiency, and it is targeted rather than exhaustive.
 * That the replay counts are *correct* — the official pack ships no expected
-  decisions. 19/2/24 is a regression boundary.
+  decisions. 17/4/24 is a regression boundary, and it has moved as defects were
+  fixed: 19/2/24 -> 18/3/24 -> 17/4/24.
 * Anything about the hosted API. Every number here is offline.
