@@ -254,7 +254,7 @@ def test_a_missing_checkpoint_no_longer_silently_restarts_the_allowance(tmp_path
     with caplog.at_level(logging.WARNING, logger="wallet_control.live_worker"):
         handle = worker.register_run("RUN_LOST", _mandate())
 
-    assert handle.state.prior_spend_known is False, (
+    assert handle.state.resumed_incomplete is True, (
         "the platform says this run already decided something; an empty ledger is "
         "what SURVIVED, not what happened")
     message = " ".join(r.getMessage().lower() for r in caplog.records
@@ -270,7 +270,7 @@ def test_a_genuinely_new_run_is_not_made_to_pay_for_a_loss_that_did_not_happen(t
     "stranding" the old docstring feared, and a real cost. The platform listing is
     what separates the cases, so a run it has never heard of keeps a KNOWN zero."""
     handle = _worker(tmp_path, listing={"data": []}).register_run("RUN_NEW", _mandate())
-    assert handle.state.prior_spend_known is True
+    assert handle.state.resumed_incomplete is False
     assert handle.state.total_approved_spend_chf() == Decimal("0")
 
 
@@ -281,7 +281,7 @@ def test_being_unable_to_ask_is_not_evidence_that_nothing_was_spent(tmp_path):
     breaks the listing call restores the original vulnerability -- a defence whose
     bypass is to break the thing it depends on. An unanswered question is unknown."""
     handle = _worker(tmp_path, raises=True).register_run("RUN_UNREACHABLE", _mandate())
-    assert handle.state.prior_spend_known is False
+    assert handle.state.resumed_incomplete is True
 
 
 def test_unknown_prior_spend_makes_the_rolling_rule_unknown_not_zero(tmp_path):
@@ -307,9 +307,77 @@ def test_unknown_prior_spend_makes_the_rolling_rule_unknown_not_zero(tmp_path):
             assert any("billing_amount_chf" in c for c in result.reason_codes)
 
 
+def test_the_unknown_expires_once_the_window_has_been_fully_watched():
+    """THE PART THAT MAKES THIS A CONTROL AND NOT AN APOLOGY.
+
+    "After a restart, nothing is known" would send every purchase to the customer
+    for ever, because a lost state never becomes found. It does not have to: every
+    state-derived fact here answers a question about a BOUNDED window, and a state
+    that has been watching for longer than the window has seen all of it -- whatever
+    happened before it started.
+
+    So the cost of a restart is bounded by the longest window the mandate actually
+    uses, and it expires on its own with no operator action. A 1-day ceiling is
+    answerable a day later; a 7-day ceiling is not, and that asymmetry is real rather
+    than an artefact.
+    """
+    from datetime import timedelta
+
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.mandate import HardRule
+    from tests.helpers import make_event, make_mandate
+    from wallet_control.state import RunState
+
+    mandate = make_mandate(hard_rules=[HardRule(
+        field="authorization.billing_amount_chf", operator="<=", value=300,
+        currency="CHF", scope="period", period_days=1)])
+    state = RunState(history=_history(), card_id="CA_TEST", resumed_incomplete=True)
+
+    first = evaluate_authorization(
+        make_event(mandate=mandate, authorization_id="AU_R1", amount=10.0, timestamp=AT),
+        mandate, state)
+    assert first.decision == "review", "the 1-day window reaches back before the restart"
+
+    later = evaluate_authorization(
+        make_event(mandate=mandate, authorization_id="AU_R2", amount=10.0,
+                   timestamp=AT + timedelta(days=1, minutes=1)),
+        mandate, state)
+    assert later.decision == "allow", (
+        "a full day after it started watching, the 1-day window is entirely inside "
+        "what this state has seen -- the unknown must expire by itself")
+
+
+def test_a_restart_does_not_silently_switch_off_duplicate_detection():
+    """THE FIRST FIX WAS INCOMPLETE, AND THIS IS WHAT IT MISSED.
+
+    `prior_spend_known` named one CONSUMER of the lost state. Measured with the same
+    fixture, same basket, same shop, five minutes apart and a new authorization id:
+
+        state intact    ->  review   (order.duplicate_suspected)
+        after restart   ->  ALLOW
+
+    One real order, charged twice, with no forgery anywhere -- the ledger that would
+    have recognised it simply was not there. An empty `_recent_attempts` is not
+    evidence that nothing recent happened."""
+    from datetime import timedelta
+
+    from wallet_control.decision_engine import evaluate_authorization
+    from tests.helpers import make_event
+    from wallet_control.state import RunState
+
+    mandate = _mandate()
+    lost = RunState(history=_history(), card_id="CA_TEST", resumed_incomplete=True)
+    event = make_event(mandate=mandate, authorization_id="AU_DUP", amount=400.0,
+                       merchant_id=MERCHANT, timestamp=AT + timedelta(minutes=5))
+    result = evaluate_authorization(event, mandate, lost)
+    assert result.decision != "allow", (
+        "this state cannot see the last hour, so it cannot say this is NOT a repeat "
+        f"of an order it never saw: {result.reason_codes}")
+
+
 def _state_with_unknown_prior_spend():
     from wallet_control.state import RunState
-    return RunState(history=_history(), card_id="CA_TEST", prior_spend_known=False)
+    return RunState(history=_history(), card_id="CA_TEST", resumed_incomplete=True)
 
 
 def test_a_present_checkpoint_does_not_warn(tmp_path, caplog):

@@ -24,7 +24,7 @@ challenge.md ask for):
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -40,7 +40,7 @@ from .intervention import InterventionKind, classify_intervention
 from .mandate import HardRule, MandateSnapshot, MandateStatus, UncertaintyPolicy, mandate_policy_version
 from .money import to_chf, to_decimal
 from .rules import RuleContext, RuleEvaluation, evaluate_rule
-from .state import BasketKey, PaymentAuthority, RunState
+from .state import DUPLICATE_WINDOW, BasketKey, PaymentAuthority, RunState
 from .viseca_mapping import Decision
 
 _DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", value="false")
@@ -428,15 +428,17 @@ def _requested_categories(mandate: MandateSnapshot) -> frozenset[str] | None:
 
 def _projected_period_spend(mandate: MandateSnapshot, state: RunState, as_of: datetime, this_amount: Decimal) -> dict[int, Decimal]:
     projected: dict[int, Decimal] = {}
-    if not state.prior_spend_known:
-        # The ledger is empty because this run's state was LOST, not because nothing
-        # was spent. Leaving the entry out makes `rules.py` answer `unknown` for every
-        # rolling-period rule ("rolling-period spend could not be computed"), which is
-        # the truth. Filling it with the visible total would understate the customer's
-        # allowance by exactly the amount nobody can see.
-        return projected
     for rule in mandate.hard_rules:
         if rule.field == "authorization.billing_amount_chf" and rule.scope == "period" and rule.period_days:
+            if not state.has_observed(as_of, timedelta(days=rule.period_days)):
+                # The ledger is thin because this run's state was LOST, not because
+                # nothing was spent -- and this particular window reaches back past
+                # the moment this state started watching. Leaving the entry out makes
+                # `rules.py` answer `unknown`. Filling it with the visible total would
+                # understate the customer's allowance by exactly the amount nobody can
+                # see. Once the state has been watching for `period_days`, the window
+                # is fully observed and this stops firing on its own.
+                continue
             # The peak of every window CONTAINING this purchase, not the window
             # ending at it -- see `RunState.peak_window_spend_chf`. For a run whose
             # decisions arrive in chronological order with nothing deferred the two
@@ -992,10 +994,20 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
             duplicate_reason=duplicate_reason,
         )
 
+        # START THE HORIZON CLOCK. A state resumed part-way through knows nothing
+        # about the run before this moment, and everything from it onwards. Recorded
+        # in the SIMULATED purchase clock, because that is the clock the windows it
+        # gates are measured in.
+        state.note_observation(facts.timestamp)
+
         ctx = RuleContext(
             requested_item_categories=_requested_categories(mandate),
             projected_period_spend_chf=_projected_period_spend(mandate, state, facts.timestamp, facts.billing_amount_chf),
-            prior_spend_known=state.prior_spend_known,
+            unobserved_periods=frozenset(
+                r.period_days for r in mandate.hard_rules
+                if r.field == "authorization.billing_amount_chf" and r.scope == "period"
+                and r.period_days
+                and not state.has_observed(facts.timestamp, timedelta(days=r.period_days))),
         )
         evaluations = [evaluate_rule(rule, facts, ctx) for rule in mandate.hard_rules]
 
@@ -1099,6 +1111,23 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
 
         if duplicate_of is not None:
             evaluations.append(RuleEvaluation(rule=_DUPLICATE_RULE, outcome="unknown", detail=duplicate_reason or "", source="safety"))
+        elif not state.has_observed(facts.timestamp, DUPLICATE_WINDOW):
+            # "NO SIMILAR RECENT PURCHASE" IS A CLAIM ABOUT THE LAST HOUR, and this
+            # state has not been watching for an hour -- it was resumed part-way
+            # through, so an order placed before it started is exactly what it cannot
+            # see. Measured before this branch existed: the same basket at the same
+            # shop five minutes later, with a fresh authorization_id, went `review`
+            # with the ledger intact and ALLOW after a restart. One real order,
+            # charged twice, and nothing had to be forged.
+            #
+            # Not `fail`: there may well be no earlier order. It is `unknown`, so the
+            # customer's own uncertainty_policy decides, and it stops firing by itself
+            # once this state has watched a full hour.
+            evaluations.append(RuleEvaluation(
+                rule=_DUPLICATE_RULE, outcome="unknown",
+                detail=("this wallet restarted less than an hour ago and cannot see "
+                        "whether you already placed this order"),
+                source="safety"))
         if not mandate.hard_rules:
             # A confirmed mandate with zero executable rules has nothing to check a
             # purchase against. Treating that as "everything passes" would make an

@@ -54,7 +54,9 @@ BasketKey = tuple[BasketLineKey, ...]
 # underlying purchase occurred.
 DEFAULT_AUTHORITY_TTL = timedelta(minutes=15)
 
-_DUPLICATE_WINDOW = timedelta(minutes=60)
+# Public: `decision_engine` needs the same figure to ask whether a resumed
+# state has watched long enough to claim there was no similar recent order.
+DUPLICATE_WINDOW = timedelta(minutes=60)
 _VELOCITY_WINDOW = timedelta(minutes=10)   # matches the event's `recent_attempt_count_10m`
 
 
@@ -328,7 +330,7 @@ class RunState:
 
     history: HistoryIndex
     card_id: str
-    # IS THE PRIOR SPEND IN THIS RUN ACTUALLY KNOWN?
+    # DID THIS STATE WATCH THE WHOLE RUN, OR JOIN PART-WAY THROUGH?
     #
     # A fresh `RunState` has an empty ledger, and an empty ledger has always MEANT
     # "nothing has been spent". For a genuinely new run that is true. For a run whose
@@ -342,13 +344,40 @@ class RunState:
     # (docs/ABSENCE.md), and this is the highest-stakes place it has appeared: the
     # number being invented is the money already gone.
     #
-    # So it is represented rather than assumed. False makes every rolling-period rule
-    # evaluate `unknown` -- not `fail`, because there is no evidence this purchase is
-    # bad -- which routes to the customer's own `uncertainty_policy` exactly like
-    # every other unknown. `live_worker.register_run` is what sets it, and it sets it
-    # only on EVIDENCE that a run existed before (see there); a genuinely new run
-    # keeps `True` and is not made to pay for a loss that did not happen.
-    prior_spend_known: bool = True
+    # THE FIRST VERSION OF THIS FIELD WAS CALLED `prior_spend_known`, AND THE NAME
+    # WAS THE BUG. It named one CONSUMER of the lost state -- the rolling budget --
+    # while three others went on reading an empty collection as a fact about the
+    # world. Measured after a restart, same fixture, same basket, five minutes apart:
+    #
+    #     a duplicate order, state intact   ->  review  (order.duplicate_suspected)
+    #     the same order, after a restart   ->  ALLOW
+    #
+    # The restart silently switched duplicate detection off too: one real order,
+    # charged twice, no forgery anywhere. Fixing the budget alone would have been
+    # fixing the first symptom and calling it the class.
+    #
+    # BUT "AFTER A RESTART, NOTHING IS KNOWN" IS UNUSABLE. It would send every
+    # purchase to the customer for ever, because a lost state never becomes found.
+    # The missing idea is that incompleteness has a HORIZON. Every state-derived
+    # fact here answers a question about a BOUNDED window -- the last 60 minutes for
+    # a duplicate, the last 10 for velocity, the last `period_days` for a ceiling --
+    # and a state that has been watching for longer than the window has seen all of
+    # it, whatever happened before. So the unknown expires on its own, and the cost
+    # of a restart is bounded by the longest window the mandate actually uses.
+    #
+    # `resumed_incomplete` says this state joined part-way through. `_observed_from`
+    # is when it started watching, in the SIMULATED purchase clock those windows use
+    # (technical_details.md: "simulated purchase time for spending windows, and the
+    # real clock for response deadlines"), taken from the first event it sees rather
+    # than from a wall clock that is not comparable with them.
+    #
+    # Ask `has_observed(as_of, window)`. Neither field is read directly anywhere.
+    resumed_incomplete: bool = False
+    _observed_from: datetime | None = None
+    # Set when an event arrives stamped EARLIER than the moment this state started
+    # watching. See `note_observation`: it is the evidence that delivery order and
+    # simulated time do not agree, which is the one assumption the horizon rests on.
+    _ordering_broken: bool = False
     _decisions: dict[str, StoredDecision] = field(default_factory=dict)
     _approved_spend: list[tuple[datetime, Decimal]] = field(default_factory=list)
     # Every device this run has seen, not only the last one. A return to a device
@@ -654,6 +683,59 @@ class RunState:
         return out
 
     # --- similar-recent-purchase (fraud-relevant) duplicate detection ---------------
+    def note_observation(self, when: datetime) -> None:
+        """Start the clock the first time this state sees a purchase.
+
+        Only meaningful for a resumed-incomplete state; for one that watched the run
+        from the beginning there is no horizon to track and `has_observed` says so
+        without consulting this.
+        """
+        if not self.resumed_incomplete:
+            return
+        if self._observed_from is None:
+            self._observed_from = when
+        elif when < self._observed_from:
+            # THE HORIZON RESTS ON ONE ASSUMPTION: that nothing stamped earlier than
+            # the first event this state saw will arrive after it. On the official
+            # pack that holds exactly -- `replay_order` agrees with `timestamp` in
+            # all five scenarios, 45 of 45 rows -- and it is an observation about
+            # data, not a guarantee, so it is CHECKED rather than relied upon.
+            #
+            # The attack it closes was found against this very mechanism. A cheap
+            # purchase stamped eight days in the past, delivered first after a
+            # restart, made `_observed_from` old enough that a 7-day ceiling looked
+            # fully observed, and the ceiling silently reset:
+            #
+            #     honest first event   ->  review (the window reaches past the restart)
+            #     back-dated by 8 days ->  ALLOW
+            #
+            # That anchor is derived from `authorization.timestamp`, which the
+            # platform authors and the agent cannot choose (`provenance.py` records
+            # the measurement). So the attack is not reachable today -- and a control
+            # whose soundness depends on an UNDECLARED property of an input is the
+            # thing this repository keeps finding. Once ordering is seen to break,
+            # this state stops claiming to have observed anything.
+            self._ordering_broken = True
+
+    def has_observed(self, as_of: datetime, window: timedelta) -> bool:
+        """Has this state seen the whole of `[as_of - window, as_of]`?
+
+        A complete state has, by construction. A resumed one has only once it has
+        been watching for longer than the window -- which is what makes the unknown
+        TEMPORARY rather than permanent, and is the difference between a control and
+        an apology.
+
+        Note what is NOT claimed: this says the state observed the window, not that
+        the window is empty. A purchase made before the restart and inside the window
+        is exactly what it cannot see, which is why the answer is `unknown` and not
+        `false`.
+        """
+        if not self.resumed_incomplete:
+            return True
+        if self._observed_from is None or self._ordering_broken:
+            return False
+        return as_of - window >= self._observed_from
+
     def find_similar_recent(
         self,
         *,
@@ -678,7 +760,7 @@ class RunState:
                 continue
             if prior.basket_key != basket_key:
                 continue
-            if abs(timestamp - prior.timestamp) > _DUPLICATE_WINDOW:
+            if abs(timestamp - prior.timestamp) > DUPLICATE_WINDOW:
                 continue
             # The amount deliberately does NOT have to match. Requiring it read
             # "similar" as "identical", and a compromised agent evaded the whole

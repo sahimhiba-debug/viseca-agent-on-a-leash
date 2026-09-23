@@ -222,9 +222,17 @@ class LiveWorker:
         will see it, and to disclose the consequence in
         `docs/WHAT_WE_REFUSE_TO_CLAIM.md` rather than imply a bound we do not hold.
         """
+        # THE PLATFORM CALL HAPPENS BEFORE THE LOCK, AND ONLY WHEN THERE IS NOTHING
+        # TO RESTORE. Blocking I/O inside `self._lock` would stall every other
+        # decision in this worker behind one HTTP round trip, and `register_run` is
+        # on the auto-registration path taken by an ordinary first event -- so the
+        # cost would land on the common case to serve the rare one.
+        path = self._checkpoint_path(run_id)
+        restorable = path is not None and path.exists()
+        resumed_incomplete = False if restorable else not self._prior_spend_is_known(run_id)
+
         with self._lock:
-            path = self._checkpoint_path(run_id)
-            if path is not None and path.exists():
+            if restorable:
                 snapshot = json.loads(path.read_text())
                 state = RunState.from_snapshot(snapshot, self._history)
                 logger.info("run_id=%s: restored %d prior decisions from checkpoint %s", run_id, len(snapshot["decisions"]), path)
@@ -234,10 +242,9 @@ class LiveWorker:
                 # treated both as "nothing spent yet" and logged loudly about it.
                 # The evidence to tell them apart was already being fetched, one
                 # method down, for a different purpose.
-                known = self._prior_spend_is_known(run_id)
                 state = RunState(history=self._history, card_id=mandate.card_id,
-                                 prior_spend_known=known)
-                if not known:
+                                 resumed_incomplete=resumed_incomplete)
+                if resumed_incomplete:
                     logger.warning(
                         "run_id=%s: no checkpoint at %s and the platform has prior "
                         "decisions (or could not be asked); prior spend is UNKNOWN. "
@@ -291,16 +298,19 @@ class LiveWorker:
         """
         try:
             listing = self._client.list_authorizations()
+            records: list[Any] = []
+            if isinstance(listing, dict):
+                for key in ("data", "authorizations", "items"):
+                    candidate = listing.get(key)
+                    if isinstance(candidate, list):
+                        records = candidate
+                        break
+            elif isinstance(listing, list):
+                records = listing
         except Exception as exc:                  # noqa: BLE001 -- any failure means "cannot establish"
             logger.warning("run_id=%s: could not ask the platform whether this run "
                            "existed (%s); treating prior spend as UNKNOWN", run_id, exc)
             return False
-
-        records: list[dict[str, Any]] = []
-        if isinstance(listing, dict):
-            records = listing.get("data") or listing.get("authorizations") or listing.get("items") or []
-        elif isinstance(listing, list):
-            records = listing
 
         for record in records:
             if not isinstance(record, dict):

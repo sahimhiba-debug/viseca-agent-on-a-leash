@@ -29,6 +29,22 @@ different authors:
 The customer wrote three requirements and got one guarantee, one refutation and one
 promise. Nobody told them which was which.
 
+THE FACT WITH NO RULE OF ITS OWN
+
+`authorization.timestamp` is not a field any rule names, and it was therefore missed
+by the first version of this table -- which classified the nine fields `rules.py`
+evaluates and stopped there. It is the clock every rolling ceiling is measured in,
+so it decides which week money counts against. Measured, on a CHF 300 / 7-day cap
+with the ceiling already spent:
+
+    the purchase, honestly stamped        block
+    the same purchase, stamped 8 days ago ALLOW   -- CHF 600 against a CHF 300 cap
+
+It is BOUND, and only because of how it is produced: the replay preserves the pack's
+simulated time and the agent endpoint derives its own from a fixed origin, ignoring
+anything a caller sends. A lesson rather than a reassurance -- a decision input with
+no rule attached to it had no provenance at all until something went looking.
+
 THE CRITERION, STATED PRECISELY
 
 A fact is FORGEABLE if misstating it changes the decision **while leaving the purchase
@@ -84,6 +100,12 @@ FACTS: tuple[Provenance, ...] = (
         "charges less",
         "The agent names the amount, and naming a smaller one buys a smaller thing. "
         "The figure it names is the figure that is charged."),
+    Provenance(
+        "authorization.timestamp", "the platform, and this wallet's own derivation", BOUND,
+        "never read from the proposal: the offline replay preserves the pack's "
+        "simulated purchase time and `/api/agent/propose` derives its own",
+        "The agent cannot choose when this happened. That matters more than it "
+        "sounds: WHEN a purchase happened decides which week it counts against."),
     Provenance(
         "item.category", "the party proposing the purchase", REFUTABLE,
         "the official item catalogue: a mismatch is refused, and an id it does not "
