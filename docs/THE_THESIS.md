@@ -34,9 +34,25 @@ moment**. Only the description moves.
 
 | | facts | |
 | --- | --- | --- |
-| **bound** | `merchant.familiar`, `merchant.category`, `session.integrity_risk`, `authorization.billing_amount_chf` | the agent cannot author them |
-| **refutable** | `item.category`, `item.unrequested_present` | it can, and the official catalogue refuses a mismatch |
+| **bound** | `merchant.familiar`, `session.integrity_risk`, `authorization.billing_amount_chf`, `authorization.timestamp` | the agent cannot author them |
+| **refutable** | `merchant.category`, `item.category`, `item.unrequested_present` | it can, and official reference data refuses a mismatch |
 | **advisory** | `item.name_contains`, `item.size`, `order.return_window_days` | it can, and nothing can contradict it |
+
+**Two of those rows are corrections, and neither was found by the audit that produced
+the table.** `authorization.timestamp` was in no row at all — the table was built from
+the fields `rules.py` evaluates, and no rule names the clock, though every rolling
+ceiling is measured in it. `merchant.category` sat under **bound** on a declaration
+that read *"loaded from reference data, never from the proposal"*: the event
+*builders* do that, and the engine read it straight out of the event. A `transport`
+merchant relabelled `groceries` was **allowed** on a groceries-only mandate, with
+`merchants.csv` open in the same process saying otherwise.
+
+The probe agreed with the false declaration, because it attacked that fact by swapping
+the merchant *id* — which changes the shop, and therefore the purchase — and never
+relabelled the category of the **same** shop. *A test written from the same
+misunderstanding as the code will confirm the code.* Both corrections came from sweeps
+that do not know what the table says: `research/substitution.py` restates every field
+of every official event with a value that field really takes elsewhere.
 
 The clause about the purchase is what makes the criterion mean anything. The agent
 writes `billing_amount_chf` too, and writing a smaller number *does* turn a BLOCK into
@@ -261,7 +277,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,721 passed · 5 reported skips
+tests                1,722 passed · 5 reported skips
 mutation             39 mutants applied · 39 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)

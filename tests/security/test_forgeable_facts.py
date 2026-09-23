@@ -10,13 +10,30 @@ They are not equally solid, and this file is where that stops being an opinion.
 Measured by putting a violating purchase through the real engine, then talking it
 into compliance **without changing the goods, the shop, the price or the moment**:
 
-    bound      merchant.familiar, merchant.category, session.integrity_risk,
-               authorization.billing_amount_chf
-    refutable  item.category, item.unrequested_present
+    bound      merchant.familiar, session.integrity_risk,
+               authorization.billing_amount_chf, authorization.timestamp
+    refutable  merchant.category, item.category, item.unrequested_present
     advisory   item.name_contains, item.size, order.return_window_days
 
 The customer wrote three kinds of requirement and got one guarantee, one refutation
 and one promise. Nobody told them which was which.
+
+TWO OF THESE ROWS ARE CORRECTIONS, AND BOTH CORRECTIONS CAME FROM OUTSIDE THIS FILE.
+
+`authorization.timestamp` was in no row at all: the table was built from the fields
+`rules.py` evaluates, and no rule names the clock -- though every rolling ceiling is
+measured in it.
+
+`merchant.category` sat under `bound`, on a declaration that said "loaded from
+reference data, never from the proposal". The event BUILDERS do that; the engine read
+it out of the event. THE PROBE HERE AGREED, because it attacked the fact by swapping
+the merchant ID -- which changes the shop, and therefore the purchase -- and never
+relabelled the category of the same shop. A test written from the same
+misunderstanding as the code confirms the code, and no amount of running it helps.
+
+Both were found by sweeps that do not know what the table says:
+`research/substitution.py` restates every field of every official event with a value
+that field really takes elsewhere, and reports anything that buys a better answer.
 
 THE CRITERION IS WHAT MAKES THIS HONEST. `billing_amount_chf` is also written by the
 proposing party, and writing a smaller number *does* turn a BLOCK into an ALLOW --
@@ -101,7 +118,10 @@ def test_the_catalogue_refutes_a_relabelled_item(measured):
 
 
 def test_a_policy_is_as_strong_as_its_weakest_fact():
-    assert weakest(["merchant.familiar", "merchant.category"]) == BOUND
+    # `merchant.category` was BOUND here until a substitution sweep showed the engine
+    # reads it out of the event; `merchant.familiar` is the bound one it pairs with.
+    assert weakest(["merchant.familiar", "authorization.timestamp"]) == BOUND
+    assert weakest(["merchant.familiar", "merchant.category"]) == REFUTABLE
     assert weakest(["merchant.familiar", "item.category"]) == REFUTABLE
     assert weakest(["merchant.familiar", "order.return_window_days"]) == ADVISORY
     assert weakest([]) == BOUND

@@ -29,6 +29,28 @@ different authors:
 The customer wrote three requirements and got one guarantee, one refutation and one
 promise. Nobody told them which was which.
 
+A DECLARATION THAT WAS SIMPLY WRONG, AND THE PROBE THAT AGREED WITH IT
+
+`merchant.category` was declared BOUND here, "loaded from reference data, never from
+the proposal". The event BUILDERS do load it from `merchants.csv`. This engine never
+did -- it read `auth.merchant.merchant_category` straight out of the event:
+
+    mandate: merchant.category in ['groceries']
+    RailNest, stated as `transport` (its real record)   block
+    RailNest, stated as `groceries`                     ALLOW
+
+with `merchants.csv` open in the same process, saying `transport`.
+
+The probe agreed, because it attacked the fact by swapping the merchant ID -- which
+changes the shop and therefore the purchase -- and never relabelled the category of
+the SAME shop. A test written from the same misunderstanding as the code will confirm
+the code. The declaration described the component that BUILDS events, not the one
+that READS them, and nothing in the audit noticed that those are different programs.
+
+Found by `research/substitution.py`, which restates every field with a value that
+field really takes elsewhere in the official pack -- built precisely because the
+previous finding of this kind (the clock, below) had been found by accident.
+
 THE FACT WITH NO RULE OF ITS OWN
 
 `authorization.timestamp` is not a field any rule names, and it was therefore missed
@@ -105,9 +127,11 @@ FACTS: tuple[Provenance, ...] = (
         "The agent cannot affect this. It chooses which shop to use; it cannot change "
         "what that shop is to your card."),
     Provenance(
-        "merchant.category", "the official merchant record", BOUND,
-        "loaded from reference data, never from the proposal",
-        "The agent cannot affect this. The shop's kind comes from the shop's record."),
+        "merchant.category", "the party proposing the purchase", REFUTABLE,
+        "the official merchant record, where the merchant id is one it knows",
+        "The purchase says what kind of shop this is. The wallet checks it against "
+        "the merchant record and refuses a mismatch, and puts a shop it cannot "
+        "identify to you rather than taking the claim on trust."),
     Provenance(
         "session.integrity_risk", "the platform, plus this run's own observations", BOUND,
         "the event's velocity claim is cross-checked against what this run has seen, "

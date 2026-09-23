@@ -89,7 +89,8 @@ def _decide(spec: dict[str, Any], *, aid: str, state: RunState | None = None) ->
     merchant = load_merchants()[spec["merchant"]]
     event = make_event(mandate=mandate, authorization_id=aid, amount=spec["unit_price"],
                        merchant_id=spec["merchant"],
-                       merchant_category=merchant["merchant_category"],
+                       merchant_category=spec.get("merchant_category")
+                       or merchant["merchant_category"],
                        card_id=CARD, timestamp=spec["timestamp"], order_returnable="true",
                        device_id=spec["device"],
                        recent_attempt_count_10m=spec["attempts"],
@@ -121,7 +122,18 @@ PROBES: dict[str, tuple[dict, dict | None]] = {
     "order.return_window_days": ({"details": "size M; returns accepted within 2 days"},
                                  {"details": "size M; returns accepted within 30 days"}),
     "merchant.familiar": ({"merchant": STRANGE_SHOP}, None),
-    "merchant.category": ({"merchant": "ME0009"}, None),
+    # THIS PROBE USED TO BE `({"merchant": "ME0009"}, None)` -- violate by using a
+    # different shop, and do not even try to talk it into compliance. It measured
+    # BOUND and agreed with a declaration that said "loaded from reference data,
+    # never from the proposal". The engine never loaded it from anywhere: it read
+    # `auth.merchant.merchant_category` out of the event. The probe missed the hole
+    # because it shared the misunderstanding that created it.
+    #
+    # ME0007 (MetroHop, `transport`) is a shop CA0001 really has paid, so the
+    # familiarity rule cannot mask what the CATEGORY rule does. The relabel then
+    # changes nothing but the word.
+    "merchant.category": ({"merchant": "ME0007"},
+                          {"merchant_category": "groceries"}),
     "authorization.billing_amount_chf": ({"unit_price": 900.0}, {"unit_price": 60.0}),
     "session.integrity_risk": ({"device": "DVC-B", "attempts": 3}, None),
     # `item.unrequested_present` is derived from item.category and is exercised by

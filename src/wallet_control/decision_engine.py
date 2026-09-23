@@ -63,6 +63,7 @@ _DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", valu
 # the event names an id and then contradicts what that id is. A contradiction is a
 # FAIL, which is what keeps `approve when unsure` from waving it through.
 _CATALOGUE_RULE = HardRule(field="item.matches_the_catalogue", operator="=", value="true")
+_MERCHANT_RECORD_RULE = HardRule(field="merchant.matches_the_record", operator="=", value="true")
 
 # Rules whose truth depends on what KIND of thing is in the basket. An id the
 # catalogue cannot identify only matters to a customer who constrained the kind --
@@ -847,6 +848,57 @@ def _catalogue_agreement(items: list[dict[str, Any]]) -> tuple[str | None, str]:
     return None, ""
 
 
+def _merchant_record_agreement(auth: dict[str, Any]) -> tuple[str | None, str]:
+    """Does the shop's stated KIND agree with the shop's own record?
+
+    THE SAME HOLE AS `_catalogue_agreement`, ON THE OTHER SIDE OF THE EVENT, and it
+    survived a full provenance audit because the audit and the code shared a
+    misunderstanding. `provenance.py` declared `merchant.category` BOUND, "loaded
+    from reference data, never from the proposal". The event BUILDERS do load it from
+    `merchants.csv` -- but this engine never did. It read whatever the event said:
+
+        mandate: merchant.category in ['groceries']
+        RailNest, stated as `transport` (its real record)   block
+        RailNest, stated as `groceries`                     ALLOW
+
+    ...with `merchants.csv` loaded in the same process, saying `transport`.
+
+    AND THE PROBE MISSED IT FOR THE SAME REASON. `research/forgeable_facts.py`
+    attacked this fact by swapping the merchant ID, which changes the shop and
+    therefore the purchase, so it measured BOUND and agreed with the declaration.
+    It never relabelled the category of the SAME shop. A test written from the same
+    misunderstanding as the code confirms the code.
+
+    Scoped exactly like the item catalogue, for the same reasons:
+
+        id known, category agrees                    pass
+        id known, category CONTRADICTS the record    fail
+        id not in the reference data                 UNKNOWN
+
+    REFUTES, NEVER CONFIRMS. And the unknown is raised by the caller only when the
+    mandate actually constrains the merchant's kind, so a customer who never asked
+    about it pays nothing for a shop the reference data has not heard of.
+
+    On the official pack this moves nothing: all 45 events are built from
+    `merchants.csv`, so every stated category already equals its record.
+    """
+    from .csv_data import load_merchants
+
+    merchant = auth.get("merchant") or {}
+    merchant_id = merchant.get("merchant_id")
+    stated = merchant.get("merchant_category")
+    record = load_merchants().get(merchant_id) if merchant_id else None
+    if record is None:
+        return "unknown", (f"there is no merchant record for {merchant_id!r}, so what "
+                           f"kind of shop this is rests on the purchase's own claim")
+    actual = record["merchant_category"]
+    if stated != actual:
+        return "fail", (f"this purchase describes {merchant_id} as {stated!r}, but the "
+                        f"merchant record lists it as {actual!r} "
+                        f"({record['merchant_name']})")
+    return None, ""
+
+
 def _customer_message(decision: Decision, evaluations: list[RuleEvaluation], facts: PurchaseFacts,
                       retry_at: datetime | None = None) -> str:
     """Prose for a person. The technical detail goes in `evidence`, not here.
@@ -1116,6 +1168,18 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # 0), but a malformed or tampered event must not be trusted to have honored
         # that -- a non-positive amount is rejected here regardless of schema validation
         # upstream.
+        merchant_verdict, merchant_detail = _merchant_record_agreement(auth)
+        if merchant_verdict == "unknown" and not any(
+                r.field == "merchant.category" for r in mandate.hard_rules):
+            # Nothing was delegated that depends on the KIND of shop, so a shop the
+            # reference data cannot identify is not this customer's problem. A
+            # refutation is still raised: that is an integrity concern either way.
+            merchant_verdict = None
+        if merchant_verdict is not None:
+            evaluations.append(RuleEvaluation(rule=_MERCHANT_RECORD_RULE,
+                                              outcome=merchant_verdict,
+                                              detail=merchant_detail, source="safety"))
+
         catalogue_verdict, catalogue_detail = _catalogue_agreement(auth["items"])
         if catalogue_verdict == "unknown" and not any(
                 r.field in _CATEGORY_DEPENDENT for r in mandate.hard_rules):
