@@ -91,7 +91,7 @@ def audit_timeline(mandate: MandateSnapshot, state: RunState,
                     or ("asked the customer" if wallet_answer == "review" else wallet_answer)),
             clock="simulated",
         ))
-        if stored.was_reviewed:
+        if stored.was_reviewed and stored.resolved_at is not None:
             entries.append(AuditEntry(
                 timestamp=_iso(stored.resolved_at), actor="customer",
                 event="Customer resolved a step-up",
@@ -99,6 +99,23 @@ def audit_timeline(mandate: MandateSnapshot, state: RunState,
                 detail=(f"the customer answered {stored.decision!r}; this OVERRIDES the "
                         f"wallet's request for confirmation, it does not replace the policy"),
                 clock="real",
+            ))
+        elif stored.was_reviewed:
+            # THE ROW ABOVE USED TO APPEAR WHENEVER THE WALLET ASKED, answered or not.
+            #
+            # A purchase still waiting produced "Customer resolved a step-up -- the
+            # customer answered 'review'", with no timestamp, for a question nobody
+            # had answered. An audit trail that attributes an action to the customer
+            # which the customer did not take is not a weak audit trail; it is a
+            # false one, and this is the record of who authorised what.
+            #
+            # Waiting is a real state and it gets its own row, attributed to nobody.
+            entries.append(AuditEntry(
+                timestamp=None, actor="wallet", event="Waiting for the customer",
+                authorization_id=stored.authorization_id, decision="review",
+                detail="the wallet asked and no answer has been recorded; nothing has "
+                       "been authorised and no payment authority exists",
+                clock=None,
             ))
         if stored.execution_issued_at is not None:
             entries.append(AuditEntry(
@@ -110,10 +127,23 @@ def audit_timeline(mandate: MandateSnapshot, state: RunState,
                 clock="real",
             ))
         if stored.revoked:
+            # THE INSTANT IS KNOWN AFTER ALL. This carried `timestamp=None` and said
+            # so -- "the ledger records the fact, not the instant" -- because the
+            # per-authority flag is a boolean. But revocation is a RUN-LEVEL event
+            # (that is the whole fix for F1), every authority in one sweep shares its
+            # moment, and `RunState` records it. An absence that can be filled from
+            # the state that caused it is the pattern `docs/ABSENCE.md` is about, and
+            # the untimed rows here were all CUSTOMER actions -- the ones an audit
+            # trail can least afford to leave unstamped.
+            revoked_at = getattr(state, "_revoked_at", None)
             entries.append(AuditEntry(
-                timestamp=None, actor="customer", event="Payment authority revoked",
+                timestamp=_iso(revoked_at), actor="customer",
+                event="Payment authority revoked",
                 authorization_id=stored.authorization_id,
-                detail="revoked before the money moved; the ledger records the fact, not the instant",
+                clock="real" if revoked_at else None,
+                detail=("revoked before the money moved" if revoked_at else
+                        "revoked before the money moved; this run carries no revocation "
+                        "instant, so the fact is recorded without one"),
             ))
         if stored.consumed_at is not None:
             entries.append(AuditEntry(

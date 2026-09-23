@@ -155,13 +155,70 @@ def test_the_audit_timeline_labels_which_clock_each_entry_uses():
 
 
 def test_the_audit_timeline_never_invents_a_timestamp():
-    """Where the record carries no time, the timeline must say so rather than fill
-    one in from the wall clock."""
+    """Where the record carries no time, the timeline must say so rather than fill one
+    in from the wall clock.
+
+    THIS TEST USED TO ASSERT THAT REVOCATIONS CARRY NO TIME AT ALL, and the principle
+    was right while the premise had gone stale. The per-authority `revoked` flag is a
+    boolean -- but revocation is a RUN-LEVEL event (that is the whole fix for F1),
+    every authority in one sweep shares its moment, and `RunState` records that moment
+    when it happens. Reporting a recorded instant is not inventing one.
+
+    So the property is stated the way it was always meant: the timeline may only show
+    a time the LEDGER recorded, never one taken when the page was rendered. Checked by
+    revoking at an explicit instant far in the past and requiring the audit to say
+    that instant rather than today."""
+    from datetime import datetime, timedelta, timezone
+
     mandate, state = _run_scenario()
-    state.revoke_outstanding_authorities()
-    revocations = [e for e in audit_timeline(mandate, state) if e.event == "Payment authority revoked"]
+    when = datetime(2026, 8, 12, 9, 30, tzinfo=timezone.utc)
+    state.revoke_outstanding_authorities(now=when)
+
+    revocations = [e for e in audit_timeline(mandate, state)
+                   if e.event == "Payment authority revoked"]
     assert revocations
-    assert all(e.timestamp is None for e in revocations)
+    for entry in revocations:
+        assert entry.timestamp is not None, (
+            "the run recorded when it was revoked; the timeline must not drop it")
+        assert entry.timestamp.startswith("2026-08-12T09:30"), (
+            f"the timeline reported {entry.timestamp!r}, which is not the instant the "
+            f"ledger recorded -- it has been stamped at render time")
+        assert entry.clock == "real"
+
+    # And a row with genuinely no instant still says so rather than borrowing one.
+    waiting = [e for e in audit_timeline(mandate, state)
+               if e.event == "Waiting for the customer"]
+    assert all(e.timestamp is None for e in waiting), waiting
+
+
+def test_the_audit_timeline_does_not_attribute_an_action_the_customer_never_took():
+    """THE WORST DEFECT THIS FILE HAS HELD. A purchase still waiting for an answer
+    produced
+
+        customer | Customer resolved a step-up | the customer answered 'review'
+
+    with no timestamp, for a question nobody had answered. An audit trail that
+    attributes an action to the customer which the customer did not take is not a
+    weak audit trail; it is a false one -- and this is the record of who authorised
+    what.
+
+    Waiting is a real state. It gets its own row, attributed to the WALLET, and the
+    customer appears only once they have actually answered."""
+    mandate, state = _run_scenario()
+
+    pending = [d for d in state.all_decisions() if d.was_reviewed and d.resolved_at is None]
+    assert pending, "this scenario must leave a step-up unanswered or the test is vacuous"
+
+    timeline = audit_timeline(mandate, state)
+    resolved_rows = [e for e in timeline if e.event == "Customer resolved a step-up"]
+    unanswered_ids = {d.authorization_id for d in pending}
+    assert not (unanswered_ids & {e.authorization_id for e in resolved_rows}), (
+        "the timeline says the customer resolved a step-up they never answered")
+
+    waiting = [e for e in timeline if e.event == "Waiting for the customer"]
+    assert {e.authorization_id for e in waiting} == unanswered_ids
+    assert all(e.actor == "wallet" for e in waiting), (
+        "waiting is the wallet's state, not an action by the customer")
 
 
 # --- economic disclosure ----------------------------------------------------------
