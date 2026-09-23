@@ -80,23 +80,33 @@ def _run(scenario):
     return client.get(f"/api/runs/{run_id}").json()["decisions"]
 
 
-def test_SCEN0004_still_contains_the_one_case_the_demo_is_built_on():
+def test_SCEN0004_contains_the_cases_the_demo_is_built_on():
     """"Every rule you wrote was satisfied. The wallet stopped this anyway."
 
     That sentence is only honest if a decision exists where policy says allow and
     security does not. The demo script pointed at SCEN0002 for two campaigns; its
     review is a POLICY review -- the customer's own returnable rule was uncertain --
-    which is a different and much weaker claim. The case actually lives here.
-    """
+    which is a different and much weaker claim. The cases actually live here.
+
+    IT USED TO ASSERT EXACTLY ONE, AND THE SECOND WAS BEING MIS-ATTRIBUTED. The
+    read-back split "your rule stopped this" from "the wallet stopped this" using a
+    hand-written list of seven fields while the engine had fourteen -- so the
+    injected-listing check, which no customer opts into, was being credited to the
+    customer's own policy. Correcting that list surfaced a second and frankly better
+    instance of the demo's own sentence: a seller writing instructions to the machine
+    that holds the card is a more striking case than a repeated order."""
     overrides = [d for d in _run("SCEN0004")
                  if d["policy_verdict"] == "allow" and d["security_verdict"] != "allow"]
-    assert len(overrides) == 1, (
+    assert len(overrides) == 2, (
         f"SCEN0004 has {len(overrides)} policy-allow/security-block decisions; the demo "
-        "script promises exactly one and names it on screen")
-    only = overrides[0]
-    assert only["decision"] == "review"
-    assert only["reason_codes"] == ["uncertain:order.duplicate_suspected"]
-    assert "approved" not in only["customer_message"].lower(), only["customer_message"]
+        "script names them on screen")
+
+    by_code = {d["reason_codes"][0]: d for d in overrides}
+    assert set(by_code) == {"uncertain:order.duplicate_suspected",
+                            "uncertain:merchant.text_addresses_the_machine"}, sorted(by_code)
+    for decision in overrides:
+        assert decision["decision"] == "review"
+        assert "approved" not in decision["customer_message"].lower(), decision["customer_message"]
 
 
 def test_SCEN0002_is_NOT_a_security_override_and_we_do_not_say_it_is():

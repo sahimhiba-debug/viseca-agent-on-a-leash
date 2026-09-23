@@ -46,6 +46,17 @@ DECLARED_OPTIONAL = {
     ("audit.py", "audit_timeline", "confirmed_at"): "display only; the server stamps it",
     ("api.py", "_stored_decision_summary", "revoked"): "derived from run state by the caller above",
     ("api.py", "_recorded_message", "revoked"): "same",
+    # PRESENTATION ONLY, AND IT FAILS TOWARDS SAYING LESS. Both carry the run's own
+    # mandate so a rolling-window breach can be read back with the customer's own
+    # figure in it ("over the CHF 300 you allowed across any 7-day period") instead
+    # of the generic wording. Omitting it loses the figure and keeps the boundary --
+    # it cannot turn a refusal into an approval, cannot change a verdict, and cannot
+    # name a limit that is not in the mandate it was handed. The figure is
+    # deliberately NOT encoded in the reason code, because codes are stored and are
+    # what the agent-facing projection is derived from.
+    ("api.py", "_stored_decision_summary", "mandate"): "presentation only; without it "
+        "the read-back keeps the boundary and loses the figure",
+    ("api.py", "_plain_reasons_from_codes", "mandate"): "same",
     ("attack_demo.py", "_mandate", "extra"): "demo fixture builder, not a decision path",
     ("live_worker.py", "resolve", "customer_message"): "text passed through to the platform",
     ("viseca_client.py", "create_mandate_draft", "guidance"): "optional API field",

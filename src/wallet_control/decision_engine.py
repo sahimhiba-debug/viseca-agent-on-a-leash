@@ -195,6 +195,32 @@ _MANDATE_BINDING_RULE = HardRule(field="authorization.mandate_id_binding", opera
 _MANDATE_STATUS_RULE = HardRule(field="mandate.mandate_status", operator="=", value="active")
 _AUTHORIZATION_ID_RULE = HardRule(field="authorization.authorization_id_wellformed", operator="=", value="true")
 
+# EVERY CHECK THE CUSTOMER NEVER OPTED INTO, in one place.
+#
+# `api._verdict_split` reconstructs "your rule stopped this" vs "the wallet stopped
+# this" from a recorded decision's reason codes, and it did so from a hand-written
+# list of seven fields. The engine has fourteen. One of the seven
+# (`authorization.mandate_status`) was not even a field this engine emits -- the
+# real one is `mandate.mandate_status`.
+#
+# So a purchase stopped by a WALLET check was being reported to the customer as
+# stopped by their own policy, on the read-back path, for seven different checks
+# including the injected-listing one. The repository calls that split "the single
+# most audit-relevant fact in a run"; it was being reconstructed from a copy that
+# had drifted from its source.
+#
+# Derived from the rule constants themselves, so a new safety check joins it by
+# existing. `test_the_safety_field_list_is_derived_not_copied` fails if a constant
+# is added and this is not rebuilt.
+SAFETY_RULE_FIELDS: frozenset[str] = frozenset({
+    _DUPLICATE_RULE.field, _CATALOGUE_RULE.field, _MERCHANT_RECORD_RULE.field,
+    _NO_RULES_RULE.field, _AMOUNT_INTEGRITY_RULE.field, _EVENT_READABLE_RULE.field,
+    _MERCHANT_TEXT_RULE.field, _BASKET_PRESENT_RULE.field, _AUTHORITY_STATUS_RULE.field,
+    _CARD_STATUS_RULE.field, _CARD_BINDING_RULE.field, _MANDATE_BINDING_RULE.field,
+    _MANDATE_STATUS_RULE.field, _AUTHORIZATION_ID_RULE.field,
+})
+
+
 # The exact enums from data/official/schemas/authorization_event.schema.json. A
 # value outside these sets is not assumed benign -- it is treated as unknown.
 _KNOWN_DEAD_AUTHORITY_STATUSES = frozenset({"revoked", "expired"})
@@ -586,14 +612,66 @@ def _projected_period_spend(mandate: MandateSnapshot, state: RunState, as_of: da
     return projected
 
 
+def _code_field(rule: "HardRule") -> str:
+    """The field a reason code names, with the scope where scope changes the meaning.
+
+    A PER-ORDER BREACH AND A ROLLING-WINDOW BREACH ARE THE SAME FIELD and mean
+    entirely different things to a person. `_plain_reason` has always distinguished
+    them on the fresh path -- "it would take you over the CHF 300 you allowed across
+    any 7-day period" versus "the amount is above the limit you set" -- by reading
+    the rule's `scope`. A reason code carried only the field, so a decision read back
+    from the ledger could not tell them apart and told a customer who had exceeded
+    their WEEK that the ORDER was too big.
+
+    That is the defect `_plain_reason`'s own comment warns about -- "Collapsing them
+    blames the wrong boundary: the customer would look at the order rather than at
+    the week" -- surviving one layer down, in the surface that re-presents stored
+    decisions. Found by diffing POST /api/scenarios/X/run against GET /api/runs/{id},
+    which the page re-renders from after every step-up.
+
+    A suffix rather than a new field name, so everything matching on
+    `"billing_amount_chf" in code` keeps working.
+    """
+    if rule.scope == "period" and rule.field == "authorization.billing_amount_chf":
+        return f"{rule.field}.period"
+    return rule.field
+
+
 def _decide(evaluations: list[RuleEvaluation], uncertainty_policy: UncertaintyPolicy) -> tuple[Decision, tuple[str, ...]]:
     failures = [e for e in evaluations if e.outcome == "fail"]
     if failures:
-        return "block", tuple(f"hard_rule_failed:{e.rule.field}" for e in failures)
+        # WHAT ELSE THE WALLET SAW, kept alongside what decided.
+        #
+        # A block caused by the amount is caused by the amount, so the `unknown`
+        # observations alongside it are not reasons for the decision and are not
+        # labelled as such. They were still SEEN, and dropping them meant the ledger
+        # explained less than the fresh decision did:
+        #
+        #   POST /api/scenarios/X/run   "the amount is above the limit you set" AND
+        #                               "this seller's product description contains
+        #                                instructions aimed at an automated buyer"
+        #   GET  /api/runs/{id}         the amount, only
+        #
+        # The page re-renders from the GET after any step-up is answered, so the
+        # moment a customer approved one purchase, a DIFFERENT purchase stopped
+        # telling them a seller had written instructions to their wallet. The brief
+        # asks that judges "understand what the system permitted, what evidence it
+        # considered, why it acted"; the evidence considered was being discarded for
+        # every purchase that also failed a rule.
+        #
+        # `observed:` rather than `uncertain:` because the distinction is the point:
+        # these did not change the outcome, and a reader of the ledger is entitled to
+        # know which reasons decided and which were merely seen. They DO feed the
+        # policy/wallet verdict split, exactly as they do on the fresh path -- that
+        # parity is the thing being restored, not an exception to it.
+        observed = tuple(f"observed:{_code_field(e.rule)}"
+                         for e in evaluations if e.outcome == "unknown")
+        return "block", tuple(f"hard_rule_failed:{_code_field(e.rule)}"
+                              for e in failures) + observed
 
     unknowns = [e for e in evaluations if e.outcome == "unknown"]
     if unknowns:
-        reason_codes = tuple(f"uncertain:{e.rule.field}" for e in unknowns)
+        reason_codes = tuple(f"uncertain:{_code_field(e.rule)}" for e in unknowns)
         if uncertainty_policy == UncertaintyPolicy.DECLINE:
             return "block", reason_codes
         if uncertainty_policy == UncertaintyPolicy.APPROVE:
@@ -636,6 +714,10 @@ _PLAIN_FAIL = {
     "authorization.card_status_at_attempt": "the card is blocked",
     "authorization.mandate_status": "this mandate is no longer active",
     "authorization.basket_present": "this purchase lists no items to check",
+    # Same field, different boundary -- see `_code_field`. The figure and the window
+    # are not in the code, so the read-back names the right limit without inventing
+    # numbers; the fresh path, which still has the rule, gives both.
+    "authorization.billing_amount_chf.period": "it would take you over the total you allowed across your rolling period",
 }
 _PLAIN_UNKNOWN = {
     "order.duplicate_suspected": "this looks like an order you already placed, and the wallet cannot tell whether you meant to order it twice",

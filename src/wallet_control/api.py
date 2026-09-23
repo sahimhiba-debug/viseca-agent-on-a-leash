@@ -946,11 +946,14 @@ def get_run(run_id: str) -> dict[str, Any]:
         # every reason, every piece of evidence and every basket line the moment the
         # customer pressed Approve. A UX audit caught it: the one action a customer is
         # guaranteed to take deleted the explanation layer the product is built on.
-        decisions.append(_stored_decision_summary(event, stored, revoked=run.state.is_revoked))
+        decisions.append(_stored_decision_summary(event, stored,
+                                                  revoked=run.state.is_revoked,
+                                                  mandate=run.mandate))
     return {"run_id": run_id, "mandate": run.mandate.as_dict(), "decisions": decisions}
 
 
-def _stored_decision_summary(event: dict[str, Any], stored, *, revoked: bool = False) -> dict[str, Any]:
+def _stored_decision_summary(event: dict[str, Any], stored, *, revoked: bool = False,
+                             mandate=None) -> dict[str, Any]:
     """Re-present a recorded decision with the same fields a fresh evaluation returns.
 
     `wallet_decision` is deliberately separate from `decision`: for a purchase the
@@ -984,22 +987,20 @@ def _stored_decision_summary(event: dict[str, Any], stored, *, revoked: bool = F
         **_verdict_split(stored.reason_codes),
         "resolved_by_customer": bool(stored.was_reviewed and stored.resolved_at),
         "reason_codes": list(stored.reason_codes),
-        "plain_reasons": _plain_reasons_from_codes(stored.reason_codes),
+        "plain_reasons": _plain_reasons_from_codes(stored.reason_codes, mandate),
         "customer_message": _recorded_message(stored, auth, revoked=revoked),
         "evidence": [], "policy_evidence": [], "safety_evidence": [],
         "payment_authority": None,
     }
 
 
-_SAFETY_FIELDS = {
-    "authorization.amount_integrity",
-    "authorization.authority_status",
-    "authorization.card_status_at_attempt",
-    "authorization.mandate_status",
-    "authorization.card_id_binding",
-    "authorization.mandate_id_binding",
-    "order.duplicate_suspected",
-}
+# DERIVED, NOT COPIED. This was a hand-written list of seven fields while the engine
+# had fourteen, and one of the seven (`authorization.mandate_status`) was not a field
+# this engine emits at all. A purchase stopped by a WALLET check was therefore
+# reported on the read-back path as stopped by the customer's own policy, for seven
+# checks including the injected-listing one -- inverting the split this product calls
+# the single most audit-relevant fact in a run.
+from .decision_engine import SAFETY_RULE_FIELDS as _SAFETY_FIELDS  # noqa: E402
 
 
 def _verdict_split(reason_codes: tuple[str, ...]) -> dict[str, Any]:
@@ -1042,16 +1043,40 @@ def _basket_lines(auth: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _plain_reasons_from_codes(reason_codes) -> list[str]:
+def _plain_reasons_from_codes(reason_codes, mandate=None) -> list[str]:
     """The same wording for a decision re-presented from storage, where the rule
     evaluations are gone and only the codes survive. One table, read from the
-    engine -- never a second copy living in a client."""
+    engine -- never a second copy living in a client.
+
+    `mandate` is optional and is used for ONE thing: a rolling-window breach reads
+    better with the customer's own figure in it ("over the CHF 300 you allowed across
+    any 7-day period") than without ("over the total you allowed across your rolling
+    period"). The figure is NOT encoded in the reason code, deliberately -- codes are
+    stored in the ledger and are the shape the agent-facing projection is derived
+    from, and a policy value written into one is a policy value looking for a way
+    out. It is read from the mandate the caller already holds instead.
+    """
+    window = None
+    if mandate is not None:
+        window = next((r for r in mandate.hard_rules
+                       if r.field == "authorization.billing_amount_chf"
+                       and r.scope == "period" and r.period_days), None)
+
     out: list[str] = []
     for code in reason_codes:
         if ":" not in code:
             continue
         kind, field = code.split(":", 1)
-        table = _PLAIN_UNKNOWN if kind == "uncertain" else _PLAIN_FAIL
+        # `observed:` carries the same wording as `uncertain:` -- it is the same
+        # observation, it simply did not decide this purchase.
+        table = _PLAIN_UNKNOWN if kind in ("uncertain", "observed") else _PLAIN_FAIL
+        if field == "authorization.billing_amount_chf.period" and window is not None:
+            try:
+                out.append(f"it would take you over the CHF {float(window.value):g} you "
+                           f"allowed across any {window.period_days}-day period")
+                continue
+            except (TypeError, ValueError):
+                pass
         out.append(table.get(field) or field.replace(".", " ").replace("_", " "))
     return list(dict.fromkeys(out))
 
