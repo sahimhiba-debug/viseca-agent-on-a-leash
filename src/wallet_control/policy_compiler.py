@@ -145,7 +145,7 @@ _ROLLING_RE = re.compile(
 _PERIOD_WORD_DAYS = {"day": 1, "week": 7, "fortnight": 14, "month": 30, "year": 365}
 
 # "at or below CHF 120" means <=, and it contains the word "below". A first version of
-# this pattern did not exclude it and silently flipped SCEN0001's per-order rule from
+# this pattern did not exclude it and silently flipped the household scenario's per-order rule from
 # <= to <. The official replay did not move, because no official purchase is exactly
 # CHF 120.00 -- so the only thing that caught it was reading the compiled rules. The
 # test that was supposed to guard this compared value and scope but not the OPERATOR.
@@ -480,7 +480,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     # Whitespace is not semantic here, but every pattern below is written with literal
     # spaces, so it WAS: doubling the spaces in the five official instructions lost the
     # per-order ceiling in all five, the merchant-familiarity rule in two, the
-    # session-integrity rule in one, and flipped SCEN0001's operator from <= to <
+    # session-integrity rule in one, and flipped the household scenario's operator from <= to <
     # (because "at or  below" no longer matched the negative lookbehind). A customer
     # typing into a text box produces double spaces, tabs and newlines constantly.
     #
@@ -735,7 +735,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     # this disclosure got it wrong in both directions:
     #
     #   * It claimed a rolling cap leaves the agent "blocked and stays blocked". It
-    #     does not. The window rolls and re-opens: measured against SCEN0001, a
+    #     does not. The window rolls and re-opens: measured on the household scenario, a
     #     policy-compliant agent draws CHF 240 every 7 days without interruption,
     #     CHF 12,480 in a simulated year. A rolling cap is a RATE, not a total.
     #   * It then advised the customer to "add a total, such as no more than CHF X
@@ -771,7 +771,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
         # guess. `technical_details.md` scopes the platform's own spend context to
         # the run -- "context | Spend and recent authorization information from this
         # run" -- so the window is counted per shopping session, and a session
-        # started again begins at zero. Measured on SCEN0001: CHF 387.50 per run, so
+        # started again begins at zero. Measured on the household scenario: CHF 387.50 per run, so
         # ten runs put CHF 3,875 through a stated CHF 300 / 7-day cap.
         #
         # We do NOT enforce this across sessions, and the reason is a protocol

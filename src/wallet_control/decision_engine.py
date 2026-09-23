@@ -601,13 +601,13 @@ def _window_retry(evaluations: list[RuleEvaluation], state: "RunState",
     A card cannot answer this at all. It has no notion of the customer's window --
     only of its own month.
 
-    ONLY WHEN THE WINDOW IS THE SOLE REASON. AU0007 in the official pack fails on the
-    window AND on an item category the customer never asked for; AU0010 fails on the
-    window AND on the per-order ceiling. Telling either of those customers "you could
-    order this again on Tuesday" would be false -- Tuesday will not make a jar of
-    something they did not ask for into something they did. A retry time attached to
-    a refusal that waiting cannot cure is a worse answer than no retry time, because
-    the customer will act on it."""
+    ONLY WHEN THE WINDOW IS THE SOLE REASON. Two of the five refusals in the official
+    household-budget scenario fail on the window AND on something else -- an item
+    category the customer never asked for, a per-order ceiling. Telling either of
+    those customers "you could order this again on Tuesday" would be false: Tuesday
+    will not make a jar of something they did not ask for into something they did. A
+    retry time attached to a refusal that waiting cannot cure is a worse answer than
+    no retry time, because the customer will act on it."""
     failures = [e for e in evaluations if e.outcome == "fail"]
     if len(failures) != 1:
         return None

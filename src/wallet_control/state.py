@@ -733,7 +733,7 @@ class RunState:
 
         Returning to a device this run has already seen is deliberately weaker than
         moving to a fresh one: the handset coming back after the laptop is the
-        commonest benign pattern in the data, and AU0031 is exactly that.
+        commonest benign pattern in the official data.
         """
         reasons: list[str] = []
         previous = self._last_device_id
