@@ -268,16 +268,52 @@ def test_the_agents_proposals_do_not_depend_on_the_secret_limit():
         propose, _, _ = _wallet(instruction)
         return shop(Mission("Order the household groceries", "groceries"), propose)
 
-    low, high = episode_for(60), episode_for(200)
+    # THE PAIR MATTERS, AND THE ORIGINAL PAIR MADE HALF THIS TEST UNRUNNABLE.
+    #
+    # This compared 60 against 200 only. CHF 200 allows the opening basket outright
+    # and CHF 60 blocks it, so the two episodes' decisions differ at attempt ZERO --
+    # the revision loop below broke on its first iteration every time and its
+    # assertion never executed once, measured with `coverage` over a full passing
+    # suite. The opening-basket assertions ran; the claim in this test's name about
+    # everything AFTER the opening basket did not.
+    #
+    # Measured agreeing prefixes: (60, 200) -> 0 attempts, (100, 110) -> 3,
+    # (60, 80) -> 4, (40, 55) -> 5. The wide pair is kept because it is the sharpest
+    # contrast for the opening basket; the close pairs are what actually exercise the
+    # revisions.
+    pairs = ((60, 200), (60, 80), (40, 55), (100, 110))
+    episodes = {ceiling: episode_for(ceiling)
+                for ceiling in sorted({c for pair in pairs for c in pair})}
 
-    assert low.attempts[0].amount_chf == high.attempts[0].amount_chf, (
-        "the opening basket differs -- the agent is aiming at the limit"
-    )
-    assert [l.name for l in low.attempts[0].lines] == [l.name for l in high.attempts[0].lines]
+    compared = 0
+    for low_cap, high_cap in pairs:
+        low, high = episodes[low_cap], episodes[high_cap]
 
-    # Revisions match while the wallet's answers match; they may diverge only after the
-    # decisions themselves diverge, which is the irreducible ALLOW/BLOCK oracle.
-    for a, b in zip(low.attempts, high.attempts):
-        if a.agent_view["decision"] != b.agent_view["decision"]:
-            break
-        assert a.amount_chf == b.amount_chf, "proposals diverged while the wallet's answers agreed"
+        assert low.attempts[0].amount_chf == high.attempts[0].amount_chf, (
+            f"the opening basket differs between CHF {low_cap} and CHF {high_cap} -- "
+            f"the agent is aiming at the limit")
+        assert ([l.name for l in low.attempts[0].lines]
+                == [l.name for l in high.attempts[0].lines]), (
+            f"the opening basket's CONTENTS differ between CHF {low_cap} and "
+            f"CHF {high_cap}")
+
+        # Revisions match while the wallet's answers match; they may diverge only
+        # after the decisions themselves diverge, which is the irreducible
+        # ALLOW/BLOCK oracle.
+        for a, b in zip(low.attempts, high.attempts):
+            if a.agent_view["decision"] != b.agent_view["decision"]:
+                break
+            assert a.amount_chf == b.amount_chf, (
+                f"proposals diverged while the wallet's answers agreed "
+                f"(CHF {low_cap} vs CHF {high_cap})")
+            assert [l.name for l in a.lines] == [l.name for l in b.lines], (
+                f"the basket CONTENTS diverged while the wallet's answers agreed "
+                f"(CHF {low_cap} vs CHF {high_cap})")
+            compared += 1
+
+    assert compared >= 8, (
+        f"only {compared} revisions were compared under agreeing wallet answers. The "
+        f"claim in this test's name is about what the agent does AFTER the opening "
+        f"basket, and with too few comparisons it is not being tested -- which is the "
+        f"state this test was in when it compared one wide pair whose answers diverge "
+        f"immediately.")

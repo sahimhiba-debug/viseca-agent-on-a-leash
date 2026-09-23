@@ -61,8 +61,20 @@ def test_a_per_item_ceiling_is_not_confused_with_a_per_order_ceiling():
     # ceiling from a phrase that actually means "more than" -- either nothing was
     # extracted (safe: falls through to the open_question below) or, if something
     # WAS extracted, it must be a genuine <= rule the text actually supports.
-    if ceiling is not None:
-        assert ceiling == 100.0  # would only be correct by coincidence; documented as a known gap
+    # MEASURED, not hedged. This was written as `if ceiling is not None: assert
+    # ceiling == 100.0`, and `coverage` over a full passing suite shows that branch
+    # was never entered: the compiler extracts nothing here. A conditional whose
+    # condition is always false asserts nothing, and it would have gone on saying
+    # nothing if the compiler had later started extracting 50.0 from this sentence.
+    #
+    # So the measured behaviour is pinned instead. Extracting NOTHING from "over CHF
+    # 100" is the correct outcome -- the phrase means "more than", so any ceiling
+    # taken from it would invert the customer's intent -- and the open question is
+    # what carries the gap to the customer.
+    assert ceiling is None, (
+        f"the compiler extracted a ceiling of {ceiling} from a phrase that means "
+        f"MORE THAN CHF 100. A permissive rule was invented from a restrictive "
+        f"sentence.")
     assert compiled.open_questions  # the customer must see that something was not understood
 
 
@@ -105,5 +117,11 @@ def test_instruction_naming_an_absurdly_large_amount_is_still_taken_literally_no
 def test_negative_sounding_amount_phrase_does_not_produce_a_negative_ceiling():
     compiled = compile_instruction("Don't spend a single negative CHF -50 or less on anything weird.")
     ceiling = _amount_ceiling(compiled)
-    if ceiling is not None:
-        assert ceiling >= 0  # HardRule itself would reject a negative/malformed value at construction time anyway
+    # Same correction as above: measured, the compiler extracts nothing from this
+    # sentence, so `if ceiling is not None` never ran and the test asserted nothing.
+    # `>= 0` is also the weaker claim -- it would have accepted a ceiling of 50.0
+    # conjured out of "-50", which is not a limit the customer wrote.
+    assert ceiling is None, (
+        f"the compiler extracted a ceiling of {ceiling} from a sentence containing no "
+        f"usable limit; HardRule would reject a negative value, but a POSITIVE one "
+        f"invented from '-50' would be accepted and would bind real money")

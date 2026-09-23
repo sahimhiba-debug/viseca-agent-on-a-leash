@@ -166,38 +166,66 @@ def test_F3_concurrent_answers_to_one_step_up_cannot_both_be_accepted():
     transition was already a locked compare-and-set; the CONSENT transition was bare,
     so both answers were accepted, last writer won, and a purchase the customer
     declined could end holding a live payment authority."""
-    md, s = _review_mandate(), _state()
-    assert _propose(md, s, "AU1").decision == "review"
+    def one_race(start_order: tuple[str, str]) -> str:
+        md, s = _review_mandate(), _state()
+        assert _propose(md, s, "AU1").decision == "review"
 
-    outcomes: list[str] = []
-    errors: list[Exception] = []
-    barrier = threading.Barrier(2)
+        outcomes: list[str] = []
+        errors: list[Exception] = []
+        barrier = threading.Barrier(2)
 
-    def answer(decision: str) -> None:
-        barrier.wait()
+        def answer(decision: str) -> None:
+            barrier.wait()
+            try:
+                outcomes.append(resolve_authorization(
+                    "AU1", decision, s,
+                    resolved_at=datetime.now(timezone.utc), mandate=md).decision)
+            except Exception as exc:      # a refusal is the correct outcome for one of them
+                errors.append(exc)
+
+        old = sys.getswitchinterval()
+        sys.setswitchinterval(1e-9)
         try:
-            outcomes.append(resolve_authorization(
-                "AU1", decision, s, resolved_at=datetime.now(timezone.utc), mandate=md).decision)
-        except Exception as exc:          # a refusal is the correct outcome for one of them
-            errors.append(exc)
+            threads = [threading.Thread(target=answer, args=(d,)) for d in start_order]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        finally:
+            sys.setswitchinterval(old)
 
-    old = sys.getswitchinterval()
-    sys.setswitchinterval(1e-9)
-    try:
-        threads = [threading.Thread(target=answer, args=(d,)) for d in ("block", "allow")]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-    finally:
-        sys.setswitchinterval(old)
+        stored = s.get_stored_decision("AU1")
+        assert len(outcomes) == 1, f"both answers were accepted: {outcomes}"
+        assert len(errors) == 1
+        assert stored.decision == outcomes[0]
 
-    stored = s.get_stored_decision("AU1")
-    assert len(outcomes) == 1, f"both answers were accepted: {outcomes}"
-    assert len(errors) == 1
-    assert stored.decision == outcomes[0]
-    if stored.decision == "block":
-        assert s.get_authority("AU1") is None, "a declined purchase holds a live authority"
+        # BOTH sides, unconditionally. The previous version asserted the declined case
+        # under `if stored.decision == "block"`, and measured over 150 races that
+        # branch ran ONCE: whichever thread starts second wins about 99% of the time,
+        # and the winner was always the allowing one. The single most important
+        # assertion in this test -- that a purchase the customer DECLINED does not
+        # keep a live payment authority -- was reached roughly 0.7% of the time, and
+        # `coverage` over a full passing suite showed it never reached at all.
+        if stored.decision == "block":
+            assert s.get_authority("AU1") is None, (
+                "a declined purchase holds a live authority")
+        else:
+            assert s.get_authority("AU1") is not None, (
+                "an approved purchase has no authority to charge against")
+        return stored.decision
+
+    # Both start orders, because the race is decided by start order and one of them
+    # explores only one outcome. This is the lesson F1d states one screen below and
+    # this test did not follow: a concurrency test that observes a single ordering is
+    # a slow way of running one case.
+    seen = [one_race(order)
+            for order in (("block", "allow"), ("allow", "block"))
+            for _ in range(6)]
+
+    assert set(seen) == {"allow", "block"}, (
+        f"the race never explored both outcomes -- only {sorted(set(seen))} was ever "
+        f"the stored decision, so half the invariant above went unchecked. That is "
+        f"the state this test was in before: passing, and testing one side.")
 
 
 # --- F1d: the brake and the answer arriving at the same instant ---------------------

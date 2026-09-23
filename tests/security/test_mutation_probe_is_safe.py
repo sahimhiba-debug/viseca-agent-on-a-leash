@@ -100,10 +100,35 @@ def test_baselines_are_captured_once_before_any_mutation():
     tree = ast.parse(PROBE.read_text())
     main = next(n for n in ast.walk(tree)
                 if isinstance(n, ast.FunctionDef) and n.name == "main")
+
+    # NOT `ast.walk(main)`, and this test passed vacuously for exactly that reason.
+    # `walk` descends into nested function definitions, and `main` defines the signal
+    # handler `_restore_and_exit` BEFORE the mutant loop. The handler contains its own
+    # `for ... : write_text(...)`, so "the first loop in main that writes a file" found
+    # the handler's restore loop -- which contains no assignments at all, so the filter
+    # below skipped every node and the assertion never ran once. Measured with
+    # `coverage`: lines 111-117 of the previous version were never executed by a
+    # passing suite. The test was inspecting the wrong function and reporting success.
+    def _direct_loops(node):
+        """Loops belonging to `node` itself, not to functions defined inside it."""
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                continue
+            if isinstance(child, ast.For):
+                yield child
+            yield from _direct_loops(child)
+
     mutating_loop = next(
-        loop for loop in (n for n in ast.walk(main) if isinstance(n, ast.For))
+        loop for loop in _direct_loops(main)
         if any(isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)
-               and c.func.attr == "write_text" for c in ast.walk(loop)))
+               and c.func.attr == "write_text"
+               and any(isinstance(a, ast.Name) and a.id == "mutated_text" for a in c.args)
+               for c in ast.walk(loop)))
+
+    assignments = [n for n in ast.walk(mutating_loop) if isinstance(n, ast.Assign)]
+    assert assignments, (
+        "no assignments found in the mutating loop, so the check below inspects "
+        "nothing. That is how this test passed while reading the wrong loop.")
 
     for node in ast.walk(mutating_loop):
         if not isinstance(node, ast.Assign):

@@ -9,3 +9,5 @@ reference/
 .env
 *.log
 .mutation-probe-inflight.json
+.coverage
+.coverage.*

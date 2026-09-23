@@ -51,6 +51,33 @@ def test_neither_resolver_reaches_into_site_packages(monkeypatch):
         assert "site-packages" not in str(resolved), resolved
 
 
+SECRET_NAMES = ("API_KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD",
+                "CREDENTIAL", "PRIVATE_KEY", "ACCESS_KEY")
+
+
+def _baked_secrets(text: str, name: str) -> tuple[list[str], list[str]]:
+    """Lines that assign a credential a literal value, and every line examined.
+
+    Returns BOTH, because the count of lines examined is the only thing that
+    distinguishes "nothing is baked in" from "nothing was looked at"."""
+    baked, examined = [], []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") or not any(s in line for s in SECRET_NAMES):
+            continue
+        # `NAME=value` (Dockerfile ENV/ARG) or `NAME: value` (compose YAML).
+        for separator in ("=", ":"):
+            _, _, value = line.partition(separator)
+            if not value.strip():
+                continue
+            examined.append(f"{name}: {stripped}")
+            literal = value.strip().strip('"\'')
+            if literal and "${" not in literal and not literal.startswith("$"):
+                baked.append(f"{name}: {stripped}")
+            break
+    return baked, examined
+
+
 def test_the_dockerfile_and_compose_exist_and_bake_no_secrets():
     root = Path(__file__).resolve().parents[1]
     dockerfile = (root / "Dockerfile").read_text()
@@ -61,11 +88,26 @@ def test_the_dockerfile_and_compose_exist_and_bake_no_secrets():
         assert f"COPY {path}" in dockerfile, path
 
     # Keys may be PASSED THROUGH from the environment; none may be baked in.
-    for text, name in ((dockerfile, "Dockerfile"), (compose, "docker-compose.yml")):
-        for line in text.splitlines():
-            if "API_KEY" in line and "=" in line:
-                assert "${" in line or line.strip().startswith("#"), (
-                    f"{name} appears to hard-code a key: {line.strip()}")
+    baked, examined = _baked_secrets(dockerfile, "Dockerfile")
+    more, seen = _baked_secrets(compose, "docker-compose.yml")
+    baked += more
+    examined += seen
+
+    assert not baked, "a credential appears to be baked into the image:\n  " + "\n  ".join(baked)
+    # THE SCAN MUST HAVE SCANNED SOMETHING.
+    #
+    # The previous version looked for lines containing both "API_KEY" and "=". The
+    # Dockerfile bakes nothing and mentions the variables only in a comment, and
+    # docker-compose.yml passes them through as YAML -- `ANTHROPIC_API_KEY:
+    # "${ANTHROPIC_API_KEY:-}"` -- which has a colon and no equals sign. So the
+    # condition was false for every line of both files and the assertion inside it
+    # never ran once, measured with `coverage` over a full passing suite. It would
+    # have gone equally green over a hard-coded key, which is the only thing it
+    # existed to prevent.
+    assert len(examined) >= 2, (
+        f"this scan examined {len(examined)} credential-bearing lines. It is meant to "
+        f"check the two API keys that docker-compose.yml passes through; finding none "
+        f"means the pattern no longer matches the file, not that the file is clean.")
 
 
 def test_the_verify_profile_cannot_pass_without_running_the_suite():
@@ -98,3 +140,32 @@ def test_the_verify_profile_cannot_pass_without_running_the_suite():
     # The guard must come BEFORE the suite it guards.
     assert compose.index("--collect-only") < compose.index("python3 -m pytest -q"), (
         "the collection guard runs after the suite it is supposed to guard")
+
+
+@pytest.mark.parametrize("line", [
+    'ENV ANTHROPIC_API_KEY=sk-ant-abcdef0123456789',
+    'ARG APERTUS_API_KEY=live-key-not-a-placeholder',
+    '    ANTHROPIC_API_KEY: "sk-ant-hardcoded"',
+    'ENV DATABASE_PASSWORD=hunter2',
+    'ENV AWS_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE',
+])
+def test_the_secret_scan_catches_a_baked_key(line):
+    """THE NEGATIVE CONTROL THIS CHECK NEVER HAD.
+
+    Its predecessor matched no line of either file, so it passed for the same reason
+    an empty scan passes: there was nothing to disagree with. A scan that has never
+    been shown to catch anything is a comment with an assert in it."""
+    baked, _ = _baked_secrets(line, "synthetic")
+    assert baked, f"a baked credential was not detected:\n  {line}"
+
+
+@pytest.mark.parametrize("line", [
+    '    ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"',
+    'ENV APERTUS_API_KEY=${APERTUS_API_KEY}',
+    '# No secrets baked in. Model adapters read ANTHROPIC_API_KEY from the environment',
+])
+def test_the_secret_scan_permits_a_passthrough(line):
+    """The other half: a scan that flagged every mention would be turned off within a
+    day, and the whole point is that the keys ARE named in these files."""
+    baked, _ = _baked_secrets(line, "synthetic")
+    assert not baked, f"a legitimate passthrough was flagged:\n  {line}"

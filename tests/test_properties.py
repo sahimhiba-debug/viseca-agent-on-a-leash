@@ -181,10 +181,21 @@ def test_property_compile_instruction_never_crashes_on_arbitrary_text(text):
     denial-of-service in the mandate-creation path."""
     compiled = compile_instruction(text)
     assert compiled.uncertainty_policy in (UncertaintyPolicy.ASK, UncertaintyPolicy.DECLINE, UncertaintyPolicy.APPROVE)
-    # Every produced rule already passed HardRule.__post_init__'s validation at
-    # construction time, so reaching this line at all is part of the property.
-    for rule in compiled.hard_rules:
-        assert rule.field and rule.operator
+    # THE WELL-FORMEDNESS CHECK THAT USED TO BE HERE HAS BEEN MOVED, NOT DROPPED.
+    #
+    # This ended with `for rule in compiled.hard_rules: assert rule.field and
+    # rule.operator`. Measured with `scripts/run_vacuity_audit.py`, that body never
+    # executed: Hypothesis' arbitrary text essentially never compiles to a rule, so
+    # the loop was empty on every example and the assertion was never evaluated once.
+    #
+    # It was tempting to keep it "in case", and that is the trap -- an assertion that
+    # cannot be reached is indistinguishable from one that holds, and it would have
+    # kept the vacuity audit red forever, which is how an audit gets ignored.
+    # `test_property_a_plausible_instruction_compiles_to_well_formed_rules` below
+    # generates text that DOES compile and checks the invariant where it can fail.
+    #
+    # What remains here is the property this test is named for: arbitrary text must
+    # not raise, and must yield a usable uncertainty policy.
 
 
 @given(
@@ -204,3 +215,55 @@ def test_property_arbitrary_item_details_never_changes_the_mandates_own_rules(in
     )
     evaluate_authorization(event, mandate, _state())
     assert mandate.hard_rules == rules_before
+
+
+# --- instructions that actually compile to something -------------------------------
+
+_PLAUSIBLE_INSTRUCTION = st.builds(
+    lambda cap, category, familiar, policy: (
+        f"Order our {category} for delivery. Keep each order at or below CHF {cap}"
+        f"{' from a shop I have used before' if familiar else ''}. {policy}"),
+    cap=st.integers(min_value=1, max_value=99999),
+    category=st.sampled_from(["household groceries", "electronics", "office supplies",
+                              "books", "cleaning supplies"]),
+    familiar=st.booleans(),
+    policy=st.sampled_from(["Ask me when uncertain.", "Decline if you are unsure.",
+                            "Approve anything if you're not sure."]),
+)
+
+
+@given(instruction=_PLAUSIBLE_INSTRUCTION)
+@_SLOW_SETTINGS
+def test_property_a_plausible_instruction_compiles_to_well_formed_rules(instruction):
+    """THE PROPERTY THE FUZZ TEST ABOVE WAS BELIEVED TO BE CHECKING.
+
+    `test_property_compile_instruction_never_crashes_on_arbitrary_text` ends with
+    `for rule in compiled.hard_rules: assert rule.field and rule.operator`, and
+    measured with `coverage` over a full passing suite, that body never ran once:
+    Hypothesis' arbitrary text never compiles to a rule, so the well-formedness
+    property was never exercised by anything.
+
+    This generates text a customer might plausibly write, which does compile, and
+    checks the same invariant where it can actually fail. It also pins a stronger
+    one: a sentence containing an explicit franc ceiling must produce an amount rule
+    carrying THAT number. Dropping the ceiling silently is the single most dangerous
+    thing this compiler could do, and "no rules at all" is a permissive outcome that
+    the arbitrary-text property would have accepted without comment."""
+    compiled = compile_instruction(instruction)
+
+    assert compiled.hard_rules, (
+        f"a plain instruction with an explicit CHF ceiling compiled to no rules at "
+        f"all, which binds nothing:\n  {instruction}")
+    for rule in compiled.hard_rules:
+        assert rule.field and rule.operator, f"malformed rule {rule} from {instruction!r}"
+
+    amount_rules = [r for r in compiled.hard_rules
+                    if r.field == "authorization.billing_amount_chf"]
+    assert len(amount_rules) == 1, (
+        f"expected exactly one amount ceiling, got {amount_rules} from {instruction!r}")
+    stated = int(instruction.split("CHF ")[1].split()[0].rstrip("."))
+    assert float(amount_rules[0].value) == float(stated), (
+        f"the compiled ceiling is {amount_rules[0].value} but the customer wrote "
+        f"CHF {stated}")
+    assert amount_rules[0].operator == "<=", (
+        f"a ceiling compiled to operator {amount_rules[0].operator!r}")
