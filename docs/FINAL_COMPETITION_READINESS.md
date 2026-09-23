@@ -10,7 +10,7 @@ Where this project is strong, where a jury can hurt it, and exactly what to say.
   byte-identical run to run. Planning benchmark and architecture comparison likewise.
   40 demo runs across two server lifetimes plus 8 concurrent sessions: identical.
   No network, no key, no model in the judged path.
-- **A test suite that has actually caught things.** 39 mutants, 39 killed. It has
+- **A test suite that has actually caught things.** 41 mutants, 41 killed. It has
   found real defects in our own work repeatedly, including this week.
 - **Vulnerabilities found, fixed, and written up rather than buried.** The revocation
   hole (revoke → answer pending step-up → CHF 175 charged) came from an independent

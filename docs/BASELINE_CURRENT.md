@@ -18,7 +18,7 @@ disagreed with the code, the code won and the document was corrected.
 | official replay | `python3 scripts/run_replay.py` | **45 events — 19 allow / 2 review / 24 block** |
 | adversarial corpus | `python3 scripts/run_red_team_corpus.py` | **133/133** across 10 categories |
 | attack matrix | `python3 scripts/run_red_team.py` | **17/17** |
-| mutation probe | `python3 scripts/run_mutation_probe.py` | **39 applied, 39 killed, 0 survived** |
+| mutation probe | `python3 scripts/run_mutation_probe.py` | **41 applied, 41 killed, 0 survived** |
 
 `/api/health` reports `matches_regression_boundary: true`.
 

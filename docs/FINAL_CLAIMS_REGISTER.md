@@ -77,7 +77,7 @@ made tempting to say.
 
 | claim | class | evidence |
 | --- | --- | --- |
-| The test suite is not theatre | **PROVEN** | 39 mutants, 39 killed; has found 5 real gaps |
+| The test suite is not theatre | **PROVEN** | 41 mutants, 41 killed; has found 5 real gaps |
 | The numbers we state about ourselves are true | **PROVEN** | `test_stated_numbers` |
 | Replay and agent episode are reproducible | **PROVEN** | byte-identical; no network, no key |
 | 19/2/24 is a score | **DO NOT CLAIM** | `contains_expected_decisions: false` |

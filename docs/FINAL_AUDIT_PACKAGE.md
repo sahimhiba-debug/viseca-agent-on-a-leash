@@ -18,7 +18,7 @@ python3 -m pytest -q                      # 1487 collected
 python3 scripts/run_replay.py             # 45 / 19 / 2 / 24
 python3 scripts/run_red_team_corpus.py    # 133/133
 python3 scripts/run_red_team.py           # 17/17
-python3 scripts/run_mutation_probe.py     # 39 mutants, 39 killed — breaks the core on purpose
+python3 scripts/run_mutation_probe.py     # 41 mutants, 41 killed — breaks the core on purpose
 uvicorn wallet_control.api:app --port 8420
 ```
 

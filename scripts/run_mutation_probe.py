@@ -20,7 +20,7 @@ mandate status checks -- rather than generated over every operator in the tree.
 It cannot tell you about a mechanism nobody thought to mutate. It can tell you
 that the ones listed here are genuinely held.
 
-RESULT AT THE TIME OF WRITING: 39 mutants, 39 killed, 0 survived.
+RESULT AT THE TIME OF WRITING: 41 mutants, 41 killed, 0 survived.
 
 One survivor was found when this probe was first run: widening the rolling window's
 start from `end - window < ts` to `end - window <= ts` passed the entire suite.
@@ -133,8 +133,19 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     # --- intent fidelity: I37, I38 -------------------------------------------
     ("policy_compiler.py", "        if v not in period_amount_values", "        if True",
      "a period-qualified amount becomes a per-order ceiling again"),
-    ("policy_compiler.py", "    unsupported = _coverage_questions(text, rules)", "    unsupported = []",
+    ("policy_compiler.py", "    unsupported = unenforceable + _coverage_questions(text, rules)",
+     "    unsupported = []",
      "restrictive language with no rule is dropped in silence again"),
+    # Intent that was RECOGNISED but cannot be enforced is a different loss from
+    # intent that was never recognised, and it has its own way of going quiet.
+    ("policy_compiler.py", "    unsupported = unenforceable + _coverage_questions(text, rules)",
+     "    unsupported = _coverage_questions(text, rules)",
+     "recognised-but-unenforceable intent stops being reported"),
+    # The rule that only means something beside another rule. Emitting it alone is
+    # what made appending a rule WIDEN the policy.
+    ("policy_compiler.py", '        if any(r.field == "item.category" for r in rules):',
+     "        if True:",
+     "an unenforceable 'nothing unrequested' is compiled as a rule again"),
 
     ("policy_compiler.py", '    text = re.sub(r"\\s+", " ", instruction).strip()',
      "    text = instruction.strip()",

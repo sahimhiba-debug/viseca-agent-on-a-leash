@@ -231,7 +231,7 @@ pytest -q
 
 The count is not the argument. `python3 scripts/run_mutation_probe.py` deliberately
 breaks 39 security mechanisms in `src/wallet_control/`, one at a time, and checks the
-suite notices: **39 killed, 0 survived.** Its first run found a real gap and the
+suite notices: **41 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
 Official replay: **45 events, 17 allow / 4 review / 24 block** -- a regression

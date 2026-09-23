@@ -89,4 +89,4 @@ lose a payments judge.
 | model-backed planner in the judged path | costs reproducibility, the one criterion we win outright |
 | Agent as landing tab | diverges demo build from reproducible build |
 | enforcing cross-session limits | not agent-reachable; touches checkpointing during a freeze |
-| more tests | 981 is not the constraint; mutation coverage is, and it is at 39/39 |
+| more tests | 981 is not the constraint; mutation coverage is, and it is at 41/41 |
