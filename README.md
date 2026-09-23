@@ -120,10 +120,17 @@ ranks baskets by a hash: **not one approved purchase outside the set**
 ([`research/acceptance_set.py`](research/acceptance_set.py)). **No model has been
 run** — `api.publicai.co/v1` answers 401 without a key.
 
-**Why they exist** is one principle, arrived at after finding the same mistake at six
-different boundaries: **absence is not a value** — see [docs/ABSENCE.md](docs/ABSENCE.md).
-A missing fact must be represented as missing and routed to whoever can supply it;
-never filled in, never inferred, never thrown.
+**Why they exist** is one principle, arrived at after finding the same mistake at
+seventeen different boundaries: **absence is not a value** — see
+[docs/ABSENCE.md](docs/ABSENCE.md). A missing fact must be represented as missing and
+routed to whoever can supply it; never filled in, never inferred, never thrown.
+
+And a second principle, about the instruments rather than the product: **a check that
+cannot fail is not a check.** Seven of ours reported success they had not earned —
+a mutation probe printing `41 killed` after examining two, a pre-demo gate going
+green having run no tests, a corpus reporting `0 escapes` when its baselines made an
+escape impossible. Every output was indistinguishable from the real thing. See
+[docs/A_CHECK_THAT_CANNOT_FAIL.md](docs/A_CHECK_THAT_CANNOT_FAIL.md).
 
 ## Repository layout
 

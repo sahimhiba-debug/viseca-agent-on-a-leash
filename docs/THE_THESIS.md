@@ -433,6 +433,40 @@ wallet stopped this anyway"* — than the repeated order it had been built on.
 
 ---
 
+## How do you know your tests can fail?
+
+Most submissions can show that their tests pass. The question a hostile reader should
+ask next is whether they *could have failed* — and today, **seven times, they could
+not.** Each was found by attacking the instrument rather than by running it again:
+
+```
+41 mutants applied, 41 killed, 0 survived     ← after examining 2, then interrupted
+a clean pre-demo gate                          ← having run no tests at all
+0 escapes under `decline`                      ← from a corpus whose baselines
+                                                 were all `block` already
+nothing moved                                  ← from an oracle that could not tell
+                                                 CHF 120 from CHF 1200
+`merchant.category` is bound, as declared      ← from a probe written with the same
+                                                 misunderstanding as the code
+```
+
+Every output was **indistinguishable from the real thing**. That is what makes the
+class dangerous: a failing test tells you something, and a test that passes because
+it could not fail tells you exactly what a working one does.
+
+The worst is the last. That probe did not merely miss the defect — it *agreed with a
+false declaration*, because it was written from the same misunderstanding. Running it
+more often could never have helped. The only escape is an instrument that does not
+know what the answer should be, which is why
+[`research/substitution.py`](../research/substitution.py) exists — and why it found
+that defect on its first run.
+
+**Two of the seven were introduced by fixes made earlier the same day.** Full list,
+with what each now has to prove before its passes count:
+[`A_CHECK_THAT_CANNOT_FAIL.md`](A_CHECK_THAT_CANNOT_FAIL.md).
+
+---
+
 ## What this is not
 
 * **Not an LLM product.** No model has been run: the public Apertus endpoint answers
