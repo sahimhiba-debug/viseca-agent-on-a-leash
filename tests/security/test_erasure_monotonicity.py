@@ -95,7 +95,7 @@ def test_the_looser_settings_pay_for_it_and_we_say_by_how_much():
     their own, the silence channel has been closed somewhere and this file is the
     wrong place to find that out from -- so it is asserted, not assumed."""
     counts = per_policy()
-    assert counts["ask"] == 5 and counts["approve"] == 5, counts
+    assert counts["ask"] == 4 and counts["approve"] == 4, counts
 
 
 def test_flag_violations_exist_and_are_not_treated_as_defects(default_sweep):
@@ -106,6 +106,26 @@ def test_flag_violations_exist_and_are_not_treated_as_defects(default_sweep):
     flags = [f for f in findings if not f[6] and f[7] == "flag"]
     assert flags, "the injected-listing scenario must still show up as flag-driven"
     assert all(f[2].endswith("item_details") for f in flags), flags
+
+
+def test_the_wallet_always_answers(default_sweep):
+    """A RAISE IS NOT ONE OF THE THREE ANSWERS. The official worker outline makes
+    validating the event ours ("Read the envelope's run ID and validate its data
+    event"), and every field in `authorization_event.schema.json` is required -- so a
+    missing one used to be dereferenced straight into a KeyError or TypeError inside
+    the decision path, before any decision existed.
+
+    Measured here when this sweep was first written: 1,916 of 8,124 single-field
+    erasures made the engine raise. Three distinct root causes came out of chasing
+    them to zero -- an absent field dereferenced unconditionally, `sorted()` asked to
+    compare None with a string in two separate places, and `all([])` being vacuously
+    true so `min([])` ran on an empty basket. The last two are the same class as
+    ABSENCE #14 and `test_empty_collection_vacuity` respectively, in places neither
+    of those fixes reached."""
+    _, raised, _, _ = default_sweep
+    assert raised == [], (
+        f"{len(raised)} erasures left the wallet with no answer at all; "
+        f"first few: {raised[:5]}")
 
 
 def test_every_declared_fact_has_a_polarity_and_the_flags_are_the_safety_ones():

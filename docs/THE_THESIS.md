@@ -147,7 +147,17 @@ Erasing information must never help the party being judged. **8,124 erasures** o
 the 45 official events — every field path, set to `null` and again removed entirely,
 because `d.get(k)` cannot tell those apart and `k in d` can.
 
-Seven violations, and they are **two different things wearing one coat**:
+It also asked a second question of every one of those erasures: **did the wallet
+answer at all?** It owes one of three answers inside eight seconds, and the official
+worker outline makes validating the event *ours* — *"read the envelope's run ID and
+validate its data event."* On the first run, **1,916 of 8,124 erasures made the
+engine raise** rather than decide. Chasing that to **0** turned up three separate
+root causes, two of them re-occurrences of classes this repository had already
+"fixed" in other places: an absent field dereferenced unconditionally, `sorted()`
+asked to compare `None` with a string in two places, and `all([])` being vacuously
+true so `min([])` ran on an empty basket.
+
+Six violations remain, and they are **two different things wearing one coat**:
 
 | | what it is | what its absence means |
 | --- | --- | --- |
@@ -245,7 +255,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,716 passed · 5 reported skips
+tests                1,718 passed · 5 reported skips
 mutation             39 mutants applied · 39 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)

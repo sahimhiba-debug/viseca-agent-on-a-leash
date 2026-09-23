@@ -70,6 +70,79 @@ _CATALOGUE_RULE = HardRule(field="item.matches_the_catalogue", operator="=", val
 _CATEGORY_DEPENDENT = frozenset({"item.category", "item.unrequested_present"})
 _NO_RULES_RULE = HardRule(field="mandate.has_no_rules", operator="=", value="false")
 _AMOUNT_INTEGRITY_RULE = HardRule(field="authorization.amount_integrity", operator="=", value="true")
+_EVENT_READABLE_RULE = HardRule(field="authorization.event_readable", operator="=", value="true")
+
+# The fields this engine dereferences without first asking whether they are there,
+# and the item-line fields it dereferences per line. Missing any of them used to be
+# an exception rather than a decision -- see `_unreadable_event`.
+_REQUIRED_AUTH_FIELDS = (
+    "authorization_id", "source_authorization_id", "merchant", "timestamp", "amount", "currency",
+    "billing_amount_chf", "items_subtotal", "delivery_fee", "channel",
+    "customer_device_id", "recent_attempt_count_10m", "order_returnable",
+    "order_cancellable", "items",
+)
+# ONLY WHAT THE ENGINE DOES ARITHMETIC ON. `item_id`, `item_name` and
+# `item_category` are deliberately NOT here: a line that carries none of them is
+# already handled further down, proportionally and per-mandate -- the catalogue makes
+# an unidentifiable item `unknown` where the customer constrained what may be bought,
+# and says nothing where they did not. Requiring them here would block a purchase on
+# a mandate that only set a price cap, which is the over-blocking the challenge warns
+# about, and would undo that scoping from the other direction.
+#
+# It is also where the official schema stops: `items` carries `minItems: 1` and NO
+# item schema at all -- no properties, no required list. The envelope, which the
+# platform writes, is specified to the field; the line, which the proposer writes, is
+# not specified at all.
+_REQUIRED_ITEM_FIELDS = ("quantity", "unit_price", "currency")
+_REQUIRED_MERCHANT_FIELDS = ("merchant_id", "merchant_name", "merchant_category")
+
+
+def _unreadable_event(event: dict[str, Any]) -> list[str]:
+    """Which parts of this event cannot be read at all.
+
+    THE OFFICIAL WORKER OUTLINE MAKES THIS OURS: "Read the envelope's run ID and
+    VALIDATE ITS DATA EVENT" (technical_details.md, step 7). Nothing in this service
+    validated events against `authorization_event.schema.json`, and every field in
+    that schema is required -- so any missing one was dereferenced straight into a
+    `KeyError` or a `TypeError`, inside the decision path, before any decision
+    existed. Measured by `research/erasure.py` over the 45 official events: 1,916 of
+    8,124 single-field erasures made the engine RAISE instead of answering.
+
+    A raise is not one of the three answers the wallet owes inside eight seconds, and
+    we have NOT measured what the platform does with a missing answer -- so this is
+    fixed rather than reasoned about.
+
+    WHY A NAMED REFUSAL AND NOT A BLANKET `except`. Wrapping the decision path in
+    `except Exception: return block` would turn every genuine engine defect into a
+    silent refusal, and this repository has already been bitten once by a mutation
+    probe that made the engine quietly wrong. This lists what the engine actually
+    dereferences, so an unreadable event is REFUSED with a reason and anything else
+    still crashes loudly in the tests.
+
+    BLOCK, not `unknown`: a wallet that cannot read the purchase cannot authorise it,
+    and this is an integrity failure rather than a fact we happen to be unsure of.
+    Being the least permissive answer, it also cannot become a bypass.
+    """
+    missing: list[str] = []
+    auth = event.get("authorization")
+    if not isinstance(auth, dict):
+        return ["authorization"]
+    for field in _REQUIRED_AUTH_FIELDS:
+        if auth.get(field) is None:
+            missing.append(f"authorization.{field}")
+    merchant = auth.get("merchant")
+    if isinstance(merchant, dict):
+        missing.extend(f"authorization.merchant.{f}" for f in _REQUIRED_MERCHANT_FIELDS
+                       if merchant.get(f) is None)
+    items = auth.get("items")
+    if isinstance(items, list):
+        for index, line in enumerate(items):
+            if not isinstance(line, dict):
+                missing.append(f"authorization.items[{index}]")
+                continue
+            missing.extend(f"authorization.items[{index}].{f}" for f in _REQUIRED_ITEM_FIELDS
+                           if line.get(f) is None)
+    return missing
 # A seller writing to the machine that holds the card. Never a FAIL: the text is
 # ineffective against this engine by construction, so it is not evidence that the
 # purchase is bad -- it is evidence about the counterparty, and only the customer can
@@ -378,8 +451,13 @@ def _basket_key(items: list[dict[str, Any]]) -> BasketKey:
     """
     fingerprints = [
         (
-            line["item_id"],
-            line["item_name"],
+            # `.get`, because `_unreadable_event` deliberately does NOT require these:
+            # an item nobody can identify is handled proportionally further down
+            # rather than refused outright. A fingerprint over None is fine -- the
+            # sort key below is total -- and two lines that are both anonymous really
+            # are indistinguishable to everything that reads this.
+            line.get("item_id"),
+            line.get("item_name"),
             line["quantity"],
             extract_return_window_days(line.get("item_details", "")),
             mentions_final_sale(line.get("item_details", "")),
@@ -844,6 +922,27 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
     # One run, one decision at a time. The window check and the record it is based
     # on must not be separated by another thread's decision -- see RunState's lock.
     with state.decision_guard():
+        unreadable = _unreadable_event(event)
+        if unreadable:
+            shown = ", ".join(unreadable[:6]) + ("..." if len(unreadable) > 6 else "")
+            evaluation = RuleEvaluation(
+                rule=_EVENT_READABLE_RULE, outcome="fail",
+                detail=f"the event does not carry: {shown}", source="safety")
+            return EngineDecision(
+                authorization_id=str((event.get("authorization") or {}).get("authorization_id")
+                                     or "<unreadable>"),
+                decision="block",
+                reason_codes=("hard_rule_failed:authorization.event_readable",),
+                customer_message=("This purchase could not be authorized: the wallet "
+                                  "could not read what was being bought. Nothing was "
+                                  "approved."),
+                evidence=(f"{evaluation.rule.field} [fail]: {evaluation.detail}",),
+                rule_evaluations=(evaluation,),
+                intervention=_TERMINAL_INTERVENTION["block"],
+                facts=None,
+                security_verdict="block",
+            )
+
         auth = event["authorization"]
         authorization_id = auth["authorization_id"]
         merchant_id = auth["merchant"]["merchant_id"]

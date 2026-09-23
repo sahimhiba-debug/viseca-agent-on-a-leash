@@ -212,14 +212,23 @@ def build_purchase_facts(
         unit_price_chf = to_chf(to_decimal(line["unit_price"]), line["currency"])
         item_lines.append(
             ItemLineFacts(
-                line_no=line["line_no"],
-                item_id=line["item_id"],
+                # `.get` on the identity fields, matching
+                # `decision_engine._unreadable_event`, which deliberately requires
+                # only what this engine does ARITHMETIC on. A line nobody can
+                # identify is not refused here: it is carried as None and answered
+                # further down, proportionally -- the catalogue makes it `unknown`
+                # where the customer constrained what may be bought, and says nothing
+                # where they did not. Dereferencing these raised a KeyError inside
+                # the decision path instead, which is not one of the three answers
+                # the wallet owes.
+                line_no=line.get("line_no"),
+                item_id=line.get("item_id"),
                 # Normalized defensively too: item_name is catalogue-sourced in the
                 # supplied fixtures, but nothing in the schema guarantees a future
                 # agent/merchant can't put confusable Unicode characters into it,
                 # and item.name_contains matching should not be foolable by that.
-                item_name=_normalize_untrusted_text(line["item_name"]),
-                item_category=line["item_category"],
+                item_name=_normalize_untrusted_text(line.get("item_name") or ""),
+                item_category=line.get("item_category"),
                 quantity=line["quantity"],
                 unit_price_chf=unit_price_chf,
                 return_window_days=extract_return_window_days(line.get("item_details", "")),
@@ -240,7 +249,15 @@ def build_purchase_facts(
         # surfacing it. A silent item's terms are unknown, not "whatever the other
         # line said".
         windows = [i.return_window_days for i in item_lines]
-        return_window_days = min(windows) if all(w is not None for w in windows) else None
+        # `all(...)` over an EMPTY list is True, so a basket with no lines took the
+        # `min(windows)` branch and `min([])` raised -- inside the decision path,
+        # before any decision existed. The same empty-collection vacuity as
+        # `tests/security/test_empty_collection_vacuity.py`, in a place that fix did
+        # not reach, found by the erasure sweep rather than by looking. No lines
+        # means no stated window, which is None, not an exception.
+        return_window_days = (min(windows)
+                              if windows and all(w is not None for w in windows)
+                              else None)
     else:
         return_window_days = None
 
@@ -263,7 +280,12 @@ def build_purchase_facts(
         related_authorization_status=auth.get("related_authorization_status"),
         recent_attempt_count_10m=auth["recent_attempt_count_10m"],
         items=tuple(item_lines),
-        item_categories=tuple(sorted({i.item_category for i in item_lines})),
+        # THE SAME DEFECT AS THE BASKET FINGERPRINT, IN A THIRD PLACE: a line whose
+        # category nobody stated contributes None, and `sorted` then compares None
+        # with a string. Absence is not a value AND it is not an ordering; the
+        # anonymous lines sort together at the front instead of raising.
+        item_categories=tuple(sorted({i.item_category for i in item_lines},
+                                     key=lambda c: (c is None, c or ""))),
         merchant_familiar=merchant_familiar,
         merchant_familiar_basis=merchant_familiar_basis,
         session_integrity_risk=session_integrity_risk,

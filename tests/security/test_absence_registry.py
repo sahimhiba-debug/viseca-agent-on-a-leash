@@ -88,6 +88,24 @@ DECLARED: dict[tuple[str, str], tuple[str, str]] = {
         GUARDED, "Same listing. A record whose decision is not one of "
                  "approve/decline/step_up is skipped, so no fallback can become a "
                  "decision."),
+    ("decision_engine.py", "authorization"): (
+        GUARDED, "Inside the unreadable-event refusal, naming the authorization for "
+                 "the record it returns. The absence has ALREADY been detected at "
+                 "this point -- this is how the refusal labels itself when there is "
+                 "no authorization block to label it with, not a fact standing in "
+                 "for a missing one."),
+    ("decision_engine.py", "authorization_id"): (
+        SENTINEL, "Same refusal. An event with no authorization_id is refused, and "
+                  "the record of that refusal is stamped '<unreadable>' rather than "
+                  "a plausible id -- a sentinel no real id can collide with, so the "
+                  "refusal cannot later be mistaken for a decision about a purchase."),
+    ("facts.py", "item_name"): (
+        PROJECTION, "An item line whose name nobody stated normalizes to the empty "
+                    "string, which is what `item.name_contains` then fails to match "
+                    "-- the correct answer, since an unnamed thing does not contain "
+                    "what you asked for. It is NOT required by "
+                    "`_unreadable_event`, on purpose: an unidentifiable item is "
+                    "answered proportionally by the catalogue rather than refused."),
     ("live_worker.py", "run_id"): (
         GUARDED, "Same listing, asked whether THIS run decided anything before. A "
                  "record with no run field yields None, and the very next line only "
