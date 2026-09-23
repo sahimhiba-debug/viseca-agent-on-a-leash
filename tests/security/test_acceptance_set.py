@@ -394,3 +394,61 @@ def test_the_headline_number_is_not_an_artefact_of_where_we_cut_the_enumeration(
         "A must still be sensitive to the bound BELOW convergence, or the "
         "enumeration is inert", rows)
 
+
+
+def test_a_run_that_lost_its_state_cannot_reach_outside_the_acceptance_set():
+    """THE CONTAINMENT INVARIANT, ASKED OF THE ONE CHANGE THAT COULD HAVE BROKEN IT.
+
+    This file's central claim is that accumulated state only ever SHRINKS the set --
+    a brain cannot reach something new by getting there second. Restart recovery
+    introduced a state that moves the other way: a run resumed part-way through
+    answers `unknown` for rolling rules it cannot see behind, and those unknowns
+    EXPIRE once it has watched a full window. Something that was `review` becomes
+    `allow` as the run proceeds, which is accumulated state making a decision MORE
+    permissive -- exactly the shape the invariant forbids.
+
+    It is not a violation, and the reason is worth stating rather than assuming: the
+    acceptance set is defined against a COMPLETE fresh state, and a resumed one is
+    strictly stricter than that. It converges UP to the set as its horizon widens and
+    never past it. So the unknown is a temporary restriction on top of A, not a door
+    out of it.
+
+    Measured rather than argued, because "strictly stricter" is precisely the kind of
+    claim this session has repeatedly found to be true of one branch and false of the
+    program.
+    """
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.policy_compiler import compile_instruction
+    from wallet_control.scope import FAMILIAR, _categories, _world
+    from wallet_control.state import HistoryIndex, RunState
+    from wallet_control.witness import CARD, event_for, judge_event, merchant_for, snapshot
+
+    instruction = ("Order our household groceries at or below CHF 120, and keep the "
+                   "total across any seven days at or below CHF 300.")
+    compiled = compile_instruction(instruction)
+    rules = list(compiled.hard_rules)
+    category = _categories(rules)
+    mandate = snapshot(rules, compiled.uncertainty_policy)
+
+    escaped, checked = [], 0
+    for index, (merchant, combo) in enumerate(_world(category, "min")[:400]):
+        complete = judge_event(mandate, index, merchant, category, combo, familiar=FAMILIAR)
+
+        total = float(sum(price for _id, _name, price in combo))
+        event = event_for(mandate, index, amount=total, category=category,
+                          merchant=merchant_for(category),
+                          items=[{"line_no": line, "item_id": item_id, "item_name": name,
+                                  "item_category": category, "quantity": 1,
+                                  "unit_price": float(price), "currency": "CHF",
+                                  "item_details": ""}
+                                 for line, (item_id, name, price) in enumerate(combo, start=1)])
+        resumed = RunState(history=HistoryIndex({CARD: frozenset(FAMILIAR)}, available=True),
+                           card_id=CARD, resumed_incomplete=True)
+        checked += 1
+        if evaluate_authorization(event, mandate, resumed).decision == "allow" != complete:
+            escaped.append((merchant, tuple(i for i, _n, _p in combo), complete))
+
+    assert checked >= 400
+    assert escaped == [], (
+        f"a run that lost its state approved {len(escaped)} purchases a complete run "
+        f"would not: {escaped[:3]}")
