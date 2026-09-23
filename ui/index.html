@@ -1123,13 +1123,30 @@ async function renderScope(instruction){
     ? `<p class="scnum" style="font-size:26px">None without asking you
          <small style="display:block;margin-top:4px">${d.asks_you} of ${d.universe} grocery purchases
          on offer would come to you first — the wallet will not decide these alone</small></p>`
-    : `<p class="scnum">${d.authorised} <small>of ${d.universe} grocery purchases your agent could put to this card</small></p>`;
+    : `<p class="scnum">${d.authorised_upper ?? d.authorised} <small>of ${d.universe} grocery purchases your agent could put to this card</small></p>`;
+
+  // THE HEADLINE USED TO BE THE COUNT AT TYPICAL PRICES, AND IT WAS TOO SMALL.
+  // `items.csv` gives every item a min/typical/max and this panel enumerated at
+  // `typical` -- one point of a band whose median span is 1.8x the typical price.
+  // The seller picks the price, so the delegation is the UNION across the band,
+  // which for an amount ceiling is the count at the cheapest end. On the shipped
+  // mandate that is 476 rather than 116: the panel was understating what the
+  // customer handed over by a factor of four, in the one direction that costs them
+  // something. The typical figure stays visible, because "what it usually is" is a
+  // fair thing to want alongside "what it could be".
+  const band = d.price_band
+    ? `<p class="tiny" style="margin:6px 0 0">At the prices this catalogue says these
+         goods usually cost, <b>${d.price_band.typical}</b> of them — but the seller
+         chooses the price, and every one of these items has a published range. The
+         figure above is what that range allows at its cheapest.</p>`
+    : '';
 
   box.innerHTML = `<div class="card sc">
     <h2>What you are about to authorise</h2>
     <p class="tiny" style="margin:-2px 0 10px">A policy is not a list of rules.
       It is a <b>set of purchases</b> — so here is the set.</p>
     ${headline}
+    ${band}
     <div class="scbar"><i style="width:${pct}%"></i><u style="width:${askPct}%"></u></div>
     <p class="tiny">${pct}% approved outright${d.asks_you?` · ${askPct}% put to you`:''}. ${delta}</p>
     <div class="screp ${d.how_many_times.bounded?'ok':'no'}">

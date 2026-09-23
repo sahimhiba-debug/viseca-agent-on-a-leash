@@ -214,10 +214,22 @@ class Shop:
 class CatalogueShop(Shop):
     """The official item and merchant lists, read fresh on every call."""
 
+    # WHICH POINT OF THE PRICE BAND TO QUOTE. `items.csv` gives every item a
+    # `min`/`typical`/`max`, and this used to quote `typical` with no way to ask for
+    # anything else -- so every enumeration built on this shop explored a single
+    # point of a band whose median span is 1.8x the typical price. All 56 official
+    # attempt lines sit inside their band, and their median price is CHF 16.50 BELOW
+    # typical, so `typical` is not even the middle of what really happens.
+    PRICE_COLUMNS = {"min": "unit_price_min_chf",
+                     "typical": "unit_price_typical_chf",
+                     "max": "unit_price_max_chf"}
+
     def __init__(self, unavailable: frozenset[str] = frozenset(),
-                 return_days: dict[str, int] | None = None) -> None:
+                 return_days: dict[str, int] | None = None,
+                 price_point: str = "typical") -> None:
         self._unavailable = unavailable
         self._return_days = return_days or {}
+        self._price_column = self.PRICE_COLUMNS[price_point]
 
     def search(self, category: str | None = None) -> list[Offer]:
         with _ITEMS.open(newline="", encoding="utf-8") as f:
@@ -234,7 +246,7 @@ class CatalogueShop(Shop):
                 if s["merchant_category"] != r["item_category"]:
                     continue
                 out.append(Offer(r["item_id"], r["item_name"], r["item_category"],
-                                 Decimal(r["unit_price_typical_chf"]), s["merchant_id"],
+                                 Decimal(r[self._price_column]), s["merchant_id"],
                                  self._return_days.get(r["item_id"])))
         return out
 

@@ -202,3 +202,73 @@ def test_the_scope_of_a_bound_is_set_by_its_authoritative_definition_not_its_aut
     _buy(md, s, "AU1", amt=200.0, hours=0)
     assert _buy(md, s, "AU2", amt=200.0, hours=24).decision != "allow"     # inside the window
     assert _buy(md, s, "AU3", amt=200.0, hours=24 * 8).decision == "allow"  # window re-opened
+
+
+# --- the price band -----------------------------------------------------------------
+
+INSTRUCTION = ("Order our household groceries at or below CHF 120 "
+               "from a shop I have used before.")
+
+
+def test_the_delegation_size_was_measured_at_one_point_of_a_wide_band():
+    """THE PANEL WAS UNDERSTATING WHAT THE CUSTOMER HANDED OVER, BY FOUR TIMES.
+
+    `items.csv` gives every item a `unit_price_min_chf`, `_typical_chf` and
+    `_max_chf`. This panel enumerated at `typical` and reported the result as the
+    size of the delegation. The median band spans 1.8x the typical price, all 56
+    official purchase lines sit inside their band, and their median price is CHF
+    16.50 BELOW typical -- so `typical` is not even the middle of what really
+    happens.
+
+        min prices      476 of 595
+        typical         116 of 595   <- what the panel showed
+        max              16 of 595
+
+    The seller chooses the price. So what was handed over is the UNION across the
+    band, and the customer was being shown a quarter of it. This is the dangerous
+    direction: a number that makes a delegation look smaller than it is.
+
+    Not found by the earlier check that |A| is stable in `MAX_LINES` -- that varied
+    the number of lines and never varied the price, so it confirmed stability along
+    the one axis that happened to be stable."""
+    from wallet_control.scope import delegation_size
+
+    sized = delegation_size(INSTRUCTION)
+    band = sized["price_band"]
+    assert band["max"] < band["typical"] < band["min"], band
+    assert sized["authorised"] == band["typical"]
+    assert sized["authorised_upper"] == band["min"]
+    assert sized["authorised_upper"] >= 4 * sized["authorised"], band
+
+
+def test_the_union_across_the_band_really_is_the_cheapest_count():
+    """WHY `authorised_upper` IS ALLOWED TO BE A SINGLE COUNT.
+
+    Taking the cheapest end as the size of the delegation is only honest if the sets
+    nest: a basket affordable at `max` is affordable at `min`, and no rule other than
+    the amount ceiling reads the price. Then the union over the whole band is exactly
+    A(min) and one number says it.
+
+    Checked rather than argued, because the moment some rule starts reading price in
+    another direction -- a minimum spend, a discount threshold -- the nesting breaks
+    and `authorised_upper` silently stops meaning what it says."""
+    from wallet_control.scope import authorised_baskets
+
+    cheap = authorised_baskets(INSTRUCTION, "min")
+    usual = authorised_baskets(INSTRUCTION, "typical")
+    dear = authorised_baskets(INSTRUCTION, "max")
+
+    assert dear <= usual <= cheap, "the acceptance sets must nest as price falls"
+    assert (cheap | usual | dear) == cheap
+    assert len(cheap) > len(usual) > len(dear), (len(cheap), len(usual), len(dear))
+
+
+def test_the_customer_is_shown_both_numbers():
+    """The upper bound is the honest headline; "what it usually costs" is still a
+    fair thing to want beside it. Losing the typical figure would trade one
+    incomplete picture for another."""
+    from wallet_control.scope import delegation_size
+
+    sized = delegation_size(INSTRUCTION)
+    assert set(sized["price_band"]) == {"min", "typical", "max"}
+    assert sized["authorised_upper"] != sized["authorised"]

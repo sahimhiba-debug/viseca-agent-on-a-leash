@@ -54,6 +54,30 @@ from .witness import CARD, judge_event, snapshot
 
 MAX_LINES = 5
 
+# WHICH PRICE THE COUNTED WORLD QUOTES.
+#
+# `items.csv` gives every item a min/typical/max, and this panel used to enumerate at
+# `typical` only -- one point of a band whose median span is 1.8x the typical price.
+# That is not a detail. Measured on the shipped mandate:
+#
+#     min prices      476 of 595 authorised
+#     typical         116 of 595          <- the number this panel used to show
+#     max              16 of 595
+#
+# All 56 official purchase lines sit inside their band, and their median price is
+# CHF 16.50 BELOW typical -- so `typical` is not even the middle of what really
+# happens, and the panel was understating the delegation by a factor of four in the
+# one direction that costs the customer something.
+#
+# The price is the SELLER's to choose. So the honest size of what was handed over is
+# the union across the band, which for an amount ceiling is exactly the count at the
+# cheapest prices (a basket affordable at `max` is affordable at `min`; the reverse
+# is false). `_ordering_holds` checks that containment rather than assuming it.
+PRICE_POINTS = ("min", "typical", "max")
+_PRICE_COLUMN = {"min": "unit_price_min_chf",
+                 "typical": "unit_price_typical_chf",
+                 "max": "unit_price_max_chf"}
+
 # The card the counted world belongs to. The official demo card, so the familiarity
 # rule carves a real piece out of the universe rather than nothing.
 COUNTED_CARD = "CA0001"
@@ -84,7 +108,8 @@ FAMILIAR = familiar_merchants()
 
 
 @lru_cache(maxsize=8)
-def _world(category: str) -> tuple[tuple[str, tuple[tuple[str, str, Decimal], ...]], ...]:
+def _world(category: str, price_point: str = "typical"
+           ) -> tuple[tuple[str, tuple[tuple[str, str, Decimal], ...]], ...]:
     """Every basket this world can produce: one shop, up to MAX_LINES lines.
 
     One shop per basket because the goods physically live somewhere -- the same
@@ -92,7 +117,7 @@ def _world(category: str) -> tuple[tuple[str, tuple[tuple[str, str, Decimal], ..
     items = [r for r in load_items().values() if r["item_category"] == category]
     shops = [m for m, r in load_merchants().items() if r["merchant_category"] == category]
     lines = tuple(sorted(
-        (r["item_id"], r["item_name"], Decimal(r["unit_price_typical_chf"])) for r in items))
+        (r["item_id"], r["item_name"], Decimal(r[_PRICE_COLUMN[price_point]])) for r in items))
     out: list[tuple[str, tuple]] = []
     for merchant in sorted(shops):
         for size in range(1, min(MAX_LINES, len(lines)) + 1):
@@ -110,10 +135,11 @@ def _categories(rules: list[HardRule]) -> str:
     return "groceries"
 
 
-def _count(mandate: MandateSnapshot, category: str) -> dict[str, Any]:
+def _count(mandate: MandateSnapshot, category: str,
+           price_point: str = "typical") -> dict[str, Any]:
     counts = {"allow": 0, "review": 0, "block": 0}
     cheapest: Decimal | None = None
-    for index, (merchant, combo) in enumerate(_world(category)):
+    for index, (merchant, combo) in enumerate(_world(category, price_point)):
         verdict = judge_event(mandate, index, merchant, category, combo, familiar=FAMILIAR)
         counts[verdict] += 1
         if verdict == "allow":
@@ -163,6 +189,31 @@ def _repetition(rules: list[HardRule], cheapest: float | None) -> dict[str, Any]
                      f"At most CHF {float(cap):g} in any {window.period_days} days.")}
 
 
+def authorised_baskets(instruction: str, price_point: str = "typical",
+                       uncertainty: UncertaintyPolicy | None = None) -> frozenset:
+    """WHICH baskets are authorised at this price point, not merely how many.
+
+    Exists so the containment the panel relies on can be CHECKED rather than argued:
+    a basket affordable at `max` is affordable at `min`, and no rule other than the
+    amount ceiling reads the price, so
+
+        A(max)  subset-of  A(typical)  subset-of  A(min)
+
+    must hold. If it ever does not, "the union across the band is the count at the
+    cheapest prices" stops being true and `authorised_upper` stops meaning anything.
+    """
+    compiled = compile_instruction(instruction)
+    rules = list(compiled.hard_rules)
+    category = _categories(rules)
+    mandate = snapshot(rules, uncertainty or compiled.uncertainty_policy,
+                       list(compiled.unsupported_restrictions))
+    return frozenset(
+        (merchant, tuple(item_id for item_id, _name, _price in combo))
+        for index, (merchant, combo) in enumerate(_world(category, price_point))
+        if judge_event(mandate, index, merchant, category, combo,
+                       familiar=FAMILIAR) == "allow")
+
+
 def delegation_size(instruction: str,
                     uncertainty: UncertaintyPolicy | None = None) -> dict[str, Any]:
     """How many purchases this sentence authorises, right now, out of how many exist."""
@@ -173,7 +224,14 @@ def delegation_size(instruction: str,
                        list(compiled.unsupported_restrictions))
     counts = _count(mandate, category)
     universe = counts["allow"] + counts["review"] + counts["block"]
+    band = {point: _count(mandate, category, point)["allow"] for point in PRICE_POINTS}
     return {
+        # THE SIZE OF THE DELEGATION, over the prices the catalogue itself says these
+        # goods can have. `authorised` stays the count at typical prices so the
+        # shrink table keeps comparing like with like; `authorised_upper` is what was
+        # actually handed over, because the seller picks the price.
+        "price_band": band,
+        "authorised_upper": band["min"],
         "how_many_times": _repetition(rules, counts["cheapest_chf"]),
         "instruction": instruction,
         "universe": universe,

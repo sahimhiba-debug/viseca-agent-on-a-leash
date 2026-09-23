@@ -112,6 +112,33 @@ report the set that comes back.
 
 Live, at 18 ms, as they type. That set — call it **A** — is what was delegated.
 
+### …and `|A|` is not a number, it is an interval
+
+Those counts are at the catalogue's *typical* prices. **The seller picks the price**,
+and every item in `items.csv` carries a published `min`/`typical`/`max`:
+
+```
+at the cheapest published prices    476 / 595      <- what was actually handed over
+at typical prices                   116 / 595      <- what the panel used to show
+at the dearest                       16 / 595
+```
+
+All 56 official purchase lines sit inside their band, and their median price is **CHF
+16.50 below typical** — so `typical` is not even the middle of what really happens. The
+panel was understating the delegation **fourfold**, in the one direction that costs a
+customer something.
+
+The fix is not a bigger number, it is the right one. The sets **nest** — a basket
+affordable at `max` is affordable at `min`, and no rule but the ceiling reads price —
+so the union across the band *is* the count at the cheapest end, and one figure can
+honestly carry it. That nesting is checked, not argued, because a minimum-spend or
+discount-threshold rule would break it and `authorised_upper` would quietly stop
+meaning what it says.
+
+**This is the same thesis one level down.** `|A|` depends on facts with different
+authors, and the price is the *seller's*. The provenance panel says which rules rest
+on what the seller writes; this says what that costs, counted in purchases.
+
 ### Five faces of one object
 
 | face | the question | measured |
@@ -280,14 +307,16 @@ what the third value is for.
   401 and the CLI's OAuth will not refresh for a subprocess. Both verified today. The
   seam is built and exercised by two deliberately different hand-written compilers,
   and every claim about a model is about the *mechanism*, not a benchmark.
-* **Not a proof** — but not an artefact of the bound either, and that was measured
-  rather than assumed. Widening the enumeration from one line to six grows the world
-  from 35 baskets to 630 and leaves `|A|` at **116 from the third line onward**:
-  every extra line only adds cost, and the CHF 120 cap bites first. So the panel is
-  not understating the delegation. What it *is* bounded by is one shop and the
-  official catalogue, and the convergence argument holds only for mandates that cap
-  the amount — with no cap, `|A|` would grow with the bound and the number should be
-  read as a lower bound.
+* **Not a proof, and the first version of this bullet was wrong.** It said `|A|` was
+  *"not an artefact of the bound"*, on a measurement that widened the enumeration from
+  one line to six and found `|A|` steady at 116 from the third line onward. That is
+  true, and it checked the one axis that happened to be stable. **Price is the axis
+  that was not.** `items.csv` gives every item a `min`/`typical`/`max`; the panel
+  enumerated at `typical`; the median band spans **1.8× the typical price**. So the
+  claim "the panel is not understating the delegation" was false by a factor of four,
+  and it was found by attacking our own number rather than by the check written to
+  defend it. What remains bounded, and is stated on the panel: one shop, the official
+  catalogue, and up to five lines.
 * **Not adversarially complete.** The silence channel is open by design and cannot be
   closed per-rule, because the official mandate format has one uncertainty dial for a
   question that is per-rule. That is a gap in the format, disclosed with a witness.
@@ -305,7 +334,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,731 passed · 5 reported skips
+tests                1,732 passed · 5 reported skips
 mutation             39 mutants applied · 39 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)
