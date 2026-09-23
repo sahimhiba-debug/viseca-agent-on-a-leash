@@ -201,41 +201,115 @@ def test_a_faithful_round_trip_is_unchanged():
 
 
 # ------------------------------------------- the absence that cannot be filled
-def test_a_missing_checkpoint_is_loud_about_resetting_the_window(tmp_path, caplog):
-    """The eighth boundary, and the one where the principle's answer is neither a
-    default nor a refusal.
-
-    `register_run` with no checkpoint file starts with EMPTY spend history, so any
-    rolling limit begins again from zero and the cap can be approved a second time.
-    Nothing available to the worker can rebuild the figure: `reconcile_run` recovers
-    WHICH authorizations were decided, never their amounts, because the platform
-    listing is not documented well enough to trust a reconstructed one.
-
-    So the absence cannot be filled -- and refusing would strand every genuinely new
-    run. What is left is to make it loud. This used to be the quietest path in the
-    file: the restore branch logged, and the branch that resets the customer's
-    allowance logged nothing at all."""
-    import logging
+def _worker(tmp_path, listing=None, raises=False):
+    """A worker with only the parts `register_run` touches, plus a stub platform."""
+    import threading
 
     from wallet_control.live_worker import LiveWorker
+
+    class _Client:
+        def list_authorizations(self):
+            if raises:
+                raise RuntimeError("platform unreachable")
+            return listing if listing is not None else {"data": []}
 
     worker = LiveWorker.__new__(LiveWorker)
     worker._checkpoint_dir = tmp_path
     worker._history = _history()
     worker._runs = {}
-    import threading
     worker._lock = threading.RLock()
+    worker._client = _Client()
+    return worker
 
+
+def test_a_missing_checkpoint_no_longer_silently_restarts_the_allowance(tmp_path, caplog):
+    """THE EIGHTH BOUNDARY, REOPENED -- and the old answer was too weak.
+
+    This test used to assert that a missing checkpoint merely LOGGED LOUDLY, on the
+    reasoning quoted in its own docstring: "the absence cannot be filled -- and
+    refusing would strand every genuinely new run". Both halves were wrong.
+
+    Measured first, through the real engine: a CHF 300 / 7-day cap approved CHF 300,
+    then CHF 300, then CHF 300 across three restarts -- **CHF 900 inside one window,
+    and the bound is per restart, not per window.** A log line is not a control.
+
+    The reasoning failed because it assumed a genuinely new run and a run whose state
+    was lost are indistinguishable. They are not. A new run has no decision recorded
+    anywhere; a lost one has its earlier decisions sitting in `GET /v1/authorizations`
+    -- which this worker ALREADY calls, one method down, to avoid double-submitting.
+    Nothing new had to become available; something already fetched had to be asked a
+    different question.
+
+    And the absence could be filled after all -- not with the amount, which really is
+    unrecoverable, but with the TRUTH that the amount is unknown. Zero is a value;
+    "I cannot see what was spent" is an absence. `prior_spend_known=False` makes every
+    rolling-period rule answer `unknown`, which routes to the mandate's own
+    `uncertainty_policy`. The cost of caution here is an ASK, not a block.
+    """
+    import logging
+
+    listing = {"data": [{"authorization_id": "AU_EARLIER", "decision": "approve",
+                         "run_id": "RUN_LOST"}]}
+    worker = _worker(tmp_path, listing=listing)
     with caplog.at_level(logging.WARNING, logger="wallet_control.live_worker"):
-        handle = worker.register_run("RUN_NEW", _mandate())
+        handle = worker.register_run("RUN_LOST", _mandate())
 
+    assert handle.state.prior_spend_known is False, (
+        "the platform says this run already decided something; an empty ledger is "
+        "what SURVIVED, not what happened")
+    message = " ".join(r.getMessage().lower() for r in caplog.records
+                       if r.levelno >= logging.WARNING)
+    assert "unknown" in message and "no checkpoint" in message
+
+
+def test_a_genuinely_new_run_is_not_made_to_pay_for_a_loss_that_did_not_happen(tmp_path):
+    """The other half, and the reason the old code gave for doing nothing.
+
+    If every checkpoint-less run were treated as lost state, every first run of every
+    deployment would start by asking the customer about a rolling limit -- the exact
+    "stranding" the old docstring feared, and a real cost. The platform listing is
+    what separates the cases, so a run it has never heard of keeps a KNOWN zero."""
+    handle = _worker(tmp_path, listing={"data": []}).register_run("RUN_NEW", _mandate())
+    assert handle.state.prior_spend_known is True
     assert handle.state.total_approved_spend_chf() == Decimal("0")
-    warnings = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
-    assert warnings, "a reset allowance must not be the quietest path in the file"
-    message = " ".join(warnings).lower()
-    assert "no checkpoint" in message
-    assert "empty spend history" in message
-    assert "second time" in message, "the CONSEQUENCE must be named, not just the cause"
+
+
+def test_being_unable_to_ask_is_not_evidence_that_nothing_was_spent(tmp_path):
+    """The third outcome, and the one an attacker would aim for.
+
+    If "the platform did not answer" fell back to a known zero, then anything that
+    breaks the listing call restores the original vulnerability -- a defence whose
+    bypass is to break the thing it depends on. An unanswered question is unknown."""
+    handle = _worker(tmp_path, raises=True).register_run("RUN_UNREACHABLE", _mandate())
+    assert handle.state.prior_spend_known is False
+
+
+def test_unknown_prior_spend_makes_the_rolling_rule_unknown_not_zero(tmp_path):
+    """END TO END, through the real engine: the flag has to reach the decision.
+
+    `unknown`, never `fail` -- there is no evidence this purchase is bad, only that
+    the ceiling cannot be checked -- so the customer's own dial decides."""
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.mandate import HardRule, UncertaintyPolicy
+    from tests.helpers import make_event, make_mandate
+
+    rules = [HardRule(field="authorization.billing_amount_chf", operator="<=",
+                      value=300, currency="CHF", scope="period", period_days=7)]
+    for policy, expected in ((UncertaintyPolicy.ASK, "review"),
+                             (UncertaintyPolicy.DECLINE, "block"),
+                             (UncertaintyPolicy.APPROVE, "allow")):
+        mandate = make_mandate(hard_rules=list(rules), uncertainty_policy=policy)
+        state = _state_with_unknown_prior_spend()
+        event = make_event(mandate=mandate, amount=100.0)
+        result = evaluate_authorization(event, mandate, state)
+        assert result.decision == expected, (policy, result.reason_codes)
+        if policy is UncertaintyPolicy.ASK:
+            assert any("billing_amount_chf" in c for c in result.reason_codes)
+
+
+def _state_with_unknown_prior_spend():
+    from wallet_control.state import RunState
+    return RunState(history=_history(), card_id="CA_TEST", prior_spend_known=False)
 
 
 def test_a_present_checkpoint_does_not_warn(tmp_path, caplog):

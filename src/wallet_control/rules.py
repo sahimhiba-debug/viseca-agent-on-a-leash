@@ -36,6 +36,10 @@ class RuleContext:
 
     requested_item_categories: frozenset[str] | None  # from any item.category "in" rule; None if no such rule
     projected_period_spend_chf: dict[int, Decimal]  # period_days -> (prior approved spend + this purchase), CHF
+    # False when this run's state was LOST rather than empty, so the entry above is
+    # absent for a reason the customer is entitled to hear in their own words. The
+    # outcome is `unknown` either way; only the sentence differs.
+    prior_spend_known: bool = True
 
 
 @dataclass(frozen=True)
@@ -202,6 +206,11 @@ def _evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Ru
     if field == "authorization.billing_amount_chf" and rule.scope == "period":
         projected = ctx.projected_period_spend_chf.get(rule.period_days or 0)
         if projected is None:
+            if not ctx.prior_spend_known:
+                return RuleEvaluation(
+                    rule, "unknown",
+                    "this wallet restarted and cannot see what was already spent in "
+                    "this period, so the running total is unknown rather than zero")
             return RuleEvaluation(rule, "unknown", "rolling-period spend could not be computed")
         ok = _compare(rule.operator, projected, _expected_amount(rule))
         detail = f"projected {rule.period_days}-day spend={projected} CHF (including this purchase)"

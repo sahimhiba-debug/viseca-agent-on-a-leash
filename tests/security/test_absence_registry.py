@@ -88,6 +88,12 @@ DECLARED: dict[tuple[str, str], tuple[str, str]] = {
         GUARDED, "Same listing. A record whose decision is not one of "
                  "approve/decline/step_up is skipped, so no fallback can become a "
                  "decision."),
+    ("live_worker.py", "run_id"): (
+        GUARDED, "Same listing, asked whether THIS run decided anything before. A "
+                 "record with no run field yields None, and the very next line only "
+                 "SKIPS on a run id that is present and different -- so an absent "
+                 "run id counts the record, which is the conservative direction: it "
+                 "can only make prior spend read as unknown, never as zero."),
 }
 
 

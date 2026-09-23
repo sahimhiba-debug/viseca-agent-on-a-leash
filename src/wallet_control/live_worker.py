@@ -229,17 +229,90 @@ class LiveWorker:
                 state = RunState.from_snapshot(snapshot, self._history)
                 logger.info("run_id=%s: restored %d prior decisions from checkpoint %s", run_id, len(snapshot["decisions"]), path)
             else:
-                if path is not None:
+                # WAS THERE A RUN HERE BEFORE? The old code did not ask, and could not
+                # tell a genuinely new run from one whose state was lost -- so it
+                # treated both as "nothing spent yet" and logged loudly about it.
+                # The evidence to tell them apart was already being fetched, one
+                # method down, for a different purpose.
+                known = self._prior_spend_is_known(run_id)
+                state = RunState(history=self._history, card_id=mandate.card_id,
+                                 prior_spend_known=known)
+                if not known:
                     logger.warning(
-                        "run_id=%s: no checkpoint at %s; starting with EMPTY spend history. "
-                        "Any rolling-window limit in this mandate begins again from zero, "
-                        "so this run may approve up to the cap a second time. Nothing "
-                        "available to this worker can reconstruct the earlier figure.",
+                        "run_id=%s: no checkpoint at %s and the platform has prior "
+                        "decisions (or could not be asked); prior spend is UNKNOWN. "
+                        "Rolling-period rules will evaluate `unknown` and follow this "
+                        "mandate's uncertainty_policy rather than silently restarting "
+                        "the customer's allowance at zero.", run_id, path)
+                else:
+                    logger.info(
+                        "run_id=%s: no checkpoint at %s and the platform has no prior "
+                        "decision for it; treating this as a genuinely new run.",
                         run_id, path)
-                state = RunState(history=self._history, card_id=mandate.card_id)
             handle = RunHandle(run_id=run_id, mandate=mandate, state=state)
             self._runs[run_id] = handle
             return handle
+
+    def _prior_spend_is_known(self, run_id: str) -> bool:
+        """Is an empty ledger the truth, or just what survived?
+
+        THE ASSUMPTION THIS REMOVES. `register_run` used to reason that refusing a
+        run with no checkpoint "would strand every genuinely new run", and therefore
+        started every such run at zero spend. That is only forced if the two cases
+        are indistinguishable. They are not: a genuinely new run has no decision
+        recorded anywhere, and a run whose state was lost has its earlier decisions
+        sitting in `GET /v1/authorizations` -- which this worker already calls, one
+        method down, to avoid double-submitting.
+
+        So the listing is not being asked to RECONSTRUCT the spend (it cannot; see
+        `reconcile_run` on why a reconstructed amount is not trustworthy). It is
+        asked one binary question it can answer: **has this run decided anything
+        before?** That is enough to tell "nothing was spent" from "I cannot see what
+        was spent", and those two must not share a representation.
+
+        THREE OUTCOMES, and the conservative one is the default:
+
+            platform lists a final decision this state does not know  ->  UNKNOWN
+            platform lists nothing                                    ->  known, zero
+            platform cannot be reached                               ->  UNKNOWN
+
+        The third is deliberate. Not being able to check is not evidence that
+        nothing was spent, and the permissive reading of an unanswered question is
+        the mistake this whole document is about. `unknown` is not a refusal: it
+        routes to the mandate's own `uncertainty_policy`, so the cost of being
+        careful here is an ASK, not a block.
+
+        RUN ASSOCIATION IS BEST-EFFORT AND ERRS TOWARDS UNKNOWN. The listing's exact
+        shape is not documented, so a record is attributed to this run when it
+        carries a matching `run_id` and counted anyway when it carries no run field
+        at all. That can over-trigger -- another run's decisions could make this one
+        say "unknown" -- and over-triggering costs an ask while under-triggering
+        costs the customer's ceiling. The asymmetry is the reason for the choice.
+        """
+        try:
+            listing = self._client.list_authorizations()
+        except Exception as exc:                  # noqa: BLE001 -- any failure means "cannot establish"
+            logger.warning("run_id=%s: could not ask the platform whether this run "
+                           "existed (%s); treating prior spend as UNKNOWN", run_id, exc)
+            return False
+
+        records: list[dict[str, Any]] = []
+        if isinstance(listing, dict):
+            records = listing.get("data") or listing.get("authorizations") or listing.get("items") or []
+        elif isinstance(listing, list):
+            records = listing
+
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            if record.get("decision") not in ("approve", "decline", "step_up") and \
+               record.get("status") not in ("approve", "decline", "step_up"):
+                continue
+            where = record.get("run_id") or record.get("runId")
+            if where is not None and where != run_id:
+                continue
+            return False          # something was decided here before this process started
+        return True
 
     def reconcile_run(self, run_id: str) -> int:
         """Best-effort recovery when no local checkpoint is available: ask the

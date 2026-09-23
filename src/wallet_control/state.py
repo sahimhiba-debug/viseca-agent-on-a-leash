@@ -328,6 +328,27 @@ class RunState:
 
     history: HistoryIndex
     card_id: str
+    # IS THE PRIOR SPEND IN THIS RUN ACTUALLY KNOWN?
+    #
+    # A fresh `RunState` has an empty ledger, and an empty ledger has always MEANT
+    # "nothing has been spent". For a genuinely new run that is true. For a run whose
+    # checkpoint is missing -- a redeploy, a crash, a new machine -- it is false, and
+    # the two were indistinguishable, so the second silently reopened the customer's
+    # whole rolling allowance. Measured: a CHF 300 / 7-day cap approved CHF 900 in one
+    # window across three restarts, and the bound is per-restart, not per-window.
+    #
+    # Zero is a VALUE. "I do not know what was spent" is an ABSENCE. Substituting the
+    # first for the second is the mistake this repository has now found fifteen times
+    # (docs/ABSENCE.md), and this is the highest-stakes place it has appeared: the
+    # number being invented is the money already gone.
+    #
+    # So it is represented rather than assumed. False makes every rolling-period rule
+    # evaluate `unknown` -- not `fail`, because there is no evidence this purchase is
+    # bad -- which routes to the customer's own `uncertainty_policy` exactly like
+    # every other unknown. `live_worker.register_run` is what sets it, and it sets it
+    # only on EVIDENCE that a run existed before (see there); a genuinely new run
+    # keeps `True` and is not made to pay for a loss that did not happen.
+    prior_spend_known: bool = True
     _decisions: dict[str, StoredDecision] = field(default_factory=dict)
     _approved_spend: list[tuple[datetime, Decimal]] = field(default_factory=list)
     # Every device this run has seen, not only the last one. A return to a device
@@ -1005,6 +1026,10 @@ class RunState:
     @classmethod
     def from_snapshot(cls, snapshot: dict, history: HistoryIndex) -> "RunState":
         cls._require(snapshot, cls._SNAPSHOT_KEYS, "root")
+        # A checkpoint that EXISTS carries a complete ledger, so prior spend is known.
+        # `prior_spend_known` is deliberately not read from the file: the flag is a
+        # statement about whether this process could restore the run, not a fact the
+        # file gets to assert about itself.
         state = cls(history=history, card_id=snapshot["card_id"])
         state._last_device_id = snapshot["last_device_id"]
         revoked_at = snapshot["revoked_at"]

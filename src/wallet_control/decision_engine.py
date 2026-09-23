@@ -428,6 +428,13 @@ def _requested_categories(mandate: MandateSnapshot) -> frozenset[str] | None:
 
 def _projected_period_spend(mandate: MandateSnapshot, state: RunState, as_of: datetime, this_amount: Decimal) -> dict[int, Decimal]:
     projected: dict[int, Decimal] = {}
+    if not state.prior_spend_known:
+        # The ledger is empty because this run's state was LOST, not because nothing
+        # was spent. Leaving the entry out makes `rules.py` answer `unknown` for every
+        # rolling-period rule ("rolling-period spend could not be computed"), which is
+        # the truth. Filling it with the visible total would understate the customer's
+        # allowance by exactly the amount nobody can see.
+        return projected
     for rule in mandate.hard_rules:
         if rule.field == "authorization.billing_amount_chf" and rule.scope == "period" and rule.period_days:
             # The peak of every window CONTAINING this purchase, not the window
@@ -540,6 +547,17 @@ def _plain_reason(evaluation: RuleEvaluation) -> str:
                     f"across any {window} period")
         except (TypeError, ValueError):
             return f"it would take you over what you allowed across any {window} period"
+    # A rolling rule that cannot be COMPUTED is a different sentence again, and the
+    # cause matters more here than anywhere else: the customer is being asked about
+    # their own ceiling because the wallet lost sight of it, not because this purchase
+    # is suspicious. Saying "could not work out how this compares" invites them to
+    # re-read the order, which is the wrong place to look.
+    if (rule.field == "authorization.billing_amount_chf" and rule.scope == "period"
+            and evaluation.outcome == "unknown" and "restarted" in evaluation.detail):
+        window = f"{rule.period_days}-day" if rule.period_days else "rolling"
+        return (f"this wallet restarted and cannot see what has already been spent in "
+                f"this {window} period, so it cannot tell whether this would take you "
+                f"over the limit you set")
     # `merchant.familiar` has two unknowns -- no history at all, and history that is
     # the AGENT'S rather than the customer's -- and one entry in the table below. It
     # said "the wallet has no purchase history to check this seller against" while
@@ -977,6 +995,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         ctx = RuleContext(
             requested_item_categories=_requested_categories(mandate),
             projected_period_spend_chf=_projected_period_spend(mandate, state, facts.timestamp, facts.billing_amount_chf),
+            prior_spend_known=state.prior_spend_known,
         )
         evaluations = [evaluate_rule(rule, facts, ctx) for rule in mandate.hard_rules]
 
