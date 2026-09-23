@@ -112,10 +112,21 @@ def signature(instruction: str):
     from wallet_control.policy_compiler import compile_instruction
     from wallet_control.scope import delegation_size, outcome_sets
 
+    # AT BOTH PRICE POINTS, and the reason is a blunt oracle caught in the act.
+    # Measured only at the band's floor, this signature could not tell "CHF 120 per
+    # order" from "CHF 1200 per order" on the official grocery mandate: at the
+    # cheapest published prices EVERY basket in the world is under CHF 120, so the
+    # approved set is the whole universe under both and the ceiling is invisible.
+    # A comparison that cannot see a ten-times-larger ceiling would have reported
+    # "nothing moved" forever and looked exactly like success.
+    #
+    # The floor says what was delegated; the typical point is where the ceilings
+    # actually bite. A signature needs both to be a signature.
     approved, asked = outcome_sets(instruction, "min")
+    approved_typical, asked_typical = outcome_sets(instruction, "typical")
     repetition = delegation_size(instruction)["how_many_times"]
     unsupported = frozenset(compile_instruction(instruction).unsupported_restrictions)
-    return (approved, asked,
+    return (approved, asked, approved_typical, asked_typical,
             repetition.get("most_purchases_per_period"),
             repetition.get("chf_per_year"),
             unsupported)
@@ -142,7 +153,9 @@ def check(relation: str, base, variant) -> str | None:
         tighter pace, and nothing left unexpressed that `b` managed to express."""
         if not (a[0] >= b[0]):
             return False
-        for mine, theirs in ((a[2], b[2]), (a[3], b[3])):
+        if not (a[2] >= b[2]):
+            return False
+        for mine, theirs in ((a[4], b[4]), (a[5], b[5])):
             if mine is None:                    # unbounded permits more than bounded
                 continue
             if theirs is None or mine < theirs:
@@ -194,7 +207,7 @@ def sweep():
             "relation": relation, "why": why,
             "base": base_text, "variant": variant_text,
             "n_base": len(base[0]), "n_variant": len(variant[0]),
-            "rate_base": (base[2], base[3]), "rate_variant": (variant[2], variant[3]),
+            "rate_base": (base[4], base[5]), "rate_variant": (variant[4], variant[5]),
             "failure": failure,
             "gained": len(variant[0] - base[0]), "lost": len(base[0] - variant[0]),
         })
