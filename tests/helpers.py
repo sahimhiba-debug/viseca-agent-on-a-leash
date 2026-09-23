@@ -1,4 +1,13 @@
-"""Small synthetic-event builder for unit tests that don't need the full CSV pack."""
+"""Small synthetic-event builder for unit tests that don't need the full CSV pack.
+
+ITEM IDS HERE ARE REAL ONES. `decision_engine._catalogue_agreement` reads
+`data/official/items.csv`, and since an id the catalogue cannot identify now counts
+as `unknown` rather than as agreement, an invented id is no longer a neutral choice
+in a fixture -- it silently turns every category-constrained test into a `review`.
+The default line below is IT0001 "Fresh produce selection", whose catalogue category
+really is `groceries`. A test that wants the unidentifiable case should ask for it
+explicitly rather than getting it by accident.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +15,25 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from wallet_control.mandate import Mandate, MandateSnapshot, UncertaintyPolicy
+
+
+def catalogue_id(category: str) -> str:
+    """A real `data/official/items.csv` id whose category really is `category`.
+
+    Fixtures used to invent ids like `I1`. That was neutral while the engine ignored
+    the catalogue and is not neutral now: an unidentifiable id makes `item.category`
+    `unknown` wherever the mandate constrains the kind of goods, so an invented id
+    quietly converts a test's `allow` into a `review` and the test measures the
+    fixture instead of the behaviour it was written for.
+    """
+    import csv
+    from pathlib import Path
+    rows = csv.DictReader(open(Path(__file__).resolve().parents[1]
+                               / "data" / "official" / "items.csv"))
+    for row in rows:
+        if row["item_category"] == category:
+            return row["item_id"]
+    raise LookupError(f"no catalogue item in category {category!r}")
 
 
 def make_mandate(
@@ -50,7 +78,7 @@ def make_event(
     items = items or [
         {
             "line_no": 1,
-            "item_id": "IT_TEST_0001",
+            "item_id": "IT0001",          # real catalogue id, category `groceries`
             "item_name": "Test item",
             "item_category": "groceries",
             "quantity": 1,

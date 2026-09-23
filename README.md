@@ -1,10 +1,11 @@
 # Agent on a Leash -- Wallet Control
 
-> **A policy is not a list of rules. It is a set of purchases.**
+> **A policy is not a list of rules. It is a set of purchases —**
+> **and the set is drawn over facts, some of which the party being judged writes.**
 > The agent is autonomous. The authority is not.
 
-**[docs/THE_THESIS.md](docs/THE_THESIS.md) is the one page to read.** One product idea
-with five faces, one engineering idea underneath it, and every number checkable:
+**[docs/THE_THESIS.md](docs/THE_THESIS.md) is the one page to read.** What you
+authorised, and how much of it is actually enforceable — with every number checkable:
 
 ```
  595 / 595   "Order our household groceries."
@@ -162,7 +163,7 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
 data/official/             Read-only copy of the official synthetic data pack
 ui/index.html              The whole customer experience: mobile-first, one file,
                            no framework, no build step
-tests/                     1677 tests
+tests/                     1683 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      Architecture, security audits, runbook, demo script
 ```
@@ -215,7 +216,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1677 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
+**1683 tests**, of which 5 are reported skips rather than silent ones. The structure is deliberate rather than count-driven:
 
 - `tests/security/test_product_invariants.py` -- the twelve product claims as
   property tests over generated inputs, each named after the sentence we would say

@@ -1,12 +1,18 @@
 # Demo concept — one idea, five faces
 
-> **A policy is not a list of rules. It is a set of purchases.**
+> **A policy is not a list of rules. It is a set of purchases —**
+> **and the set is drawn over facts, some of which the party being judged writes.**
 > [docs/THE_THESIS.md](THE_THESIS.md)
 
 Every beat below shows the same object from a different side: how big the set is,
 which of your words made it that size, where its boundary is undetermined, what can
 step into it from outside, and that no agent can make it bigger. That is why there
 are six panels and not six features.
+
+The closing beat asks what the boundary is *worth*: each rule is checked against a
+fact, the facts have different authors, and three of the nine cannot be confirmed by
+anyone but the seller. The Delegate tab marks them — ● bound, ◐ refutable, ○ advisory
+— at the moment the customer writes the rule, not in a footnote.
 
 ---
 

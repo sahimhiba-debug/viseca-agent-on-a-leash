@@ -47,7 +47,11 @@ def _one_shot_mandate():
 def _buy(md, s, aid, *, amt=399.0, hours=0):
     ev = make_event(mandate=md, authorization_id=aid, amount=amt, merchant_id=M,
                     timestamp=T0 + timedelta(hours=hours))
-    ev["authorization"]["items"][0].update(item_name="27-inch monitor", item_category="electronics")
+    # IT0017 is the real catalogue id for the 27-inch monitor, category
+    # `electronics`. The id must agree with the stated category or the catalogue
+    # refutes the line before this test reaches what it is about.
+    ev["authorization"]["items"][0].update(item_id="IT0017", item_name="27-inch monitor",
+                                          item_category="electronics")
     return evaluate_authorization(ev, md, s)
 
 

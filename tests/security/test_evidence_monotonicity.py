@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.helpers import make_event, make_mandate
+from tests.helpers import catalogue_id, make_event, make_mandate
 from wallet_control.decision_engine import evaluate_authorization
 from wallet_control.mandate import HardRule
 from wallet_control.state import HistoryIndex, RunState
@@ -37,7 +37,7 @@ def _mandate():
 
 
 def _line(n, details, name="Road-running shoe", category="sporting_goods"):
-    return {"line_no": n, "item_id": f"I{n}", "item_name": name, "item_category": category,
+    return {"line_no": n, "item_id": catalogue_id(category), "item_name": name, "item_category": category,
             "quantity": 1, "unit_price": 150.0, "currency": "CHF", "item_details": details}
 
 
@@ -202,7 +202,7 @@ def _random_mandate(rng):
 def _decide_qty(mandate, quantity, amount=100.0,
                 details="size 43; returns accepted within 30 days"):
     state = RunState(history=HistoryIndex({"CA_TEST": frozenset({M})}, available=True), card_id="CA_TEST")
-    items = [{"line_no": 1, "item_id": "I1", "item_name": "Road-running shoe",
+    items = [{"line_no": 1, "item_id": catalogue_id("sporting_goods"), "item_name": "Road-running shoe",
               "item_category": "sporting_goods", "quantity": quantity,
               "unit_price": amount / max(quantity, 1), "currency": "CHF", "item_details": details}]
     event = make_event(mandate=mandate, authorization_id="A1", amount=amount,

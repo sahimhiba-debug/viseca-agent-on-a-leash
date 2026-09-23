@@ -17,9 +17,10 @@ different authors:
                                shop is to this card.                        BOUND
 
     item.category              supplied per line, by the party proposing the
-                               purchase. It is REFUTABLE where the item id is in the
-                               official catalogue -- a gift card labelled `groceries`
-                               is caught -- and nothing at all where it is not.
+                               purchase, and checked against the official catalogue:
+                               a gift card labelled `groceries` is caught, and goods
+                               the catalogue cannot identify are put to the customer
+                               instead of being taken on the agent's word.
                                                                        REFUTABLE
 
     order.return_window_days   read from what the seller wrote. There is no second
@@ -85,10 +86,11 @@ FACTS: tuple[Provenance, ...] = (
         "The figure it names is the figure that is charged."),
     Provenance(
         "item.category", "the party proposing the purchase", REFUTABLE,
-        "the official item catalogue, where the item id is one it knows",
-        "The agent says what kind of thing this is. The wallet checks that against "
-        "the catalogue and refuses a mismatch -- but it cannot check an item the "
-        "catalogue has never heard of."),
+        "the official item catalogue: a mismatch is refused, and an id it does not "
+        "know is `unknown` rather than agreement",
+        "The agent says what kind of thing this is. The wallet checks it against the "
+        "official catalogue: a mismatch is refused, and goods it cannot identify are "
+        "put to you rather than taken on the agent's word."),
     Provenance(
         "item.unrequested_present", "the party proposing the purchase", REFUTABLE,
         "derived from item.category, so it inherits that check",

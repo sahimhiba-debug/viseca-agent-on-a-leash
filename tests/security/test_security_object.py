@@ -53,7 +53,11 @@ def _mandate(instr="Buy the 27-inch monitor I chose.", anchor="27-inch", cap=500
 def _buy(md, s, aid, *, name="27-inch monitor", qty=1, amt=300.0, hours=0):
     ev = make_event(mandate=md, authorization_id=aid, amount=amt, merchant_id=M,
                     card_id=md.card_id, timestamp=T0 + timedelta(hours=hours))
-    ev["authorization"]["items"][0].update(item_name=name, quantity=qty, item_category="electronics")
+    # IT0017 is the real catalogue id for the 27-inch monitor, category
+    # `electronics`. The id must agree with the stated category or the catalogue
+    # refutes the line before this test reaches what it is about.
+    ev["authorization"]["items"][0].update(item_id="IT0017", item_name=name, quantity=qty,
+                                          item_category="electronics")
     return evaluate_authorization(ev, md, s)
 
 

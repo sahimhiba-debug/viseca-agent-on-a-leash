@@ -63,6 +63,11 @@ _DUPLICATE_RULE = HardRule(field="order.duplicate_suspected", operator="=", valu
 # the event names an id and then contradicts what that id is. A contradiction is a
 # FAIL, which is what keeps `approve when unsure` from waving it through.
 _CATALOGUE_RULE = HardRule(field="item.matches_the_catalogue", operator="=", value="true")
+
+# Rules whose truth depends on what KIND of thing is in the basket. An id the
+# catalogue cannot identify only matters to a customer who constrained the kind --
+# see `_catalogue_agreement` for why the escalation is scoped rather than global.
+_CATEGORY_DEPENDENT = frozenset({"item.category", "item.unrequested_present"})
 _NO_RULES_RULE = HardRule(field="mandate.has_no_rules", operator="=", value="false")
 _AMOUNT_INTEGRITY_RULE = HardRule(field="authorization.amount_integrity", operator="=", value="true")
 # A seller writing to the machine that holds the card. Never a FAIL: the text is
@@ -371,19 +376,37 @@ def _basket_key(items: list[dict[str, Any]]) -> BasketKey:
     trust tier and is not fingerprinted here; see docs/FINAL_ARCHITECTURE_ATTACK.md
     for that residual and why it was scoped out rather than silently folded in.
     """
-    return tuple(
-        sorted(
-            (
-                line["item_id"],
-                line["item_name"],
-                line["quantity"],
-                extract_return_window_days(line.get("item_details", "")),
-                mentions_final_sale(line.get("item_details", "")),
-                extract_stated_size(line.get("item_details", "")),
-            )
-            for line in items
+    fingerprints = [
+        (
+            line["item_id"],
+            line["item_name"],
+            line["quantity"],
+            extract_return_window_days(line.get("item_details", "")),
+            mentions_final_sale(line.get("item_details", "")),
+            extract_stated_size(line.get("item_details", "")),
         )
-    )
+        for line in items
+    ]
+    # SORTING THIS RAISED TypeError, AND THE DECISION PATH HAD NO ANSWER.
+    # Three of the six fields are `X | None`, None meaning "the seller stated
+    # nothing". Python compares tuples element by element and stops at the first
+    # difference, so the None fields were only ever reached when two lines agreed on
+    # item_id, item_name AND quantity -- and then it compared None with an int:
+    #
+    #     two lines of the same product, one "Returns accepted within 30 days",
+    #     the other silent  ->  TypeError  ->  HTTP 500 from /api/agent/propose
+    #
+    # That basket is legal, ordinary, and composed by the untrusted party. The wallet
+    # returned no decision at all, which is not one of the three answers it owes.
+    #
+    # The sort key below is TOTAL: absence sorts as its own thing (`v is None` first)
+    # instead of being compared against a value it has no order against. The
+    # fingerprint tuples themselves are unchanged, so what counts as the same basket
+    # is exactly what it was -- only the ordering is repaired.
+    def _total_order(fingerprint: tuple) -> tuple:
+        return tuple((v is None, "" if v is None else v) for v in fingerprint)
+
+    return tuple(sorted(fingerprints, key=_total_order))
 
 
 def _requested_categories(mandate: MandateSnapshot) -> frozenset[str] | None:
@@ -664,23 +687,40 @@ def _catalogue_agreement(items: list[dict[str, Any]]) -> tuple[str | None, str]:
 
         id known, category agrees                    pass
         id known, category CONTRADICTS the catalogue fail
-        id not in the catalogue                      SILENT
+        id not in the catalogue                      UNKNOWN
 
-    THE CATALOGUE CAN REFUTE A CLAIM. IT CAN NEVER CONFIRM ONE, and the difference
-    is the whole honest scope of this check.
+    THE CATALOGUE CAN REFUTE A CLAIM. IT CAN NEVER CONFIRM ONE. An id it has never
+    heard of is neither a refutation nor a confirmation, and the third value is what
+    that is called here.
 
-    My first version escalated an unknown id, which closes the obvious bypass -- an
-    attacker who reads this file simply stops supplying a real id -- and is wrong
-    anyway. The official pack is a closed world of 66 items; a wallet in the real one
-    sees goods it has no entry for constantly, and the challenge is explicit that
-    "blocking ordinary shopping unnecessarily is also a failure". Escalating every
-    unrecognised item would make the control useless in exchange for a defence a
-    competent attacker steps around in one field.
+    THE LAST LINE USED TO BE `SILENT`, AND SILENCE WAS THE BUG. Measured through this
+    engine, on a mandate reading `item.category in ['groceries']`:
 
-    So this refutes and does not confirm. It catches the agent that is honest about
-    WHICH item and dishonest about WHAT it is. Against one that invents the id too it
-    does nothing, and the audit in `provenance.py` is where that is faced rather than
-    papered over.
+        real gift card, labelled gift_card          block
+        real gift card, RELABELLED groceries        block   <- refuted
+        INVENTED id, labelled groceries             ALLOW
+        NO id at all, labelled groceries            ALLOW
+
+    An agent got a better outcome by saying LESS. Naming the item honestly was
+    punished and withholding it was rewarded, so the check only ever caught an
+    attacker careless enough to supply a real id -- and the Delegate tab meanwhile
+    told the customer the catalogue could refuse this rule, which put the choice of
+    whether that was true in the attacker's hands.
+
+    WHAT THE OLD ARGUMENT GOT RIGHT, AND WHERE IT IS ANSWERED. The official pack is a
+    closed world of 66 items; a real wallet sees goods it has no entry for constantly,
+    and the challenge is explicit that "blocking ordinary shopping unnecessarily is
+    also a failure". Escalating every unrecognised item would indeed make the control
+    useless. So the escalation is PROPORTIONAL: the caller raises it only when the
+    mandate actually contains a rule that reads a category (`_CATEGORY_DEPENDENT`).
+    A customer who never constrained what may be bought pays nothing for a catalogue
+    that has not heard of their shopping; a customer who did constrain it, and whose
+    agent presents goods nobody can identify, is told that the rule they wrote could
+    not be checked. It is `unknown`, never `fail` -- no evidence the purchase is bad --
+    so their own `uncertainty_policy` decides, exactly like every other unknown.
+
+    On the official pack this costs nothing measurable: 56 of 56 item lines carry an
+    id the catalogue knows and 56 of 56 stated categories match it exactly.
 
     Reference data is read-only and never a rule: this compares two claims and
     reports which, it does not compile anything.
@@ -693,8 +733,8 @@ def _catalogue_agreement(items: list[dict[str, Any]]) -> tuple[str | None, str]:
         item_id = line.get("item_id")
         claimed = line.get("item_category")
         if not item_id or item_id not in catalogue:
-            unknown.append(str(item_id))
-            continue      # silent: see the docstring. Refutes, never confirms.
+            unknown.append(str(item_id) if item_id else "an item line with no id")
+            continue      # unrefuted, NOT confirmed. See the docstring.
         actual = catalogue[item_id]["item_category"]
         if claimed != actual:
             contradicted.append(f"{item_id} is described as {claimed!r} but the "
@@ -702,6 +742,10 @@ def _catalogue_agreement(items: list[dict[str, Any]]) -> tuple[str | None, str]:
                                 f"({catalogue[item_id]['item_name']})")
     if contradicted:
         return "fail", "; ".join(contradicted)
+    if unknown:
+        return "unknown", ("the catalogue has no entry for " + ", ".join(unknown)
+                           + ", so what kind of thing it is rests on the seller's "
+                             "own description")
     return None, ""
 
 
@@ -943,6 +987,12 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # that -- a non-positive amount is rejected here regardless of schema validation
         # upstream.
         catalogue_verdict, catalogue_detail = _catalogue_agreement(auth["items"])
+        if catalogue_verdict == "unknown" and not any(
+                r.field in _CATEGORY_DEPENDENT for r in mandate.hard_rules):
+            # Nothing was delegated that depends on the kind of thing being bought,
+            # so an unidentifiable item is not this customer's problem. A refutation
+            # ("fail") is still raised -- that is an integrity concern either way.
+            catalogue_verdict = None
         if catalogue_verdict is not None:
             evaluations.append(RuleEvaluation(rule=_CATALOGUE_RULE, outcome=catalogue_verdict,
                                               detail=catalogue_detail, source="safety"))

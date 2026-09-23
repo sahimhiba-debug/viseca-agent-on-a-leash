@@ -112,6 +112,33 @@ _GROC = "groceries"
 FAMILIAR, STRANGER = "ME0001", "ME0777"
 
 
+def _catalogue_ids() -> dict[str, str]:
+    """A real `items.csv` id for each category this benchmark trades in.
+
+    The episodes below name products `a1`, `b2`, `c1` because `must_include` and the
+    result rows read better that way, and those labels stay. But the WALLET now reads
+    `data/official/items.csv`: an id it cannot identify makes `item.category`
+    `unknown` on any mandate that constrains the category, and every episode here
+    does constrain it. Left symbolic, all eleven episodes would escalate to the
+    customer and this file would measure catalogue coverage instead of planning.
+
+    So a label is the benchmark's vocabulary and a catalogue id is what the event
+    carries -- the same distinction the shop already makes between what the agent
+    calls a thing and what the thing is.
+    """
+    import csv
+    from pathlib import Path
+    rows = list(csv.DictReader(open(Path(__file__).resolve().parents[1]
+                                    / "data" / "official" / "items.csv")))
+    out: dict[str, str] = {}
+    for r in rows:
+        out.setdefault(r["item_category"], r["item_id"])
+    return out
+
+
+_CATALOGUE_ID = _catalogue_ids()
+
+
 def _p(i, n, price, merchant=FAMILIAR, cat=_GROC, ret=30):
     return Product(i, n, cat, Decimal(str(price)), merchant, ret)
 
@@ -271,7 +298,9 @@ def _event(ep: Episode, lines, merchant_id: str, n: int, mandate, world: World) 
         p = by_id.get(l.item_id)
         detail = ("" if p is None or p.returnable_days is None
                   else f"Returns accepted within {p.returnable_days} days")
-        items.append({"line_no": i, "item_id": l.item_id, "item_name": l.name,
+        items.append({"line_no": i,
+                      "item_id": _CATALOGUE_ID.get(l.category, l.item_id),
+                      "item_name": l.name,
                       "item_category": l.category, "quantity": l.quantity,
                       "unit_price": float(l.unit_price), "currency": "CHF",
                       "item_details": detail})

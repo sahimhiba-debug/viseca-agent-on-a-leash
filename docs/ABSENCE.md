@@ -9,19 +9,28 @@ different vocabularies. It took the sixth to see the pattern.
 
 ---
 
-## The twelve
+## The fourteen
 
 The first six were found one at a time, by six unrelated methods, over several
 campaigns. **The seventh was predicted:** once the rule was written down, the next
 place to look was wherever the substitution is idiomatic — `from_snapshot` was the
 first place looked, and it was full of it.
 
-The last four came from somewhere else again, and that is the part worth noticing.
+The next four came from somewhere else again, and that is the part worth noticing.
 Every sweep in this repository enumerates a space *we chose*. Nine, ten, eleven and
 twelve came from reading the organizers' specification, from reading all 45 official
 decisions one at a time as a judge would, and from mining a column of the history
 file. **None of them was reachable by any sweep we had built** — which is the honest
 measure of how much the sweeps cover.
+
+**Thirteen and fourteen came from a third place: auditing a defence this repository
+had just built.** Thirteen is in `provenance.py`'s own subject matter — the panel
+that tells a customer which rules are enforced was itself overstating one of them.
+Fourteen fell out of *repairing thirteen's fixtures*: once test baskets used real
+catalogue ids, two lines of the same product stopped differing, and a comparison
+that had never been reached before compared absence with a value and raised. Neither
+was reachable by a sweep either. **A new defence is a new place for this mistake to
+live, and the fix for one is a good place to look for the next.**
 
 | # | where | what was absent | what filled the hole | how it was found |
 | --- | --- | --- | --- | --- |
@@ -37,6 +46,45 @@ measure of how much the sweeps cover.
 | 10 | `RunState.session_signals` | whether a device change means someone else is driving | `False` — **clean** | auditing all 45 official decisions by hand |
 | 11 | the merchant-text path | that a seller had written to the machine holding the card | nothing at all — observed and discarded | the same audit, on the scenario named *Manipulated agent* |
 | 12 | `HistoryIndex.from_csv` | **whose** past purchase made a shop familiar | the agent's own history, counted as the customer's | mining `authorization_history.csv`'s `initiator_type` |
+| 13 | `_catalogue_agreement` | whether the catalogue recognises this item at all | the agent's own label, accepted in silence | asking what the ◐ mark on the Delegate tab actually promises |
+| 14 | `_basket_key` | a return window or size the seller never stated | an **uncaught exception** — HTTP 500, no decision at all | repairing the fixtures for 13, which made two lines collide |
+
+**Thirteen rewarded saying less.** A real item id carrying a false category was
+refuted; an id the catalogue had never seen was waved through. So naming the goods
+honestly was punished and withholding the name was not — and the customer was
+meanwhile being told the catalogue could refuse that rule, which put the choice of
+whether that was true in the agent's hands. Measured through the real engine, on
+`item.category in ['groceries']`:
+
+```
+real gift card, labelled gift_card        block
+real gift card, RELABELLED groceries      block    <- refuted
+INVENTED id, labelled groceries           ALLOW
+NO id at all, labelled groceries          ALLOW
+```
+
+The fix is scoped, not global: an unidentifiable item is `unknown` only where the
+mandate actually constrains the kind of goods, and `unknown` goes to the customer's
+own `uncertainty_policy`, never to `fail`. On the official pack it costs nothing
+measurable — **56 of 56 item lines carry an id the catalogue knows and all 56 stated
+categories match it exactly** — and the replay is unmoved at 45 · 17/4/24.
+
+**Fourteen is the same class in the *thrown* shape as number 9**, and it is the worst
+of the fourteen by consequence. Three of the six fields in a basket fingerprint are
+`X | None`; tuple comparison stops at the first difference, so those fields were
+reached only when two lines agreed on item id, name and quantity. Then it compared
+`None` with an int:
+
+```
+two lines of the same product, one "Returns accepted within 30 days", one silent
+POST /api/agent/propose  ->  HTTP 500, no decision at all
+```
+
+That basket is legal, ordinary, and composed entirely by the untrusted party. The
+protocol gives the wallet three answers within eight seconds and a 500 is none of
+them. **We do not claim to know whether the platform fails open or closed on it** —
+that is the platform's behaviour and we have not measured it. The claim is narrower
+and enough: the party the wallet exists to constrain could stop it answering.
 
 Number 7 is the one that matters for whether any of this is a tool or a story.
 Measured on a real checkpoint with **one key removed**:

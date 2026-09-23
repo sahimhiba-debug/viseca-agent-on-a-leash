@@ -159,7 +159,12 @@ def _event(
             "purchase_description": "32-inch monitor",
             "items": [
                 {
-                    "line_no": 1, "item_id": "IT_DEMO_MONITOR", "item_name": "32-inch monitor",
+                    # A REAL catalogue id (IT0046 "Computer monitor", electronics).
+                    # The wallet now checks the stated category against
+                    # `data/official/items.csv`, and an id it cannot identify is
+                    # `unknown` on a mandate that constrains the kind of goods -- so
+                    # an invented id here would put the whole demo to the customer.
+                    "line_no": 1, "item_id": "IT0046", "item_name": "32-inch monitor",
                     "item_category": "electronics", "quantity": 1, "unit_price": amount,
                     "currency": "CHF", "item_details": item_details,
                 }

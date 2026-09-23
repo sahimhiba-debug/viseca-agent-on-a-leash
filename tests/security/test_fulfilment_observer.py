@@ -51,7 +51,11 @@ def _state(*, with_history: bool = True) -> RunState:
 
 def _buy(mandate, state, authorization_id, *, name="27-inch computer monitor", qty=1, amount=300.0, extra=None):
     event = make_event(mandate=mandate, authorization_id=authorization_id, amount=amount, merchant_id=MERCHANT_ID)
-    event["authorization"]["items"][0].update(item_name=name, quantity=qty, item_category="electronics")
+    # IT0017 is the real catalogue id for "27-inch computer monitor", category
+    # `electronics`. The id must agree with the category or the catalogue refutes the
+    # line and every purchase here blocks before the fulfilment logic is reached.
+    event["authorization"]["items"][0].update(item_id="IT0017", item_name=name,
+                                              quantity=qty, item_category="electronics")
     if extra:
         event["authorization"]["items"].append(extra)
     return evaluate_authorization(event, mandate, state)

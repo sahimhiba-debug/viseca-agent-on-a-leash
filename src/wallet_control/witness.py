@@ -27,6 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from functools import lru_cache
 from typing import Any
 
 from .decision_engine import evaluate_authorization
@@ -80,11 +81,36 @@ def snapshot(rules: list[HardRule], uncertainty: UncertaintyPolicy,
     return mandate.snapshot()
 
 
+@lru_cache(maxsize=1)
+def _catalogue_id_by_category() -> dict[str, str]:
+    """A REAL `items.csv` id for each category a hypothetical purchase can claim.
+
+    These purchases are imaginary, but they are judged by the real engine, and the
+    real engine now checks the stated category against the official catalogue. A
+    made-up id (`IT_W3`, as this was) is one the catalogue cannot identify, which
+    makes `item.category` `unknown` on exactly the mandates these witnesses exist to
+    probe -- so every witness collapsed to `review` and stopped distinguishing
+    anything. The witness must differ from a real purchase in the ONE fact under
+    test and in nothing else; the item id is not the fact under test.
+    """
+    from .csv_data import load_items
+
+    out: dict[str, str] = {}
+    for item_id, row in load_items().items():
+        out.setdefault(row["item_category"], item_id)
+    return out
+
+
+def catalogue_id_for(category: str, fallback_index: int) -> str:
+    return _catalogue_id_by_category().get(category, f"IT_W{fallback_index}")
+
+
 def event(mandate: MandateSnapshot, index: int, purchase: Purchase) -> dict[str, Any]:
     return event_for(
         mandate, index, amount=purchase.amount, category=purchase.category,
         merchant=MERCHANT, returnable=purchase.returnable,
-        items=[{"line_no": 1, "item_id": f"IT_W{index}",
+        items=[{"line_no": 1,
+                "item_id": catalogue_id_for(purchase.category, index),
                 "item_name": f"{purchase.item_name} {index}",
                 "item_category": purchase.category, "quantity": 1,
                 "unit_price": purchase.amount, "currency": "CHF",

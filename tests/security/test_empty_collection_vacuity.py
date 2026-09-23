@@ -56,7 +56,7 @@ ITEM_RULES = [
 ]
 
 MATCHING_ITEM = {
-    "line_no": 1, "item_id": "I1", "item_name": "27-inch monitor", "item_category": "electronics",
+    "line_no": 1, "item_id": "IT0017", "item_name": "27-inch monitor", "item_category": "electronics",
     "quantity": 1, "unit_price": 400.0, "currency": "CHF", "item_details": "size 27",
 }
 

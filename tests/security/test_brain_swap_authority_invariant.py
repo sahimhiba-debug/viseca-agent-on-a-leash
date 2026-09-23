@@ -60,18 +60,31 @@ def test_every_refusable_attack_is_refused(attack):
 
 
 def test_an_invented_product_is_bound_by_the_same_rules_as_a_real_one():
-    """The wallet CANNOT tell that an item does not exist, and we do not claim it
-    can -- nothing in the official API lets it check a merchant's catalogue. What it
-    does is bind the invented item by exactly the rules a real one obeys, so lying
-    about the goods buys the agent nothing it could not have had honestly.
+    """The wallet STILL cannot tell that an item exists, and we still do not claim it
+    can -- no call in the official API asks a merchant whether it really sells this.
+    What it can tell is whether the id is one the official reference data knows, and
+    it no longer reads "cannot identify" as "agrees".
 
-    Stated this way because "the wallet blocks hallucinated products" would be false
-    and a judge would find it in one attempt."""
+    THIS ASSERTION USED TO BE `allow`, on the reasoning that the invented item is
+    bound by exactly the rules a real one obeys, so lying buys nothing. The second
+    half of that is true and is still asserted below. The first half was the bug:
+    `_catalogue_agreement` refuted a REAL id carrying a false category and stayed
+    silent on an id it had never seen, so an agent was rewarded for inventing the id
+    rather than naming it -- withholding beat lying, and the Delegate tab meanwhile
+    told the customer the catalogue could refuse this rule.
+
+    So a phantom is now `unknown`, not `fail`: an id nobody recognises is no evidence
+    the purchase is bad, and the customer's own `uncertainty_policy` decides. What is
+    NOT claimed is that this detects invented goods in general -- an attacker who
+    borrows a real id for goods that do not exist passes this check untouched, and
+    `provenance.py` marks `item.category` accordingly."""
     attack = ATTACKS_BY_KEY["hallucinated"]
     assert attack.expected == "neutralised"
 
     compliant = _send(attack, "adv_phantom_ok").json()
-    assert compliant["decision"] == "allow", "a phantom item within every rule"
+    assert compliant["decision"] == "review", (
+        "a phantom item within every rule is no longer waved through: the mandate "
+        "constrains what may be bought and the wallet cannot identify this")
 
     # ...and the same phantom, once it breaks a rule, is refused like anything else.
     too_dear = _send(attack, "adv_phantom_dear", price=5000).json()
