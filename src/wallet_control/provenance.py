@@ -65,6 +65,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+# WHAT A FACT'S ABSENCE IS ALLOWED TO MEAN. Provenance asks who WROTE a fact;
+# polarity asks what its SILENCE means, and the two together decide whether saying
+# nothing is profitable.
+#
+#   REQUIREMENT  evidence FOR authority. The customer asked for something and this
+#                shows it is so. Absence must never satisfy it.
+#   FLAG         evidence AGAINST. The wallet raises it on its own; absence is the
+#                ordinary case, so erasing it necessarily helps the proposer -- and
+#                that is not a defect. You cannot be flagged for text you did not
+#                write, and not attacking is not an attack.
+#
+# The distinction is invisible in a field list, because one CHANNEL can carry both:
+# `item_details` holds the return window (requirement) and the injection (flag), and
+# a seller who deletes the text erases one of each. `research/erasure.py` measures
+# the consequence over every field of the 45 official events.
+REQUIREMENT = "requirement"
+FLAG = "flag"
+
 BOUND = "bound"          # the agent cannot author this fact at all
 REFUTABLE = "refutable"  # it can, and an independent source can contradict it
 ADVISORY = "advisory"    # it can, and nothing can contradict it
@@ -77,6 +95,7 @@ class Provenance:
     binding: str         # BOUND | REFUTABLE | ADVISORY
     checked_by: str      # what, if anything, can contradict the claim
     customer_line: str   # what to tell the customer, in their language
+    polarity: str = REQUIREMENT   # REQUIREMENT | FLAG -- see above
 
 
 FACTS: tuple[Provenance, ...] = (
@@ -93,7 +112,8 @@ FACTS: tuple[Provenance, ...] = (
         "session.integrity_risk", "the platform, plus this run's own observations", BOUND,
         "the event's velocity claim is cross-checked against what this run has seen, "
         "and only ever raised",
-        "The agent cannot affect this. It is what the wallet itself saw happen."),
+        "The agent cannot affect this. It is what the wallet itself saw happen.",
+        polarity=FLAG),
     Provenance(
         "authorization.billing_amount_chf", "the proposal, cross-checked", BOUND,
         "amount x the fixed FX rate, to within 2 rappen -- and understating it only "

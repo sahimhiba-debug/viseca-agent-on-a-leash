@@ -58,6 +58,9 @@ from wallet_control.decision_engine import evaluate_authorization  # noqa: E402
 from wallet_control.offline_replay import (  # noqa: E402
     build_event, compile_and_confirm_mandate_for_scenario,
 )
+from dataclasses import replace  # noqa: E402
+
+from wallet_control.mandate import UncertaintyPolicy  # noqa: E402
 from wallet_control.state import HistoryIndex, RunState  # noqa: E402
 
 PERMISSIVENESS = {"block": 0, "review": 1, "allow": 2}
@@ -136,22 +139,58 @@ def erase(event: dict, path: str, mode: str) -> dict | None:
     return out
 
 
-def judge(event: dict, snapshot, history: HistoryIndex) -> str:
+# A fact is one of two things, and which one decides what its ABSENCE may mean.
+#
+#   REQUIREMENT  evidence FOR authority -- the customer asked for something and this
+#                is what shows it is so (a return window, a category, a ceiling).
+#                Absence must never satisfy it. Erasure must not help.
+#
+#   FLAG         evidence AGAINST -- a red flag the wallet raises on its own (text
+#                written at the machine, a session that looks wrong). Absence is
+#                simply the ordinary case. Erasure ALWAYS helps, necessarily, and
+#                that is not a defect: you cannot be flagged for text you did not
+#                write, and not attacking is not an attack.
+#
+# The distinction is invisible in the field list, because ONE channel carries both:
+# `item_details` holds the return window (requirement) and the injection (flag).
+# So a violation is classified by WHICH REASON DISAPPEARED, not by which field moved.
+FLAG_FIELDS = frozenset({
+    "merchant.text_addresses_the_machine",
+    "session.integrity_risk",
+    "order.duplicate_suspected",
+})
+
+
+def judge(event: dict, snapshot, history: HistoryIndex) -> tuple[str, frozenset[str]]:
     """One decision, on a FRESH state so nothing accumulates between variants."""
     state = RunState(history=history, card_id=snapshot.card_id)
     try:
-        return evaluate_authorization(event, snapshot, state).decision
+        result = evaluate_authorization(event, snapshot, state)
+        return result.decision, frozenset(result.reason_codes)
     except Exception as exc:                      # noqa: BLE001 -- the point is to catch all
-        return f"RAISED:{type(exc).__name__}"
+        return f"RAISED:{type(exc).__name__}", frozenset()
 
 
-def official_cases():
+def _driven_by(base_codes: frozenset[str], got_codes: frozenset[str]) -> str:
+    """Which kind of evidence did the erasure remove?"""
+    lost = {code.split(":", 1)[-1] for code in base_codes - got_codes}
+    if lost and lost <= FLAG_FIELDS:
+        return "flag"
+    return "requirement"
+
+
+def official_cases(policy=None):
     """The 45 real events, each with the mandate that judged it."""
     history = HistoryIndex.from_csv(history_csv_path())
     items_by_auth = load_purchase_attempt_items()
     merchants = load_merchants()
     for scenario_id in sorted(load_scenario_catalogue()):
-        snapshot = compile_and_confirm_mandate_for_scenario(scenario_id).snapshot()
+        mandate = compile_and_confirm_mandate_for_scenario(scenario_id)
+        snapshot = mandate.snapshot()
+        if policy is not None:
+            # The same 45 purchases, judged under a different answer to "what should
+            # I do when I cannot tell?". Nothing else about the mandate moves.
+            snapshot = replace(snapshot, uncertainty_policy=policy)
         for row in scenario_rows(scenario_id):
             event = build_event(row, items_by_auth[row["authorization_id"]],
                                 merchants[row["merchant_id"]], snapshot,
@@ -160,10 +199,10 @@ def official_cases():
             yield scenario_id, row["authorization_id"], event, snapshot, history
 
 
-def sweep():
+def sweep(policy=None):
     findings, raised, weakened, total = [], [], 0, 0
-    for scenario_id, auth_id, event, snapshot, history in official_cases():
-        base = judge(event, snapshot, history)
+    for scenario_id, auth_id, event, snapshot, history in official_cases(policy):
+        base, base_codes = judge(event, snapshot, history)
         if base.startswith("RAISED"):
             raised.append((scenario_id, auth_id, "<baseline>", "-", base))
             continue
@@ -173,15 +212,41 @@ def sweep():
                 if variant is None:
                     continue
                 total += 1
-                got = judge(variant, snapshot, history)
+                got, got_codes = judge(variant, snapshot, history)
                 if got.startswith("RAISED"):
                     raised.append((scenario_id, auth_id, path, mode, got))
                 elif PERMISSIVENESS[got] > PERMISSIVENESS[base]:
                     findings.append((scenario_id, auth_id, path, mode, base, got,
-                                     _is_purchase_defining(path)))
+                                     _is_purchase_defining(path),
+                                     _driven_by(base_codes, got_codes)))
                 elif PERMISSIVENESS[got] < PERMISSIVENESS[base]:
                     weakened += 1
     return findings, raised, weakened, total
+
+
+def per_policy() -> dict[str, int]:
+    """THE THEOREM THIS FILE EXISTS TO TEST.
+
+    Erasing a fact can turn a `fail` into an `unknown` -- the seller who states a
+    2-day return window is refused, the seller who states nothing is not. What
+    happens next is decided by ONE dial, and the dial is what makes the difference
+    between a gap and a guarantee:
+
+        decline   unknown -> block   erasure gains the proposer NOTHING
+        ask       unknown -> review  erasure buys a human instead of a refusal
+        approve   unknown -> allow   erasure buys the purchase outright
+
+    So "saying less never buys more" is not a property of this wallet. It is a
+    property of one SETTING of the customer's mandate, and it is worth stating that
+    way rather than claiming the stronger thing.
+    """
+    out = {}
+    for policy in (UncertaintyPolicy.DECLINE, UncertaintyPolicy.ASK,
+                   UncertaintyPolicy.APPROVE):
+        findings, _, _, _ = sweep(policy)
+        out[policy.value] = len([f for f in findings
+                                 if not f[6] and f[7] == "requirement"])
+    return out
 
 
 def main() -> None:
@@ -199,14 +264,21 @@ def main() -> None:
 
     if real:
         print("  VIOLATIONS -- saying less bought more, for the same purchase:")
-        for s, a, path, mode, base, got, _ in real[:40]:
-            print(f"    {s} {a:8s} {path:44s} {mode:6s} {base} -> {got}")
+        for s, a, path, mode, base, got, _, kind in real[:40]:
+            print(f"    {s} {a:8s} {path:42s} {mode:6s} {base} -> {got:6s} [{kind}]")
         print()
     if raised:
         print("  NO ANSWER -- the wallet owes approve/decline/step_up and gave none:")
         for s, a, path, mode, exc in raised[:40]:
             print(f"    {s} {a:8s} {path:44s} {mode:6s} {exc}")
         print()
+    print("  THE SAME SWEEP UNDER EACH ANSWER TO \"WHAT IF I CANNOT TELL?\":")
+    for policy, count in per_policy().items():
+        verdict = ("saying less never bought more"
+                   if count == 0 else f"{count} requirement-polarity violations")
+        print(f"    uncertainty_policy = {policy:8s} {verdict}")
+    print()
+
     if not real and not raised:
         print("  No violation found in this space. That is a statement about THIS\n"
               "  corpus and THIS field set, not a proof about all events.\n")

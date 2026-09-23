@@ -136,6 +136,48 @@ missing.
 
 ---
 
+## Saying less must never buy more
+
+The sharpest result here is not a bug. It is a **property, attacked exhaustively**:
+
+> For every event `E` and every field `f` in it,
+> `permissiveness(decide(E \ f)) ≤ permissiveness(decide(E))`.
+
+Erasing information must never help the party being judged. **8,124 erasures** over
+the 45 official events — every field path, set to `null` and again removed entirely,
+because `d.get(k)` cannot tell those apart and `k in d` can.
+
+Seven violations, and they are **two different things wearing one coat**:
+
+| | what it is | what its absence means |
+| --- | --- | --- |
+| **requirement** | evidence *for* authority — a return window, a category, a ceiling | must never satisfy. Erasing turns `fail` into `unknown`: the seller who states *2 days* is refused, the seller who states **nothing** is not |
+| **flag** | evidence *against*, raised by the wallet itself — text written at the machine | absence is the ordinary case. Erasing necessarily helps, and that is **not a defect**: you cannot be flagged for text you did not write |
+
+The distinction is invisible in a field list because **one channel carries both**:
+`item_details` holds the return window *and* the injection, so a seller who deletes
+it erases one of each. A violation is therefore classified by **which reason
+disappeared**, not by which field moved.
+
+```
+uncertainty_policy = decline    0 requirement-polarity violations
+uncertainty_policy = ask        5
+uncertainty_policy = approve    5
+```
+
+**There is exactly one setting in which saying less provably never buys more, and it
+is the strictest one.** That is not a bug the engine can fix. `unknown` is the honest
+outcome when a fact is missing, and what happens to an unknown is decided by the
+customer's single dial — *one answer to a question that is really per-rule*. A
+customer cannot say *"ask me about unknowns, but never let silence rescue a
+refusal."* That is a gap in the official mandate format, measured rather than
+asserted, and disclosed with the witness that produces it.
+
+*Not claimed:* a theorem about the schema. This is exhaustive over the official
+corpus and the paths those events contain.
+
+---
+
 ## The engineering idea
 
 **Absence is not a value.** Fourteen instances of one mistake, at fourteen boundaries:
@@ -203,7 +245,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,714 passed · 5 reported skips
+tests                1,716 passed · 5 reported skips
 mutation             39 mutants applied · 39 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)
