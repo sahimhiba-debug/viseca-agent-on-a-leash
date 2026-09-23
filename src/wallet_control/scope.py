@@ -50,9 +50,28 @@ from .csv_data import history_csv_path, load_items, load_merchants
 from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy
 from .policy_compiler import compile_instruction
 from .state import HistoryIndex
-from .witness import CARD, judge_event, snapshot
+from .witness import CARD, judge_event, judge_event_with_reason, snapshot
 
 MAX_LINES = 5
+
+# What each rule is doing, said the way the panel needs to say it: "<n> removed by
+# <this>". Deliberately short -- the Delegate tab already states each rule in full a
+# few lines below, and repeating that sentence here would be the same fact rendered
+# twice.
+_RULE_IN_WORDS = {
+    "authorization.billing_amount_chf": "your amount limit",
+    "merchant.familiar": "shops you have paid before",
+    "merchant.category": "the kind of shop",
+    "merchant.matches_the_record": "the shop's own record",
+    "item.category": "the kind of thing",
+    "item.matches_the_catalogue": "the item catalogue",
+    "item.name_contains": "the item you named",
+    "item.size": "the size you asked for",
+    "item.unrequested_present": "nothing you did not ask for",
+    "order.return_window_days": "the return window",
+    "session.integrity_risk": "how this session looks",
+    "mandate.has_no_rules": "this mandate has no rules to check",
+}
 
 # WHICH PRICE THE COUNTED WORLD QUOTES.
 #
@@ -139,16 +158,25 @@ def _count(mandate: MandateSnapshot, category: str,
            price_point: str = "typical") -> dict[str, Any]:
     counts = {"allow": 0, "review": 0, "block": 0}
     totals: list[Decimal] = []
+    # WHICH RULE IS DOING THE CUTTING. A count with no cause reads as a broken page
+    # when it comes out zero -- and zero is exactly when the customer most needs to
+    # know why. Tallied here rather than inferred in the UI, so the number and its
+    # explanation cannot disagree.
+    removed_by: dict[str, int] = {}
     for index, (merchant, combo) in enumerate(_world(category, price_point)):
-        verdict = judge_event(mandate, index, merchant, category, combo, familiar=FAMILIAR)
+        verdict, blocking = judge_event_with_reason(
+            mandate, index, merchant, category, combo, familiar=FAMILIAR)
         counts[verdict] += 1
         if verdict == "allow":
             totals.append(sum((price for _id, _name, price in combo), Decimal("0")))
+        elif blocking:
+            removed_by[blocking] = removed_by.get(blocking, 0) + 1
     totals.sort()
     counts["cheapest_chf"] = float(totals[0]) if totals else None
     # Every authorised basket's price, cheapest first, so "how many times" can be
     # counted rather than divided. See `_repetition`.
     counts["authorised_totals"] = totals
+    counts["removed_by"] = sorted(removed_by.items(), key=lambda kv: -kv[1])
     return counts
 
 
@@ -227,7 +255,7 @@ def _repetition(rules: list[HardRule], cheapest: float | None,
     # fact is how they drift apart.
     rate = annual_exposure(cap, days)[1] if days else None
     pace = (f" The window re-opens, so at this rate the delegation is worth about "
-            f"CHF {rate:,.0f} a year -- the format has no way to set a total."
+            f"CHF {rate:,.0f} a year \u2014 the format has no way to set a total."
             if rate is not None else "")
     return {"bounded": True, "cap_chf": float(cap), "period_days": window.period_days,
             "most_purchases_per_period": most, "cheapest_chf": cheapest,
@@ -356,6 +384,9 @@ def delegation_size(instruction: str,
         # goods can have. `authorised` stays the count at typical prices so the
         # shrink table keeps comparing like with like; `authorised_upper` is what was
         # actually handed over, because the seller picks the price.
+        # The rule that removed the most purchases, in the customer's own words.
+        "limited_by": [{"field": f, "removed": n,
+                        "says": _RULE_IN_WORDS.get(f, f)} for f, n in counts["removed_by"]],
         "price_band": band,
         "authorised_upper": band["min"],
         # NOT computed here. `uncertainty_tradeoff` runs this whole enumeration three

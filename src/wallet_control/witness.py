@@ -216,6 +216,34 @@ def judge_event(mandate: MandateSnapshot, index: int, merchant: str, category: s
     return evaluate_authorization(event, mandate, state).decision
 
 
+def judge_event_with_reason(mandate: MandateSnapshot, index: int, merchant: str,
+                            category: str, lines: tuple, *,
+                            familiar: frozenset[str] = frozenset()) -> tuple[str, str | None]:
+    """The verdict, and WHICH RULE decided it.
+
+    The delegation panel could say "0 of 124" and not why, which reads as a broken
+    page rather than as the most informative thing the panel can tell a customer:
+    that a mandate for a 27-inch monitor "from a seller I have bought from before"
+    authorises NOTHING, because this card has never paid an electronics shop. A bare
+    zero hides that; naming the rule that removed everything is the answer.
+    """
+    total = float(sum((price for _id, _name, price in lines), Decimal("0")))
+    event = event_for(mandate, index, amount=total, category=category,
+                      merchant=merchant,
+                      items=[{"line_no": i, "item_id": item_id, "item_name": name,
+                              "item_category": category, "quantity": 1,
+                              "unit_price": float(price), "currency": "CHF",
+                              "item_details": ""}
+                             for i, (item_id, name, price) in enumerate(lines, start=1)])
+    known = familiar or frozenset({merchant})
+    state = RunState(history=HistoryIndex({CARD: frozenset(known)}, available=True),
+                     card_id=CARD)
+    decision = evaluate_authorization(event, mandate, state)
+    blocking = next((e.rule.field for e in decision.rule_evaluations
+                     if e.outcome in ("fail", "unknown")), None)
+    return decision.decision, blocking
+
+
 def judge(rules: list[HardRule], uncertainty: UncertaintyPolicy, purchase: Purchase,
           *, unsupported: list[str] | None = None) -> str:
     """What the real engine would decide. `repeats > 1` runs a SEQUENCE through one

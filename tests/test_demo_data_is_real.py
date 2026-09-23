@@ -207,3 +207,56 @@ def test_the_two_attack_surfaces_name_different_threat_models():
     assert "Compromised platform" in page
     assert "a compromised agent" in page
     assert page.index("Compromised platform") != page.index("a compromised agent")
+
+
+def test_the_delegation_panel_names_the_catalogue_it_counted_not_a_fixed_word():
+    """THE PAGE CONTRADICTED ITSELF ABOUT ITS OWN SUBJECT.
+
+    The size panel's headline read "<n> of <m> grocery purchases" for every mandate,
+    with the word "grocery" written into the template -- while the footnote three
+    lines below correctly said "any one shop in the ELECTRONICS catalogue". Load the
+    official monitor scenario and the page told you, in its largest type, that it had
+    counted groceries.
+
+    The category is in the payload (`d.category`) and always was. This asserts the
+    template reads it, because the failure mode is silent: a wrong noun looks like
+    prose, not like a bug, and every screenshot of the grocery scenario looks right.
+    """
+    page = (ROOT / "ui" / "index.html").read_text()
+
+    headline = page[page.index("const noun ="):page.index("const headline =")]
+    assert "d.category" in headline, (
+        "the panel's noun must come from the payload, not from a literal")
+
+    # The specific literal that was there -- checked against CODE, not prose. The
+    # comment beside the fix necessarily quotes the string it removed, and a test
+    # that cannot tell a comment from a template would forbid explaining itself.
+    code = "\n".join(line for line in page.splitlines()
+                     if not line.lstrip().startswith("//"))
+    assert "grocery purchases" not in code, (
+        "a category noun is hard-coded in the delegation panel again")
+
+
+def test_the_delegation_panel_explains_a_zero_instead_of_just_printing_it():
+    """A count with no cause reads as a broken page, and zero is exactly when the
+    customer most needs the cause.
+
+    The official monitor mandate authorises NOTHING -- 68 of the 124 electronics
+    baskets fail its amount limit and the other 56 are at shops this card has never
+    paid. That is the most informative thing the panel can say about it, and the
+    panel used to say "0 of 124" and stop."""
+    page = (ROOT / "ui" / "index.html").read_text()
+    assert "limited_by" in page, "the panel must read which rule removed the purchases"
+    assert "None at all" in page, "a zero needs a sentence, not a digit"
+
+    from wallet_control.scope import delegation_size
+
+    sized = delegation_size(
+        "Buy the 27-inch monitor I chose, from a seller I have bought from before, "
+        "for CHF 400 or less. Do not add anything I did not ask for. Ask me when uncertain.")
+    assert sized["authorised_upper"] == 0, sized["authorised_upper"]
+    assert sized["limited_by"], "a zero with no explanation is what this exists to stop"
+    assert sum(x["removed"] for x in sized["limited_by"]) == sized["universe"], (
+        "every purchase that was removed must be attributed to a rule")
+    assert {x["field"] for x in sized["limited_by"]} == {
+        "authorization.billing_amount_chf", "merchant.familiar"}

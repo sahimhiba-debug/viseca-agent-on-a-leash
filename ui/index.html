@@ -1119,11 +1119,37 @@ async function renderScope(instruction){
   // it means when 116 purchases are being put to the customer rather than decided
   // without them. When nothing is approved outright, the headline is the question
   // count, not the zero.
+  // WHAT REMOVED THEM. A count with no cause reads as a broken page when it comes
+  // out zero -- and zero is exactly when the customer most needs to know why. The
+  // official monitor mandate authorises NOTHING, because this card has never paid an
+  // electronics shop; the panel used to say "0 of 124" and stop.
+  const cut = (d.limited_by || []).slice(0, 2)
+    .map(x => `${x.removed} by ${esc(x.says)}`).join(', ');
+
+  // `d.category`, not the word "grocery". The headline said "grocery purchases" for
+  // every mandate while the footnote three lines below correctly named the
+  // electronics catalogue -- the page contradicting itself about its own subject.
+  // "${category} purchases" produced "groceries purchases". The category is a
+  // catalogue name, not an adjective, so it is used as one.
+  const noun = `purchases from the ${esc(d.category)} catalogue`;
   const headline = (d.authorised === 0 && d.asks_you > 0)
     ? `<p class="scnum" style="font-size:26px">None without asking you
-         <small style="display:block;margin-top:4px">${d.asks_you} of ${d.universe} grocery purchases
-         on offer would come to you first — the wallet will not decide these alone</small></p>`
-    : `<p class="scnum">${d.authorised_upper ?? d.authorised} <small>of ${d.universe} grocery purchases your agent could put to this card</small></p>`;
+         <small style="display:block;margin-top:4px">${d.asks_you} of ${d.universe} ${noun}
+         would come to you first — the wallet will not decide these alone</small></p>`
+    : (d.authorised_upper === 0)
+    ? `<p class="scnum" style="font-size:26px">None at all
+         <small style="display:block;margin-top:4px">no purchase this ${esc(d.category)}
+         catalogue can produce satisfies every rule. That is not a failure: it is what
+         you wrote${cut ? `, and here is which words did it: ${cut} removed` : ''}.</small></p>`
+    : (d.price_band && d.price_band.min !== d.price_band.typical)
+    // A RANGE, NOT A POINT. The count depends on what the seller charges, and every
+    // item in the catalogue publishes a min/typical/max. Showing the floor alone made
+    // the household mandate read "595 of 595" -- as though its rules did nothing,
+    // when 450 purchases are removed at the prices these goods usually cost. Showing
+    // `typical` alone understated the delegation fourfold. The pair is the object.
+    ? `<p class="scnum">${d.price_band.typical}–${d.price_band.min}
+         <small>of ${d.universe}, depending on what the seller charges</small></p>`
+    : `<p class="scnum">${d.authorised_upper ?? d.authorised} <small>of ${d.universe} ${noun}</small></p>`;
 
   // THE HEADLINE USED TO BE THE COUNT AT TYPICAL PRICES, AND IT WAS TOO SMALL.
   // `items.csv` gives every item a min/typical/max and this panel enumerated at
@@ -1159,11 +1185,13 @@ async function renderScope(instruction){
           that choice costs you.</p></div>`;
     }).catch(()=>{});
 
-  const band = d.price_band
-    ? `<p class="tiny" style="margin:6px 0 0">At the prices this catalogue says these
-         goods usually cost, <b>${d.price_band.typical}</b> of them — but the seller
-         chooses the price, and every one of these items has a published range. The
-         figure above is what that range allows at its cheapest.</p>`
+  // Suppressed when nothing is authorised: "0 of them" beneath "None at all" is the
+  // same fact twice, and the band only means something when there is a range to have.
+  const band = (d.price_band && d.authorised_upper > 0)
+    ? `<p class="tiny" style="margin:6px 0 0"><b>${d.price_band.typical}</b> at the prices
+         this catalogue says these goods usually cost; <b>${d.price_band.min}</b> if every
+         seller charges the least their own listing allows. The seller picks the price,
+         so the upper figure is what you actually handed over.</p>`
     : '';
 
   box.innerHTML = `<div class="card sc">
@@ -1172,6 +1200,8 @@ async function renderScope(instruction){
       It is a <b>set of purchases</b> — so here is the set.</p>
     ${headline}
     ${band}
+    ${cut && d.authorised_upper > 0 ? `<p class="tiny" style="margin:6px 0 0">Removed by
+      your own words: ${cut}.</p>` : ''}
     <div class="scbar"><i style="width:${pct}%"></i><u style="width:${askPct}%"></u></div>
     <p class="tiny">${pct}% approved outright${d.asks_you?` · ${askPct}% put to you`:''}. ${delta}</p>
     <div class="screp ${d.how_many_times.bounded?'ok':'no'}">
