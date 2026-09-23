@@ -222,12 +222,45 @@ uncertainty_policy = approve    5
 ```
 
 **There is exactly one setting in which saying less provably never buys more, and it
-is the strictest one.** That is not a bug the engine can fix. `unknown` is the honest
-outcome when a fact is missing, and what happens to an unknown is decided by the
-customer's single dial — *one answer to a question that is really per-rule*. A
-customer cannot say *"ask me about unknowns, but never let silence rescue a
-refusal."* That is a gap in the official mandate format, measured rather than
-asserted, and disclosed with the witness that produces it.
+is the strictest one.**
+
+### Why it cannot be fixed per-rule — an impossibility, not an omission
+
+The obvious repair is to let the customer say *"ask me about unknowns, **but never
+let silence rescue this particular refusal**."* The format cannot express it, and
+that is checkable rather than arguable. Over **every one of the nine fields
+`rules.py` evaluates** — the list read from that file's own source, so a field added
+to the engine and not to the argument fails the check instead of escaping it — a
+seller publishing nothing produces:
+
+```
+pass      billing_amount_chf, item.category, item.name_contains,
+          item.unrequested_present, merchant.category, merchant.familiar,
+          session.integrity_risk
+unknown   item.size, order.return_window_days
+fail      — none —
+```
+
+**No rule in the vocabulary can be made to FAIL by silence.** So the only thing that
+distinguishes "the seller said something I refuse" from "the seller said nothing" is
+`uncertainty_policy`, and that is one dial for the whole mandate. Per-rule strictness
+is not a feature we skipped; it is not expressible, and the demonstration is
+exhaustive over the vocabulary rather than a sample of it.
+
+### And the honest objection to all of this
+
+*`decline` is safe and `decline` approves nothing.* On the official shoes mandate it
+refuses all 872 baskets, because **0 of 7 grocery items in the catalogue publish a
+return window at all** — so "only buy what I can send back" under `decline` produces
+an agent that gives up. That is the real shape of the trade-off, and the answer is
+not that we solved it: *requiring evidence nobody publishes* is what costs, not
+declining. The control measures it — clothing, where 4 of 7 sellers publish, same
+agent and engine, completes the errand under `decline` for **CHF 30 more** than under
+`approve`.
+
+Which is why the dial sits next to the witness and the cost in purchases, and why the
+wallet does not choose for the customer. A gap in the official mandate format,
+measured rather than asserted, and disclosed with the witness that produces it.
 
 ### The same boundary, from three directions
 
@@ -433,7 +466,7 @@ wallet stopped this anyway"* — than the repeated order it had been built on.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,785 passed · 5 reported skips
+tests                1,786 passed · 5 reported skips
 mutation             41 mutants applied · 41 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)

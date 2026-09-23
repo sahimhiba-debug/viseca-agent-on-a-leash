@@ -177,3 +177,37 @@ def test_the_deciding_code_names_no_official_identifier_at_all():
     assert offenders == [], (
         "the deciding code names official data rows:\n  " + "\n  ".join(offenders)
         + "\nDescribe the SHAPE instead; a judge grepping for these should find none.")
+
+
+def test_the_offline_replay_and_the_api_agree_on_every_official_event():
+    """TWO IMPLEMENTATIONS, ONE ANSWER.
+
+    `offline_replay.replay_all()` and `POST /api/scenarios/{id}/run` replay the same
+    45 events by different routes: they build their own mandates, their own run
+    state, and their own events, and only the engine is shared. A disagreement would
+    mean one of them is describing a wallet the other is not.
+
+    This is a differential test, not a correctness test -- both could be wrong
+    together, and what the replay counts MEAN is `docs/OFFLINE_REPLAY.md`'s problem.
+    What it rules out is the failure where the number quoted in the README comes from
+    one path and the number a judge sees in the browser comes from another.
+    """
+    from fastapi.testclient import TestClient
+
+    from wallet_control.api import app
+    from wallet_control.csv_data import load_scenario_catalogue
+
+    client = TestClient(app)
+
+    offline = {d.authorization_id: (d.decision, tuple(d.reason_codes))
+               for scenario in replay_all().scenarios for d in scenario.decisions}
+    served = {}
+    for scenario_id in sorted(load_scenario_catalogue()):
+        for decision in client.post(f"/api/scenarios/{scenario_id}/run",
+                                    json={}).json()["decisions"]:
+            served[decision["authorization_id"]] = (decision["decision"],
+                                                    tuple(decision["reason_codes"]))
+
+    assert len(offline) == 45 and set(offline) == set(served)
+    differing = {k: (offline[k], served[k]) for k in offline if offline[k] != served[k]}
+    assert not differing, differing
