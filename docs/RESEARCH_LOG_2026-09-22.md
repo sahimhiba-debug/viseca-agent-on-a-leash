@@ -1,6 +1,6 @@
 # Research log — 22 September 2026
 
-Twenty-five commits on `rnd/productization`. `main` untouched at `1aa3bac`.
+Twenty-seven commits on `rnd/productization`. `main` untouched at `1aa3bac`.
 
 > **Phase 2 changed the method.** Everything in phase 1 came from abstractions we
 > invented and then swept — authorship, absence, witnesses. Phase 2 came from
@@ -68,6 +68,9 @@ endpoint was quadratic. Both were found by attacking our own instruments.
 | **Familiarity provenance** — `initiator_type` collapsed, so a shop **only the agent** had used answered *"a shop I have used before"*; 24 card/merchant pairs | mining `authorization_history.csv` | latent; replay unmoved |
 | **Rule-format crashes** — four schema-legal rules raised out of the engine, one *after computing the right answer*, while rendering the sentence | reading `technical_details.md`, then fuzzing 1,344 combinations | fixed; replay unmoved |
 | **The mutation probe was editing source and not restoring it** — `if failures:` sat in `_decide` as `if False:` while I worked | a benchmark score that made no sense | harness fixed and regression-tested |
+| **The UI kept its own copy of the engine's prose** and it drifted three ways in one afternoon, including a raw dotted field name on screen for the demo's strongest line | checking whether the new sentences reached the browser | one wording, published by the engine |
+| **Three rule fields had no "could not check" sentence** and would have rendered as dotted field names | the anti-rot check written for the defect above, on its first run | three sentences added |
+| **The probe destroyed my work a second way** — a backgrounded run reverted edits made while it ran, from a baseline captured before they existed | it happening | it now refuses to restore a file somebody else has touched, and says the run is incomplete |
 
 All three behavioural changes return **UNKNOWN**, never FAIL. None is evidence the
 *purchase* is bad; `uncertainty_policy` is where the customer already said what to do
@@ -172,6 +175,18 @@ the read-back — **cause under consequence** — and a word that changed no rul
 provably cannot change the size of the set.
 
 ---
+
+## 6a. What the method was
+
+Phase 1 invented abstractions and swept them. Phase 2 and 3 read the organizers'
+material and then read our own output as a stranger would. The second method found
+eight defects in an afternoon — three behavioural, three in what the customer reads,
+two in the tooling — and **not one of them was reachable by any sweep we had built.**
+
+The single highest-yield action was the dullest: printing all 45 official decisions
+with their instruction, verdict and customer message, and reading them one at a time
+asking *"is the cited reason the one a person would give?"*. Three findings came out
+of that one exercise, including both of the ones that moved the regression boundary.
 
 ## 6b. The three sentences
 

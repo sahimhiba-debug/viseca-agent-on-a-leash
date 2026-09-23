@@ -33,6 +33,27 @@ this codebase are the official integration versus local, demo-only extensions.
 4. **Lets the customer confirm, tighten, or revoke** what they allowed, and answer
    a step_up for one purchase without changing the standing policy --
    [`mandate.py`](src/wallet_control/mandate.py).
+5. **Says the thing only a wallet can see.** Three sentences a card spending limit
+   cannot produce, each out of the real engine on the official pack:
+
+   > *"…it would take you over the CHF 300 you allowed across any 7-day period.*
+   > ***You could order this again on Monday 17 August at 09:12.***" — the engine
+   > holds every approved timestamp; the window is half-open, so it knows to the
+   > minute, and it says so only when waiting is actually the cure.
+   >
+   > *"…because **this purchase came from a device that has not been used earlier in
+   > this session**."* — the customer wrote *"pause anything that looks like someone
+   > other than me is driving"*. It used to notice the device change, write it into
+   > its own evidence, and approve anyway.
+   >
+   > *"…because **this seller's product description contains instructions aimed at an
+   > automated buyer, not at you**."* — the injection is ignored, as it must be. Every
+   > team will manage that. Telling you a counterparty tried is the other half, and
+   > it fires on 2 of the 56 official item lines, both genuine.
+
+   None of the three FAILS a rule. Each returns `unknown` and goes to the customer's
+   own `uncertainty_policy` — none is evidence the *purchase* is bad, and that is
+   exactly what the third value is for.
 
 ## What it shows you *before* you agree
 

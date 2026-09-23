@@ -2,21 +2,26 @@
 
 Every vulnerability this project has found is the same mistake.
 
-Not a similar mistake — the same one, at six different boundaries, in six different
-vocabularies, found by six different methods over several campaigns. It took the
-sixth to see it.
+Not a similar mistake — the same one, at twelve different boundaries, in twelve
+different vocabularies. It took the sixth to see the pattern.
 
 > **Something was missing, and something present was quietly put in its place.**
 
 ---
 
-## The seven
+## The twelve
 
-The first six were found one at a time, by six different methods, over several
-campaigns; it took the sixth to see the pattern. **The seventh was predicted.** Once
-the rule was written down — *a missing fact quietly replaced by a present one* — the
-next place to look was wherever that substitution is idiomatic. `from_snapshot` was
-the first place looked, and it was full of it.
+The first six were found one at a time, by six unrelated methods, over several
+campaigns. **The seventh was predicted:** once the rule was written down, the next
+place to look was wherever the substitution is idiomatic — `from_snapshot` was the
+first place looked, and it was full of it.
+
+The last four came from somewhere else again, and that is the part worth noticing.
+Every sweep in this repository enumerates a space *we chose*. Nine, ten, eleven and
+twelve came from reading the organizers' specification, from reading all 45 official
+decisions one at a time as a judge would, and from mining a column of the history
+file. **None of them was reachable by any sweep we had built** — which is the honest
+measure of how much the sweeps cover.
 
 | # | where | what was absent | what filled the hole | how it was found |
 | --- | --- | --- | --- | --- |

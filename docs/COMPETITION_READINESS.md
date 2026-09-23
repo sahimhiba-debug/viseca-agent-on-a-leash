@@ -9,14 +9,15 @@ self-critique.
 
 | dimension | classification | basis |
 | --- | --- | --- |
-| **Technical functionality** | **EXCEPTIONAL** | 960 tests, 38/38 mutation kills, deterministic replay, no network or model needed to run anything |
-| **AI** | **ADEQUATE** | deliberately *not* an LLM in the money path — `technical_details.md` requires predictable behaviour when a model is unavailable. Defensible, but a jury expecting "AI" will need the reason stated in the pitch |
+| **Technical functionality** | **EXCEPTIONAL** | 1,662 tests, 39/39 mutation kills, deterministic replay, six research modules byte-identical across runs, no network or model needed to run anything |
+| **AI** | **ADEQUATE, and now argued rather than asserted** | deliberately *not* an LLM in the money path — `technical_details.md` requires predictable behaviour when a model is unavailable, and prefers "smaller, lower-latency models" if one is used at all. The positive form of the argument is the **acceptance set**: `optimized-apertus` is about speculative decoding, where an untrusted fast proposer changes the *speed* and never the *distribution*. Measured here over four brains and an exhaustive 595-basket adversary: **not one approved purchase outside the set**. A jury expecting "AI" still needs this said out loud. **No model has been run** — `api.publicai.co/v1` answers 401 without a key |
 | **Agentic depth** | **STRONG** (was a CRITICAL GAP at the start of this campaign) | an autonomous agent now plans, proposes, is refused, adapts and succeeds on the merits — as an external HTTP client, visible in the UI |
 | **UX** | **STRONG** | mobile-first at 375/390/412, plain-language reasons, explicit scope on every step-up, no overflow or clipping under hostile content |
 | **Uniqueness / fun** | **STRONG** | watching an agent get *refused three times and recover* is memorable; the mutation probe and the refusals list are distinctive to engineers |
 | **Market impact** | **STRONG** | this is the actual product shape of agentic commerce; the boundary drawn here is the one the industry has not settled |
 | **Reproducibility** | **EXCEPTIONAL** | replay and agent episode byte-identical across runs; no secrets; one command |
-| **Security** | **EXCEPTIONAL** | 46 registered invariants, machine-checked; every claim carries a stated limitation |
+| **Security** | **EXCEPTIONAL** | 46 registered invariants, machine-checked; every claim carries a stated limitation. Twelve instances of one defect class in `docs/ABSENCE.md`, **four of them found by reading the organizers' own material rather than by any sweep we built** |
+| **Fidelity to the brief** | **STRONG (was FAILING one requirement)** | the challenge asks a demo to show "one ambiguous, unsafe, or **manipulated** transaction receiving a useful intervention". Until this session the pack's manipulated purchase was **approved** with the words *"matches the rules you set"*. It now goes to the customer, and so does an unexplained device change |
 | **Generalisation** | **ADEQUATE** | the compiler is phrase patterns; 90% of a 103-phrase corpus, 0 silent weakenings. Honest, and bounded |
 
 ### The one dimension that changed, and why it was the right target
