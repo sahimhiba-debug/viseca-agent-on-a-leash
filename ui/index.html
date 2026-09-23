@@ -1273,7 +1273,23 @@ function basketHtml(d){
     return `<li class="${bad?'flag':''}"><span class="q">${b.quantity}×</span><span>${esc(b.name)}</span></li>`;
   }).join('') + '</ul>';
 }
-function plainReasons(codes){
+// THE WORDING COMES FROM THE ENGINE. This function used to hold its own copy of the
+// rule-to-prose tables, and within a single afternoon it had drifted three ways:
+// stale text for two rules whose meaning had changed, and a raw dotted field name on
+// screen for a third that had only just been added. A second copy of a sentence the
+// engine already writes is the I39 defect with a different audience.
+//
+// `d.plain_reasons` is that sentence, one entry per reason. The local tables survive
+// only for the codes that are NOT rule-derived and never had an engine wording.
+function plainReasons(d){
+  const codes = Array.isArray(d) ? d : (d.reason_codes || []);
+  const fromEngine = Array.isArray(d) ? null : d.plain_reasons;
+  if(fromEngine && fromEngine.length) {
+    const extra = codes.filter(c=>c==='customer_resolution'||c==='mandate_revoked_before_resolution')
+      .map(c=> c==='customer_resolution' ? 'You answered this one personally.'
+                                         : 'You had already revoked this mandate.');
+    return fromEngine.concat(extra);
+  }
   return (codes||[]).filter(c=>c!=='all_hard_rules_satisfied').map(c=>{
     if(c.startsWith('hard_rule_failed:')) return RULE_TEXT[c.split(':')[1]] || c.split(':')[1].replace(/[._]/g,' ');
     if(c.startsWith('uncertain:')) return UNSURE_TEXT[c.split(':')[1]] ||
@@ -1285,7 +1301,7 @@ function plainReasons(codes){
   });
 }
 function whyHtml(d){
-  const plain = plainReasons(d.reason_codes);
+  const plain = plainReasons(d);
   if(d.decision==='block') return `<div class="why block"><div class="h">Why this was stopped</div>
     <ul>${plain.map(p=>`<li>${esc(p)}</li>`).join('')||'<li>a check failed</li>'}</ul></div>`;
   if(d.decision==='review'){

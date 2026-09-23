@@ -289,6 +289,12 @@ class EngineDecision:
     # policy the agent is never told. `agent_view` does not carry it, and
     # `test_agent_explanation_boundary` fails on any digit that reaches the agent.
     earliest_retry_at: datetime | None = None
+    # The same prose `customer_message` is built from, one entry per reason, so a
+    # surface that wants a LIST instead of a sentence does not need its own copy of
+    # the wording. `ui/index.html` kept one and it drifted three ways in a single
+    # afternoon: stale text for two rules whose meaning had changed, and a raw dotted
+    # field name on screen for a third that had only just been added.
+    plain_reasons: tuple[str, ...] = ()
     # R&D Track E (docs/RND_POLICY_SECURITY_SPLIT.md): the SAME evaluations, scoped
     # to source=="customer" and source=="safety" respectively, decided by the SAME
     # `_decide()` function. Purely explanatory -- `decision` above is computed
@@ -450,6 +456,16 @@ _PLAIN_UNKNOWN = {
     # laptop" in a second. "Something could not be verified" makes them guess, and a
     # question nobody can answer is a question they learn to click through. The AGENT
     # still sees only the class `session` -- `agent_view` never carries this string.
+    # Reachable, and each was rendering as a raw dotted field name until the
+    # anti-rot check in `test_one_wording_not_two` went looking. An amount rule the
+    # engine cannot apply, a basket with no lines, and a mandate that never said what
+    # was being asked for -- all three reach a customer.
+    "authorization.billing_amount_chf": "the wallet could not work out how this "
+                                        "amount compares with the limit you set",
+    "item.category": "this purchase lists nothing, so there is nothing to check "
+                     "against what you asked for",
+    "item.unrequested_present": "your instruction did not say what you were asking "
+                                "for, so the wallet cannot tell what is extra",
     "merchant.text_addresses_the_machine": "this seller's product description "
                                            "contains instructions aimed at an "
                                            "automated buyer, not at you",
@@ -991,12 +1007,15 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
 
         evidence = tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in evaluations)
         retry_at = _window_retry(evaluations, state, facts) if decision == "block" else None
+        plain_reasons = tuple(dict.fromkeys(
+            _plain_reason(e) for e in evaluations if e.outcome in ("fail", "unknown")))
         return EngineDecision(
             authorization_id=authorization_id,
             decision=decision,
             reason_codes=reason_codes,
             customer_message=_customer_message(decision, evaluations, facts, retry_at),
             earliest_retry_at=retry_at,
+            plain_reasons=plain_reasons,
             evidence=evidence,
             rule_evaluations=tuple(evaluations),
             intervention=classify_intervention(decision, tuple(evaluations)),

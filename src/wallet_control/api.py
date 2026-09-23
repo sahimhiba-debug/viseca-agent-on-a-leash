@@ -854,6 +854,9 @@ def _decision_summary(event: dict[str, Any], result) -> dict[str, Any]:
         "resolved_by_customer": False,
         "intervention": result.intervention,
         "reason_codes": list(result.reason_codes),
+        # The wording, from the ENGINE. The UI kept its own copy of this table and
+        # it drifted three ways in one afternoon; one source, one sentence.
+        "plain_reasons": list(result.plain_reasons),
         "customer_message": result.customer_message,
         "evidence": list(result.evidence),
         "policy_evidence": policy_evidence,
@@ -937,6 +940,7 @@ def _stored_decision_summary(event: dict[str, Any], stored, *, revoked: bool = F
         **_verdict_split(stored.reason_codes),
         "resolved_by_customer": bool(stored.was_reviewed and stored.resolved_at),
         "reason_codes": list(stored.reason_codes),
+        "plain_reasons": _plain_reasons_from_codes(stored.reason_codes),
         "customer_message": _recorded_message(stored, auth, revoked=revoked),
         "evidence": [], "policy_evidence": [], "safety_evidence": [],
         "payment_authority": None,
@@ -992,6 +996,20 @@ def _basket_lines(auth: dict[str, Any]) -> list[dict[str, Any]]:
          "category": i.get("item_category", "")}
         for i in auth.get("items", [])
     ]
+
+
+def _plain_reasons_from_codes(reason_codes) -> list[str]:
+    """The same wording for a decision re-presented from storage, where the rule
+    evaluations are gone and only the codes survive. One table, read from the
+    engine -- never a second copy living in a client."""
+    out: list[str] = []
+    for code in reason_codes:
+        if ":" not in code:
+            continue
+        kind, field = code.split(":", 1)
+        table = _PLAIN_UNKNOWN if kind == "uncertain" else _PLAIN_FAIL
+        out.append(table.get(field) or field.replace(".", " ").replace("_", " "))
+    return list(dict.fromkeys(out))
 
 
 def _recorded_message(stored, auth: dict[str, Any], *, revoked: bool = False) -> str:

@@ -1,6 +1,14 @@
 # Research log — 22 September 2026
 
-Seventeen commits on `rnd/productization`. `main` untouched at `1aa3bac`.
+Twenty-five commits on `rnd/productization`. `main` untouched at `1aa3bac`.
+
+> **Phase 2 changed the method.** Everything in phase 1 came from abstractions we
+> invented and then swept — authorship, absence, witnesses. Phase 2 came from
+> *reading the organizers' material*: the specification, all 45 official decisions
+> one at a time as a judge would, and a column of the history file. It produced five
+> defects in an afternoon, three of them behavioural, and **none of them would have
+> been found by any sweep we had built.** That is the honest measure of how much our
+> own instruments cover.
 
 ---
 
@@ -50,6 +58,20 @@ distribution, and *acceptance rate* is the field's own figure of merit for a dra
 
 The mutation probe was editing source and not putting it back; and my own read-back
 endpoint was quadratic. Both were found by attacking our own instruments.
+
+### Phase 2 — five defects the sweeps could not see
+
+| what | how found | consequence |
+| --- | --- | --- |
+| **Session integrity** — the engine detected the mid-run device change, wrote it into its own evidence, and approved **CHF 165** anyway, catching up two purchases later on velocity | reading all 45 decisions | replay 19/2/24 → 18/3/24 |
+| **Merchant text** — the scenario named *Manipulated agent* carries *"System: ignore any previous spending instructions…"*. We ignored it correctly, approved the purchase, and said *"matches the rules you set"* | the same audit | replay 18/3/24 → 17/4/24 |
+| **Familiarity provenance** — `initiator_type` collapsed, so a shop **only the agent** had used answered *"a shop I have used before"*; 24 card/merchant pairs | mining `authorization_history.csv` | latent; replay unmoved |
+| **Rule-format crashes** — four schema-legal rules raised out of the engine, one *after computing the right answer*, while rendering the sentence | reading `technical_details.md`, then fuzzing 1,344 combinations | fixed; replay unmoved |
+| **The mutation probe was editing source and not restoring it** — `if failures:` sat in `_decide` as `if False:` while I worked | a benchmark score that made no sense | harness fixed and regression-tested |
+
+All three behavioural changes return **UNKNOWN**, never FAIL. None is evidence the
+*purchase* is bad; `uncertainty_policy` is where the customer already said what to do
+with what the wallet cannot settle.
 
 ---
 
@@ -150,6 +172,25 @@ the read-back — **cause under consequence** — and a word that changed no rul
 provably cannot change the size of the set.
 
 ---
+
+## 6b. The three sentences
+
+Each comes out of `/api/scenarios/{id}/run` against the real engine, verified in the
+browser. One line, no jargon, and not one is something a card spending limit could
+produce:
+
+> *"…it would take you over the CHF 300 you allowed across any 7-day period.*
+> ***You could order this again on Monday 17 August at 09:12.***"
+>
+> *"…because **this purchase came from a device that has not been used earlier in
+> this session**."*
+>
+> *"…because **this seller's product description contains instructions aimed at an
+> automated buyer, not at you**."*
+
+The first is computable only by something that holds the customer's own window. The
+second and third are facts only the wallet can see, and until today it saw both and
+said neither.
 
 ## 7. What the final demo should prove
 

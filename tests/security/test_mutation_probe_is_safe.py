@@ -89,24 +89,50 @@ def test_the_probe_refuses_to_run_on_an_already_mutated_tree(tmp_path):
 
 
 def test_baselines_are_captured_once_before_any_mutation():
-    """The poisoning bug, pinned at the source. If a future edit moves the read back
-    inside the loop, one killed run makes every later one wrong."""
+    """The poisoning bug, pinned at the source.
+
+    The loop may READ a target -- that is the race guard, comparing the file against
+    what it just wrote so a concurrent edit is not silently reverted. What it may not
+    do is take its BASELINE from disk: that is how one killed run poisoned every
+    later one, mutant B reading mutant A's stranded edit as "the original".
+
+    So the check is on where `source` comes from, not on whether the loop reads."""
     tree = ast.parse(PROBE.read_text())
     main = next(n for n in ast.walk(tree)
                 if isinstance(n, ast.FunctionDef) and n.name == "main")
-    loops = [n for n in ast.walk(main) if isinstance(n, ast.For)]
     mutating_loop = next(
-        loop for loop in loops
+        loop for loop in (n for n in ast.walk(main) if isinstance(n, ast.For))
         if any(isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)
                and c.func.attr == "write_text" for c in ast.walk(loop)))
-    reads_inside = [c for c in ast.walk(mutating_loop)
-                    if isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)
-                    and c.func.attr == "read_text"]
-    assert reads_inside == [], (
-        "the mutating loop reads a file from disk; its baseline must come from the "
-        "originals captured before the first mutation, or one interrupted run "
-        "poisons every later one")
 
+    for node in ast.walk(mutating_loop):
+        if not isinstance(node, ast.Assign):
+            continue
+        names = {t.id for t in node.targets if isinstance(t, ast.Name)}
+        reads = any(isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)
+                    and c.func.attr == "read_text" for c in ast.walk(node.value))
+        assert not (names & {"source", "original", "mutated_text"} and reads), (
+            f"{names} is taken from disk inside the mutating loop; a baseline must "
+            f"come from the originals captured before the first mutation, or one "
+            f"interrupted run poisons every later one")
+
+    assert "originals[module]" in PROBE.read_text(), (
+        "the loop no longer takes its baseline from the captured originals")
+
+
+def test_the_probe_will_not_clobber_a_concurrent_edit():
+    """The second way this tool destroyed work, found by it destroying some.
+
+    A long probe was backgrounded, the engine was edited while it ran, and every
+    restore quietly reverted those edits -- the file went back to a baseline captured
+    before they existed. Crash-safety did not help: nothing had crashed.
+
+    It now compares the file against what it wrote before restoring, and stops."""
+    body = PROBE.read_text()
+    assert "changed during the run" in body
+    assert "STOPPED EARLY" in body, "a partial run must say so, or its counts lie"
+    assert "if module in edited:" in body, (
+        "the outer restore must skip a file somebody else now owns")
 
 def test_the_restore_is_verified_and_not_assumed():
     body = PROBE.read_text()

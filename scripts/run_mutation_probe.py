@@ -263,6 +263,7 @@ def main() -> int:
     print("-" * 118)
     survived: list[str] = []
     skipped: list[str] = []
+    edited: list[str] = []
 
     try:
         for module, original, mutated, label in MUTANTS:
@@ -272,10 +273,22 @@ def main() -> int:
                 skipped.append(label)
                 print(f"{label:56s} {'SKIP':10s} pattern no longer present in {module}")
                 continue
-            path.write_text(source.replace(original, mutated, 1))
+            mutated_text = source.replace(original, mutated, 1)
+            path.write_text(mutated_text)
             try:
                 passed, output = _run_suite()
             finally:
+                # If the file is not what we wrote, SOMEONE ELSE EDITED IT while the
+                # suite ran, and restoring the baseline would silently destroy their
+                # work. That happened: a long probe was backgrounded, edits were made
+                # to the engine during it, and each restore quietly reverted them --
+                # the crash-safety fix made this tool safe against dying and not
+                # against being raced.
+                if path.read_text() != mutated_text:
+                    edited.append(module)
+                    print(f"{'':56s} {'STOP':10s} {module} changed during the run; "
+                          f"leaving it alone")
+                    break
                 path.write_text(source)
             if passed:
                 survived.append(label)
@@ -290,6 +303,8 @@ def main() -> int:
         # through, so it is checked rather than assumed.
         stranded = []
         for module, text in originals.items():
+            if module in edited:
+                continue      # someone else owns this file now; do not touch it
             path = SRC / module
             try:
                 path.write_text(text)
@@ -301,6 +316,10 @@ def main() -> int:
             print("\n*** COULD NOT RESTORE " + ", ".join(stranded) + " ***")
             print("*** The working tree is MUTATED. Run: git checkout -- src/ ***")
 
+    if edited:
+        print(f"\n*** STOPPED EARLY: {', '.join(sorted(set(edited)))} was edited while "
+              f"this ran. Its baseline is stale, so nothing was restored for it and "
+              f"the results below are incomplete. Re-run on a quiet tree. ***")
     total = len(MUTANTS) - len(skipped)
     print(f"\n{total} mutants applied, {total - len(survived)} killed, {len(survived)} survived.")
     if skipped:
