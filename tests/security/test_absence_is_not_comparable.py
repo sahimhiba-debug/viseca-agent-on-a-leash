@@ -108,3 +108,64 @@ def test_ordering_is_stable_regardless_of_the_order_the_lines_arrive_in():
     a = _basket_key([_line(1, "Returns accepted within 30 days"), _line(2, "")])
     b = _basket_key([_line(1, ""), _line(2, "Returns accepted within 30 days")])
     assert a == b
+
+
+# --- a currency we cannot convert is not one we can decide about ---------------------
+
+def test_a_currency_outside_the_fx_table_is_refused_not_raised():
+    """`authorization_event.schema.json` constrains `currency` to exactly the four
+    codes the FX table carries, so checking it is literally the "validate its data
+    event" the official worker outline assigns to the wallet.
+
+    Until it was checked, `money.to_chf` raised ValueError inside the decision path
+    for anything else -- JPY, an empty string, XXX, and lowercase `chf` -- which is no
+    answer at all, the same failure as the 1,916 erasure raises. Found by probing the
+    FX surface after the erasure sweep had been cleaned to zero, which is why it is
+    worth probing a surface twice from different directions."""
+    from tests.helpers import make_event, make_mandate
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.state import HistoryIndex, RunState
+
+    mandate = make_mandate()
+
+    def decide(code):
+        event = make_event(mandate=mandate, amount=20.0, currency=code)
+        event["authorization"]["items"][0]["currency"] = code
+        state = RunState(history=HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})},
+                                              available=True), card_id="CA_TEST")
+        return evaluate_authorization(event, mandate, state)
+
+    for code in ("JPY", "XXX", "", "chf"):
+        result = decide(code)
+        assert result.decision == "block", (code, result.decision)
+        assert "event_readable" in result.reason_codes[0], (code, result.reason_codes)
+
+    # ...and the four the schema allows still decide. A validator that refused
+    # everything would satisfy the loop above.
+    for code in ("CHF", "EUR", "GBP", "USD"):
+        assert decide(code).decision in ("allow", "review", "block")
+
+
+def test_a_correctly_converted_foreign_purchase_is_judged_on_its_chf_value():
+    """The ceiling is in CHF and the purchase may not be. 100 EUR is CHF 95 and fits
+    under a CHF 100 ceiling; 100 GBP is CHF 112 and does not."""
+    from tests.helpers import make_event, make_mandate
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.mandate import HardRule
+    from wallet_control.state import HistoryIndex, RunState
+
+    mandate = make_mandate(hard_rules=[HardRule(
+        field="authorization.billing_amount_chf", operator="<=", value=100,
+        currency="CHF", scope="purchase")])
+
+    def decide(amount, code, chf):
+        event = make_event(mandate=mandate, amount=amount, currency=code,
+                           billing_amount_chf=chf, items_subtotal=amount)
+        event["authorization"]["items"][0].update(currency=code, unit_price=amount)
+        state = RunState(history=HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})},
+                                              available=True), card_id="CA_TEST")
+        return evaluate_authorization(event, mandate, state).decision
+
+    assert decide(100.0, "EUR", 95.00) == "allow"
+    assert decide(100.0, "GBP", 112.00) == "block"
+    assert decide(100.0, "USD", 87.00) == "allow"

@@ -85,7 +85,7 @@ def signature(instruction: str):
            CHF 300 / 7 days | CHF 3000 / 7 days | CHF 300 / 30 days   all |A| = 145
 
        Two more components separate them: purchases-per-window (which sees the
-       ceiling) and CHF-per-day (which sees the period). Neither is derivable from A.
+       ceiling) and CHF-per-year (which sees the period). Neither is derivable from A.
 
     2. WHAT WILL BE ASKED. A counts what is APPROVED. Changing `ask` to `decline`
        moves purchases from review to block and leaves the approved set untouched --
@@ -117,7 +117,7 @@ def signature(instruction: str):
     unsupported = frozenset(compile_instruction(instruction).unsupported_restrictions)
     return (approved, asked,
             repetition.get("most_purchases_per_period"),
-            repetition.get("chf_per_day"),
+            repetition.get("chf_per_year"),
             unsupported)
 
 

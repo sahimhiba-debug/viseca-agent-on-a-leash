@@ -124,6 +124,8 @@ def _unreadable_event(event: dict[str, Any]) -> list[str]:
     and this is an integrity failure rather than a fact we happen to be unsure of.
     Being the least permissive answer, it also cannot become a bypass.
     """
+    from .money import FX_RATES_TO_CHF
+
     missing: list[str] = []
     auth = event.get("authorization")
     if not isinstance(auth, dict):
@@ -131,6 +133,27 @@ def _unreadable_event(event: dict[str, Any]) -> list[str]:
     for field in _REQUIRED_AUTH_FIELDS:
         if auth.get(field) is None:
             missing.append(f"authorization.{field}")
+
+    # A CURRENCY WE CANNOT CONVERT IS NOT A CURRENCY WE CAN DECIDE ABOUT.
+    # `authorization_event.schema.json` constrains this to exactly the four codes the
+    # FX table carries, so checking it is literally the "validate its data event" the
+    # official worker outline assigns to us -- and until it was checked, `to_chf`
+    # raised ValueError inside the decision path for anything else:
+    #
+    #     currency='JPY'  ->  ValueError      currency='chf'  ->  ValueError
+    #     currency=''     ->  ValueError      currency='XXX'  ->  ValueError
+    #
+    # No answer at all, which is not one of the three the wallet owes. Lowercase is
+    # refused rather than normalised: ISO 4217 codes are uppercase by definition, a
+    # platform sending `chf` is malformed, and quietly repairing a malformed event is
+    # how a wallet ends up deciding about a purchase nobody described.
+    for where, node in [("authorization", auth)] + [
+            (f"authorization.items[{i}]", line)
+            for i, line in enumerate(auth.get("items") or [])
+            if isinstance(line, dict)]:
+        code = node.get("currency")
+        if code is not None and code not in FX_RATES_TO_CHF:
+            missing.append(f"{where}.currency={code!r} (not a currency this wallet can convert)")
     merchant = auth.get("merchant")
     if isinstance(merchant, dict):
         missing.extend(f"authorization.merchant.{f}" for f in _REQUIRED_MERCHANT_FIELDS

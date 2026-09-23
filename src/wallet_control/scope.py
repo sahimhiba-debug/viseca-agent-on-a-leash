@@ -219,16 +219,22 @@ def _repetition(rules: list[HardRule], cheapest: float | None,
         most = most or None
     else:
         most = None
+    from .money import annual_exposure
+
     days = window.period_days or 0
-    rate = float(cap / Decimal(days)) if days else None
-    pace = (f" That is CHF {rate:,.0f} a day sustained."
+    # THE SAME FIGURE THE COMPILER AND THE AUDIT USE. A per-day rate was a second
+    # unit for a fact this product already states in years; two renderings of one
+    # fact is how they drift apart.
+    rate = annual_exposure(cap, days)[1] if days else None
+    pace = (f" The window re-opens, so at this rate the delegation is worth about "
+            f"CHF {rate:,.0f} a year -- the format has no way to set a total."
             if rate is not None else "")
     return {"bounded": True, "cap_chf": float(cap), "period_days": window.period_days,
             "most_purchases_per_period": most, "cheapest_chf": cheapest,
             # The PACE, so that shortening the window changes a number and not only a
             # word. Two mandates with the same ceiling over different periods are not
             # the same delegation, and the panel has to be able to say so.
-            "chf_per_day": rate,
+            "chf_per_year": rate,
             "note": (f"At most CHF {float(cap):g} in any {days} days "
                      f"\u2014 {most} of these purchases at the cheapest, fewer at any "
                      f"other price.{pace}" if most else

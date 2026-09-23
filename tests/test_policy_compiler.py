@@ -5,6 +5,8 @@ the bottom are a second, separate check that the real instructions also compile
 sensibly.
 """
 
+import pytest
+
 from wallet_control.mandate import UncertaintyPolicy
 from wallet_control.policy_compiler import compile_instruction
 
@@ -185,3 +187,74 @@ def test_all_official_instructions_compile_with_an_amount_ceiling_and_ask_policy
         compiled = compile_instruction(instruction)
         assert compiled.uncertainty_policy == UncertaintyPolicy.ASK
         assert any(r.field == "authorization.billing_amount_chf" and r.scope == "purchase" for r in compiled.hard_rules)
+
+
+# --- the money rules must not depend on the benchmark's exact wording ---------------
+
+AMOUNT_PHRASINGS = [
+    # the official SCEN0001 wording
+    "Order our household groceries for delivery. Keep each order at or below CHF 120 "
+    "including delivery, and keep the total across any seven days at or below CHF 300. "
+    "Ask me when uncertain.",
+    # the same instruction without the two words that happened to save it
+    "Order our household groceries. Keep each order at or below CHF 120, and keep the "
+    "total across any seven days at or below CHF 300.",
+    "Order our household groceries. Keep the total across any seven days at or below "
+    "CHF 300, and keep each order at or below CHF 120.",
+    "Keep each order at or below CHF 120; keep the total across any seven days at or "
+    "below CHF 300.",
+    "Keep each order at or below CHF 120. Keep the total across any seven days at or "
+    "below CHF 300.",
+    "Keep each order at or below CHF 120 per order, and CHF 300 across any 7 days.",
+]
+
+
+@pytest.mark.parametrize("instruction", AMOUNT_PHRASINGS)
+def test_a_per_order_ceiling_and_a_weekly_budget_survive_rewording(instruction):
+    """THE COMPILER WAS FITTING THE BENCHMARK'S EXACT SENTENCE.
+
+    `_AMOUNT_THEN_PERIOD_RE` pairs an amount with a period phrase that follows it,
+    with guards against crossing a full stop, a semicolon, or another CHF amount.
+    Measured, it paired the wrong two:
+
+        "Keep each order at or below CHF 120, and keep the total across any seven
+         days at or below CHF 300."
+
+        ->  CHF 300 PER ORDER, CHF 120 per 7 days, CHF 300 per 7 days
+
+    Nothing resembling the sentence: the per-order ceiling was 2.5x what the customer
+    wrote, and a weekly budget they never asked for appeared. The official wording
+    escapes it ONLY because "including delivery" sits between the amount and the
+    comma and pushes the lazy skip past its 30-character budget. Compile the
+    benchmark correctly, compile a two-word paraphrase of it incorrectly.
+
+    TWO SEPARATE DEFECTS, and the first hid the second:
+
+      * the amount pattern `[\\d.,]+` swallowed TRAILING punctuation, so "CHF 120,"
+        matched with the comma inside the amount -- and the clause-boundary guard,
+        once added, never saw a comma to stop at. A guard defeated by the thing it
+        was guarding.
+      * the boundary is the CONJUNCTION, not the comma. Excluding commas outright
+        broke "No more than CHF 50, each week", where the comma joins nothing.
+
+    These are the most consequential rules the compiler writes. Every phrasing above
+    must produce the same two rules."""
+    compiled = compile_instruction(instruction)
+    amounts = sorted((r.value, r.scope, r.period_days) for r in compiled.hard_rules
+                     if r.field == "authorization.billing_amount_chf")
+    assert amounts == [(120.0, "purchase", None), (300.0, "period", 7)], amounts
+
+
+@pytest.mark.parametrize("instruction,expected", [
+    ("No more than CHF 50, each week.", (50.0, "period", 7)),
+    ("No more than CHF 50 or less each week.", (50.0, "period", 7)),
+    ("The agent may spend CHF 250 per week.", (250.0, "period", 7)),
+])
+def test_a_comma_that_joins_nothing_still_binds_the_period(instruction, expected):
+    """The counter-case that rules out the blunt fix. A comma is not a clause
+    boundary; "and" is. Excluding commas made this compile to a PER-ORDER ceiling,
+    which is the opposite error to the one being fixed and just as wrong."""
+    compiled = compile_instruction(instruction)
+    amounts = [(r.value, r.scope, r.period_days) for r in compiled.hard_rules
+               if r.field == "authorization.billing_amount_chf"]
+    assert amounts == [expected], amounts

@@ -88,6 +88,13 @@ DECLARED: dict[tuple[str, str], tuple[str, str]] = {
         GUARDED, "Same listing. A record whose decision is not one of "
                  "approve/decline/step_up is skipped, so no fallback can become a "
                  "decision."),
+    ("decision_engine.py", "items"): (
+        GUARDED, "Inside the unreadable-event check, walking item lines to validate "
+                 "each line's currency against the FX table. A missing `items` is "
+                 "ALREADY in the list of things that make an event unreadable, three "
+                 "lines above, so the `or []` produces an empty walk over an event "
+                 "that is being refused anyway -- never an empty basket treated as a "
+                 "satisfied one."),
     ("decision_engine.py", "merchant"): (
         GUARDED, "Reading the shop out of an event in order to CHECK it against the "
                  "merchant record. An event with no merchant block has already been "

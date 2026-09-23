@@ -129,3 +129,52 @@ def test_the_payload_carries_it_to_the_browser():
         assert decision["plain_reasons"], decision["authorization_id"]
         assert "merchant text addresses the machine" not in json.dumps(decision), (
             "a raw field name reached the client")
+
+
+def test_the_annual_exposure_figure_is_computed_once_and_read_three_times():
+    """THE MOST IMPORTANT SENTENCE THIS PRODUCT SAYS, rendered in three places.
+
+    The official rule format's `scope` is `"purchase"`, `"period"` or null and
+    nothing else -- there is no total, no lifetime, no end date. A rolling cap
+    therefore PACES spending and never caps it: the window re-opens and the agent may
+    spend up to that amount again, indefinitely. The only bound on what a standing
+    mandate can cost is revocation.
+
+    Three surfaces tell the customer that: the compiler's open questions, the audit
+    timeline, and the delegation panel. They were computing it separately, and the
+    panel had started saying it in a different UNIT (per day) from the other two (per
+    year). A fact rendered twice is a fact that will eventually be rendered
+    differently -- which is the whole subject of this file.
+
+    Asserted against `money.annual_exposure` rather than against each other, so the
+    test fails if any surface starts doing its own arithmetic again."""
+    from wallet_control.money import annual_exposure
+    from wallet_control.policy_compiler import compile_instruction
+    from wallet_control.scope import delegation_size
+
+    instruction = ("Order our household groceries, keeping each order at or below "
+                   "CHF 120 and the total across any seven days at or below CHF 300.")
+    _exact, expected = annual_exposure(300, 7)
+
+    figure = f"CHF {expected:,.0f} a year"
+
+    compiled = compile_instruction(instruction)
+    assert any(figure in q for q in compiled.open_questions), (
+        figure, compiled.open_questions)
+
+    sized = delegation_size(instruction)["how_many_times"]
+    assert sized["chf_per_year"] == expected
+    assert figure in sized["note"], sized["note"]
+
+
+def test_the_annual_figure_moves_with_the_period_not_only_the_ceiling():
+    """A ceiling without a period is not a pace. "CHF 300 per 7 days" and "CHF 300
+    per 30 days" differ by more than four times, and the panel reported the same
+    "at most N purchases" for both until this figure sat beside it."""
+    from wallet_control.money import annual_exposure
+
+    assert annual_exposure(300, 7)[1] > 4 * annual_exposure(300, 30)[1]
+    # On the EXACT figure, not the rounded one: rounding to a readable step is
+    # deliberately not linear, and asserting linearity of the rounded number would be
+    # asserting a property of the presentation rather than of the rate.
+    assert abs(annual_exposure(3000, 7)[0] - 10 * annual_exposure(300, 7)[0]) < 1e-6

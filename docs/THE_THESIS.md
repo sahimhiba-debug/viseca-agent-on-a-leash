@@ -390,7 +390,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,749 passed · 5 reported skips
+tests                1,762 passed · 5 reported skips
 mutation             41 mutants applied · 41 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)

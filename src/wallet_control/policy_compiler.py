@@ -46,6 +46,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from .money import annual_exposure
 from .mandate import HardRule, UncertaintyPolicy
 
 # A small, explicit lexicon mapping everyday nouns to the shared category
@@ -185,7 +186,11 @@ _TOTAL_AMOUNT_RE = re.compile(
 
 _AMOUNT_THEN_PERIOD_RE = re.compile(
     r"""
-    CHF\s*(?P<amount>[\d.,]+)
+    # `\d[\d.,]*\d|\d` rather than `[\d.,]+`: the loose class swallowed TRAILING
+    # punctuation, so "CHF 120, and keep..." matched the amount as "120," and the
+    # clause-boundary guard below never saw the comma at all. The guard was correct
+    # and unreachable -- a fix defeated by the thing it was protecting.
+    CHF\s*(?P<amount>\d[\d.,]*\d|\d)
     # Same clause only -- never across a full stop, AND never across another amount.
     # Without the CHF guard the lazy skip jumped over one: in "at or below CHF 120
     # per order, and CHF 300 across any 7 days" it paired CHF 120 with "7 days",
@@ -193,7 +198,25 @@ _AMOUNT_THEN_PERIOD_RE = re.compile(
     # actually written. Two constraints in, one wrong constraint out. Found by
     # asking whether the text the customer CONFIRMS compiles back to the policy the
     # wallet ENFORCES -- it did not.
-    (?:(?!CHF)[^.;]){0,30}?
+    # ...AND NEVER ACROSS A CLAUSE BOUNDARY. The guards above stop the lazy skip at a
+    # full stop, a semicolon and another CHF amount, and a comma followed by a
+    # conjunction slipped through all three:
+    #
+    #   "Keep each order at or below CHF 120, and keep the total across any seven
+    #    days at or below CHF 300."
+    #
+    # paired CHF 120 with "seven days", producing a CHF 120 WEEKLY budget, a spurious
+    # CHF 300 PER-ORDER ceiling, and nothing at all resembling what was written. The
+    # official S1 wording escapes it only by accident: "including delivery" sits
+    # between the amount and the comma and pushes the skip past its 30-character
+    # budget. So this compiled the benchmark correctly and a two-word paraphrase of
+    # it incorrectly, which is the definition of fitting the benchmark.
+    #
+    # The boundary is the CONJUNCTION, not the comma. Excluding commas outright was
+    # the first attempt and it broke "No more than CHF 50, each week" -- a comma that
+    # joins nothing. "and"/"but" start a second instruction; a bare comma does not.
+    # "or" is deliberately NOT excluded: "CHF 50 or less each week" is ordinary.
+    (?:(?!CHF|\band\b|\bbut\b)[^.;]){0,30}?
     \b(?:per|a|each|every|in\ any|over\ any|across\ any|within\ any|in|over)\s+
     (?:(?P<days>\d+)\s*days?
        |(?P<daywords>seven|fourteen|thirty|ten|twenty|sixty|ninety)\s*days?
@@ -782,13 +805,8 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     period_rule = next((r for r in rules if r.scope == "period"), None)
 
     if period_rule is not None and period_rule.period_days:
-        exact = float(period_rule.value) * (365 / period_rule.period_days)
-        # "about CHF 15,643 a year" reads as a calculation the customer is expected to
-        # check; it is an illustration of a rate, and the spurious precision invites
-        # them to argue with the last three digits instead of the magnitude. Round to
-        # a figure that carries the point, without collapsing a small rate to zero.
-        step = 100 if exact >= 1000 else 10
-        annual = max(step, round(exact / step) * step)
+        # One computation, three readers -- see `money.annual_exposure`.
+        _exact, annual = annual_exposure(period_rule.value, period_rule.period_days)
         open_questions.append(
             f"Your CHF {float(period_rule.value):g} limit applies to each rolling "
             f"{period_rule.period_days}-day window, so it paces spending rather than capping it: the "

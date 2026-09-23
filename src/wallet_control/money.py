@@ -55,3 +55,27 @@ def to_chf(amount: Decimal, currency: str) -> Decimal:
     except KeyError as exc:
         raise ValueError(f"Unsupported currency: {currency!r}") from exc
     return round_chf(amount * rate)
+
+
+def annual_exposure(cap_chf: Decimal | float, period_days: int) -> tuple[float, float]:
+    """What a rolling cap is worth in a year: (exact, rounded-for-a-person).
+
+    ONE COMPUTATION, THREE READERS. The official rule format has `scope` of
+    `"purchase"`, `"period"` or null and NOTHING ELSE -- there is no total, no
+    lifetime, no end date. So a rolling cap paces spending and never caps it: the
+    window re-opens and the agent may spend up to that amount again, indefinitely.
+    The only bound on what a standing mandate can cost is revocation.
+
+    That sentence is the most important thing this product says about a mandate, and
+    it was being computed in three different places -- the compiler's open questions,
+    the audit timeline, and the delegation panel -- with two different units between
+    them. A fact rendered twice is a fact that will eventually be rendered
+    differently; `test_one_wording_not_two.py` exists because of exactly that.
+
+    The rounding is deliberate. "About CHF 15,643 a year" reads as a calculation the
+    customer is expected to check, and the spurious precision invites them to argue
+    with the last three digits instead of the magnitude.
+    """
+    exact = float(cap_chf) * (365 / max(1, period_days))
+    step = 100 if exact >= 1000 else 10
+    return exact, max(step, round(exact / step) * step)

@@ -155,8 +155,9 @@ def delegation_summary(mandate: MandateSnapshot, state: RunState,
             "note": "Checked on every purchase before it is approved.",
         })
     if period is not None:
-        annual = float(period.value) * (365 / (period.period_days or 1))
-        step = 100 if annual >= 1000 else 10
+        from .money import annual_exposure
+
+        _exact, annual = annual_exposure(period.value, period.period_days or 1)
         lines.append({
             "label": f"Maximum per rolling {period.period_days} days",
             "value": f"CHF {float(period.value):,.0f}",
@@ -164,7 +165,7 @@ def delegation_summary(mandate: MandateSnapshot, state: RunState,
             "enforced": True,
             "note": f"This paces spending; it does not cap the total. The window re-opens, "
                     f"so at this rate the delegation is worth about "
-                    f"CHF {max(step, round(annual / step) * step):,.0f} a year.",
+                    f"CHF {annual:,.0f} a year.",
         })
     if account_limits is not None:
         lines.append({
