@@ -154,11 +154,18 @@ lines. That premium — not a failed errand — is the real price of a requireme
 market can meet. None of this is the wallet's choice to make, which is why the
 Delegate tab shows it before the customer confirms.
 
-**What is NOT claimed.** Exactly two rules are exposed this way and they are named
-rather than generalised: `order.return_window_days` and `item.size`. `merchant.familiar`
-also has an UNKNOWN branch and is **not** exposed — it goes unknown only when the
-card's authorization history is unavailable altogether, a platform condition no
-choice of shop can bring about.
+**What is NOT claimed.** One field is exposed this way and it is named rather than
+generalised: the seller's own `item_details`, which carries both
+`order.return_window_days` and `item.size`. `merchant.familiar` also has an UNKNOWN
+branch and is **not** exposed — it goes unknown only when the card's authorization
+history is unavailable altogether, a platform condition no choice of shop can bring
+about.
+
+It was **two** until the event validator began treating an empty string as an
+absence rather than as a value. `order_returnable` emptied is now refused as
+unreadable instead of being judged on the silence — a channel closed two components
+away from the bypass that change was written for, and found by the sweep rather than
+predicted.
 
 ## 4b. Four defects found by reading the official material, not by our own sweeps
 

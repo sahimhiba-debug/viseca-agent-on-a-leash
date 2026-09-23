@@ -130,8 +130,20 @@ def _unreadable_event(event: dict[str, Any]) -> list[str]:
     auth = event.get("authorization")
     if not isinstance(auth, dict):
         return ["authorization"]
+    def _absent(node: dict, field: str) -> bool:
+        """None, or a string with nothing in it.
+
+        `is None` alone let an EMPTY STRING through, and an empty string is not a
+        value -- it is an absence wearing a type. A merchant id of "" passed this
+        check, resolved to no merchant record, and landed in the branch that ignores
+        shops it cannot identify. The same class as everything in docs/ABSENCE.md,
+        in the validator written to stop that class.
+        """
+        value = node.get(field)
+        return value is None or (isinstance(value, str) and not value.strip())
+
     for field in _REQUIRED_AUTH_FIELDS:
-        if auth.get(field) is None:
+        if _absent(auth, field):
             missing.append(f"authorization.{field}")
 
     # A CURRENCY WE CANNOT CONVERT IS NOT A CURRENCY WE CAN DECIDE ABOUT.
@@ -157,7 +169,7 @@ def _unreadable_event(event: dict[str, Any]) -> list[str]:
     merchant = auth.get("merchant")
     if isinstance(merchant, dict):
         missing.extend(f"authorization.merchant.{f}" for f in _REQUIRED_MERCHANT_FIELDS
-                       if merchant.get(f) is None)
+                       if _absent(merchant, f))
     items = auth.get("items")
     if isinstance(items, list):
         for index, line in enumerate(items):
@@ -165,7 +177,7 @@ def _unreadable_event(event: dict[str, Any]) -> list[str]:
                 missing.append(f"authorization.items[{index}]")
                 continue
             missing.extend(f"authorization.items[{index}].{f}" for f in _REQUIRED_ITEM_FIELDS
-                           if line.get(f) is None)
+                           if _absent(line, f))
     return missing
 # A seller writing to the machine that holds the card. Never a FAIL: the text is
 # ineffective against this engine by construction, so it is not evidence that the
@@ -1215,11 +1227,21 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # that -- a non-positive amount is rejected here regardless of schema validation
         # upstream.
         merchant_verdict, merchant_detail = _merchant_record_agreement(auth)
-        if merchant_verdict == "unknown" and not any(
+        # BOTH BRANCHES, for the reason set out in `_catalogue_agreement`'s caller:
+        # gating only the `unknown` one leaves a bypass where deleting the merchant id
+        # moves a purchase from the branch that refutes to the branch that is ignored.
+        #
+        #     mandate: CHF <= 500, no merchant.category rule
+        #     a shop the record lists as transport, stated as `groceries`
+        #                                                      block  (refuted)
+        #     the same, with the merchant id removed           ALLOW
+        #
+        # Same shape, same fix: a customer who did not constrain the KIND of shop has
+        # not asked the wallet to have an opinion about it, and the purchase is
+        # permitted under either description -- so refusing one and allowing the
+        # other protected nobody while giving the agent a reason to say less.
+        if merchant_verdict is not None and not any(
                 r.field == "merchant.category" for r in mandate.hard_rules):
-            # Nothing was delegated that depends on the KIND of shop, so a shop the
-            # reference data cannot identify is not this customer's problem. A
-            # refutation is still raised: that is an integrity concern either way.
             merchant_verdict = None
         if merchant_verdict is not None:
             evaluations.append(RuleEvaluation(rule=_MERCHANT_RECORD_RULE,
@@ -1227,11 +1249,31 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
                                               detail=merchant_detail, source="safety"))
 
         catalogue_verdict, catalogue_detail = _catalogue_agreement(auth["items"])
-        if catalogue_verdict == "unknown" and not any(
+        # THE GATE USED TO GUARD ONLY THE `unknown` BRANCH, AND THAT ASYMMETRY WAS A
+        # BYPASS. A contradiction blocked whatever the mandate said, while an
+        # unidentifiable item was ignored unless the customer had constrained the
+        # kind of goods -- so deleting the id moved a purchase from the guarded
+        # branch to the unguarded one:
+        #
+        #     mandate: CHF <= 100, no category rule
+        #     a line whose id the catalogue lists as groceries, stated as
+        #       `clothing`                                    block  (refuted)
+        #     the same line with no item id at all            ALLOW
+        #
+        # Saying less beat saying something false, at the very check that exists to
+        # stop that. Found by `research/synthetic_corpus.py` on generated data, under
+        # `decline` -- the setting where nothing was supposed to be gained by silence.
+        #
+        # Both branches are now scoped the same way, and the direction of the fix is
+        # the opposite of the obvious one: rather than blocking more, the refutation
+        # is withheld where it was never relevant. A customer who did not constrain
+        # what kind of thing may be bought has not asked the wallet to have an
+        # opinion about an item's kind, and the purchase is permitted either way --
+        # so refusing one description of it and allowing the other was never
+        # protecting them from anything. Where they DID constrain it, both branches
+        # still fire: a contradiction fails and an unidentifiable item is unknown.
+        if catalogue_verdict is not None and not any(
                 r.field in _CATEGORY_DEPENDENT for r in mandate.hard_rules):
-            # Nothing was delegated that depends on the kind of thing being bought,
-            # so an unidentifiable item is not this customer's problem. A refutation
-            # ("fail") is still raised -- that is an integrity concern either way.
             catalogue_verdict = None
         if catalogue_verdict is not None:
             evaluations.append(RuleEvaluation(rule=_CATALOGUE_RULE, outcome=catalogue_verdict,

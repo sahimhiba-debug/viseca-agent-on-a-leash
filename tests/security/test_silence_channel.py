@@ -150,13 +150,21 @@ def swept():
     return every_field_emptied()
 
 
-def test_only_the_two_documented_fields_help_when_emptied(swept):
+def test_only_the_documented_field_helps_when_emptied(swept):
     """The strongest form of the property: asked of EVERY field of the authorization,
-    not only the two a seller publishes. If a third ever appears here it is a new
-    silence channel and the claim in FINAL_AGENT_SECURITY_AUDIT.md -- "exactly two
-    rules are exposed this way" -- has become false."""
+    not only the ones a seller publishes. If another ever appears here it is a new
+    silence channel and the claim in FINAL_AGENT_SECURITY_AUDIT.md has become false.
+
+    IT USED TO BE TWO, AND ONE OF THEM CLOSED BY ACCIDENT. `order_returnable` no
+    longer helps when emptied, because `_unreadable_event` now treats an empty string
+    as absent rather than as a value -- so a purchase that says nothing about its own
+    returnability is REFUSED as unreadable instead of being judged on the silence.
+    That change was made to close a merchant-id bypass, and it removed a silence
+    channel two components away. Recorded rather than quietly absorbed: an
+    improvement nobody predicted is as much a reason to re-read a claim as a
+    regression is."""
     assert swept["tested"] > 500, swept["tested"]
-    assert swept["fields"] == ["items.0.item_details", "order_returnable"], swept["fields"]
+    assert swept["fields"] == ["items.0.item_details"], swept["fields"]
 
 
 def test_emptying_a_field_never_turns_a_refusal_into_a_silent_approval(swept):
