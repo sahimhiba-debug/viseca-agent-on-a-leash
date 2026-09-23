@@ -461,7 +461,11 @@ know what the answer should be, which is why
 [`research/substitution.py`](../research/substitution.py) exists — and why it found
 that defect on its first run.
 
-**Two of the seven were introduced by fixes made earlier the same day.** Full list,
+**Three were inherited** — trusted across several campaigns, and quoted as evidence
+in documents still in this repository. **Four I wrote the same day**, to check
+findings I had just made, and caught by attacking them within hours. A new instrument
+is *more* likely to be wrong than an old one and *less* likely to be doubted. Full
+list,
 with what each now has to prove before its passes count:
 [`A_CHECK_THAT_CANNOT_FAIL.md`](A_CHECK_THAT_CANNOT_FAIL.md).
 

@@ -24,8 +24,8 @@ tells you, and everything you decide afterwards rests on it.
 
 Plus one that is not an instrument failing but the same lesson: `paraphrase_corpus.py`
 declared the expected relation for **43 rewordings**, each with a reason, written so
-as not to be circular — and **nothing asserted any of it**. A corpus of claims with
-nothing checking them is a document.
+as not to be circular — and for four days, **nothing asserted any of it**. A corpus of
+claims with nothing checking them is a document.
 
 ## The one that is worst, and why
 
@@ -63,8 +63,25 @@ ask next is *how do you know your tests can fail?* — and the honest answer her
 that seven times today they could not, and that each was found by attacking the
 instrument rather than by running it again.
 
-Two of the seven were introduced **by fixes made earlier the same day**, which is the
-same lesson `ABSENCE.md` ends on: a fix is a new place for the mistake to live.
+## Which were inherited and which were mine
+
+Worth being exact, because "seven instruments lied" reads better than the truth and
+the truth is more useful.
+
+**Three were inherited**, and had been trusted across several campaigns: the mutation
+probe's two failures (added 19 September) and the verify profile's (21 September).
+Those are the ones that matter most — they had been quoted as evidence, repeatedly,
+in documents that are still in this repository.
+
+**Four I wrote the same day**, and caught within hours by attacking them: the
+research-module gate, the synthetic corpus, the instruction fuzzer's oracle, and the
+forgeable-facts probe. That is not a smaller failure. A new instrument is *more*
+likely to be wrong than an old one and *less* likely to be doubted, because it was
+written by someone who had just finished convincing themselves of the thing it
+checks. Every one of the four was written to check a finding I had just made.
+
+So the lesson `ABSENCE.md` ends on — a fix is a new place for the mistake to live —
+turns out to be true of the tools as well as the code, and more true of them.
 
 ## What is not claimed
 
