@@ -340,3 +340,34 @@ def test_the_panel_predicts_this_adversary_and_is_an_upper_bound():
     assert best >= predicted - 2, (
         f"predicted {predicted}, best achieved {best}: the figure is so loose it "
         f"tells the customer nothing")
+
+
+def test_the_headline_number_is_not_an_artefact_of_where_we_cut_the_enumeration():
+    """CHALLENGING OUR OWN MEASUREMENT.
+
+    "116 of 595" invites one obvious objection: that the 116 is a property of
+    `MAX_LINES` rather than of the mandate. The dangerous direction is specific -- if
+    a looser bound ADMITTED more baskets, the customer was shown a smaller delegation
+    than the one they actually granted, and the panel would be understating what was
+    handed over.
+
+    It does not. |A| converges at three lines and stays there; widening the world
+    grows only the denominator, because every extra line adds cost and the CHF 120
+    per-purchase cap bites first.
+
+    NOT a theorem about all mandates: with no amount rule at all, more lines could
+    keep being accepted. It is measured for the mandate the demo actually shows."""
+    from research.acceptance_set import convergence
+
+    rows = convergence()
+    sizes = {bound: accepted for bound, _, accepted in rows}
+    assert sizes[3] == sizes[4] == sizes[5] == sizes[6], rows
+    assert sizes[5] == 116, rows
+
+    worlds = [total for _, total, _ in rows]
+    assert worlds == sorted(worlds) and worlds[-1] > worlds[0], (
+        "the world must actually be growing, or this proves nothing", rows)
+    assert sizes[1] < sizes[2] < sizes[3], (
+        "A must still be sensitive to the bound BELOW convergence, or the "
+        "enumeration is inert", rows)
+

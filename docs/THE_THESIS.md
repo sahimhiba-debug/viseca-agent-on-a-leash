@@ -236,8 +236,14 @@ what the third value is for.
   401 and the CLI's OAuth will not refresh for a subprocess. Both verified today. The
   seam is built and exercised by two deliberately different hand-written compilers,
   and every claim about a model is about the *mechanism*, not a benchmark.
-* **Not a proof.** `|A| = 116` is a function of the enumeration's bound — one shop, up
-  to five lines, the official catalogue. What carries meaning is how it **moves**.
+* **Not a proof** — but not an artefact of the bound either, and that was measured
+  rather than assumed. Widening the enumeration from one line to six grows the world
+  from 35 baskets to 630 and leaves `|A|` at **116 from the third line onward**:
+  every extra line only adds cost, and the CHF 120 cap bites first. So the panel is
+  not understating the delegation. What it *is* bounded by is one shop and the
+  official catalogue, and the convergence argument holds only for mandates that cap
+  the amount — with no cap, `|A|` would grow with the bound and the number should be
+  read as a lower bound.
 * **Not adversarially complete.** The silence channel is open by design and cannot be
   closed per-rule, because the official mandate format has one uncertainty dial for a
   question that is per-rule. That is a gap in the format, disclosed with a witness.
@@ -255,7 +261,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,718 passed · 5 reported skips
+tests                1,721 passed · 5 reported skips
 mutation             39 mutants applied · 39 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)

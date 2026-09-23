@@ -142,6 +142,47 @@ def _key(merchant: str, offers: tuple) -> tuple[str, tuple[str, ...]]:
     return (merchant, tuple(sorted(o.item_id for o in offers)))
 
 
+def convergence(bounds=(1, 2, 3, 4, 5, 6)) -> list[tuple[int, int, int]]:
+    """IS |A| AN ARTEFACT OF WHERE THE ENUMERATION WAS CUT OFF?
+
+    The honest worry about a number like "116 of 595" is that the 116 is a property
+    of `MAX_LINES` rather than of the mandate -- and the dangerous direction is
+    specific: if a looser bound ADMITTED more baskets, the customer would have been
+    shown a smaller delegation than the one they actually granted.
+
+    Measured rather than disclaimed:
+
+        max lines   baskets   |A|
+            1          35      28
+            2         140      88
+            3         315     116
+            4         490     116
+            5         595     116   <- the shipped bound
+            6         630     116
+
+    |A| converges at three lines. Widening the world grows the DENOMINATOR and adds
+    nothing to the numerator, because every extra line only adds cost and the CHF 120
+    per-purchase cap bites before the sixth.
+
+    WHAT THIS DOES AND DOES NOT ESTABLISH. It is a property of mandates that bound
+    the amount, not a theorem about all mandates: with no cap at all, more lines
+    could keep being accepted and |A| would grow with the bound. So the claim is
+    "stable for this mandate, measured", and a mandate with no amount rule is exactly
+    the case where the size panel should be read as a lower bound.
+    """
+    global MAX_LINES
+    original, rows = MAX_LINES, []
+    try:
+        for bound in bounds:
+            MAX_LINES = bound
+            result = acceptance_set()
+            total = sum(len(result[k]) for k in ("allowed", "reviewed", "blocked"))
+            rows.append((bound, total, len(result["allowed"])))
+    finally:
+        MAX_LINES = original
+    return rows
+
+
 def acceptance_set(uncertainty: UncertaintyPolicy = UncertaintyPolicy.ASK
                    ) -> dict[str, Any]:
     """A: every basket the mandate permits, each judged from a FRESH state.
