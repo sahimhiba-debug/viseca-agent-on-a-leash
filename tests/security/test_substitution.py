@@ -89,3 +89,58 @@ def test_relabelling_a_shop_no_longer_works(swept):
     findings, _, _ = swept
     offenders = [f for f in findings if not f[5] and f[2].endswith("merchant_category")]
     assert offenders == [], offenders
+
+
+def test_two_useless_changes_do_not_combine_into_a_useful_one_under_decline():
+    """COMPOSITION, which no single-field sweep can see.
+
+    Every other sweep here varies ONE field. That is structurally blind to the case
+    where two restatements, each individually refused, are allowed together -- and
+    the official pack contains one:
+
+        SCEN0002 AU0014, a mandate requiring a return window
+
+        order_returnable = 'true'          alone   still blocked
+        item_details with no window stated alone   still blocked
+        BOTH                                       review
+
+    The return window has TWO independent sources -- the order-level flag and the
+    seller's text -- and each one alone still refutes it, so silencing either is
+    useless. Silence both and the fact becomes `unknown`, which is more permissive
+    than refuted.
+
+    THE LESSON IS ABOUT DEFENCE IN DEPTH. Two sources for one fact look like
+    redundancy and are not: they only help while the attacker can reach just one of
+    them. Each source individually masks the value of silencing the other, which is
+    exactly why this needed a pairwise sweep to find.
+
+    AND IT IS THE SAME BOUNDARY AS EVERYWHERE ELSE. Measured over the pack:
+
+        uncertainty_policy = decline   4,068 pairs   0 escapes
+        uncertainty_policy = ask       3,972 pairs   6
+        uncertainty_policy = approve   3,725 pairs   6
+
+    So the property this repository can actually claim is one sentence covering all
+    three sweeps: under `decline`, no erasure, no restatement, and no pair of
+    individually-useless changes ever buys the same purchase a better answer.
+    """
+    from research.substitution import pairs
+    from wallet_control.mandate import UncertaintyPolicy
+
+    escapes, considered = pairs(policy=UncertaintyPolicy.DECLINE)
+    assert considered > 3000, f"only {considered} pairs considered"
+    assert escapes == [], escapes[:3]
+
+
+def test_the_composition_gap_is_real_under_ask_and_is_disclosed():
+    """The other side of it, asserted so that it cannot quietly disappear or quietly
+    grow. If this ever reaches zero on its own, something closed the silence channel
+    and this file should not be where that is discovered."""
+    from research.substitution import pairs
+    from wallet_control.mandate import UncertaintyPolicy
+
+    escapes, _ = pairs(policy=UncertaintyPolicy.ASK)
+    assert len(escapes) == 6, escapes
+    assert all(e[2] == "block" and e[3] == "review" for e in escapes), escapes
+    fields = {e[4].rsplit(".", 1)[-1] for e in escapes} | {e[6].rsplit(".", 1)[-1] for e in escapes}
+    assert fields == {"order_returnable", "item_details"}, fields

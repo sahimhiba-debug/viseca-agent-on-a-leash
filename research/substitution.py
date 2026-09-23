@@ -187,6 +187,80 @@ def sweep(limit_per_field: int = 6):
     return findings, raised, total
 
 
+# Fields worth composing. Everything the sweep above ever moved, plus the ones rules
+# actually read -- a full pairwise sweep over every path would be ~45,000 decisions
+# per event and would mostly pair fields nothing reads.
+COMPOSABLE = (
+    "item_details", "item_name", "item_category", "order_returnable",
+    "merchant_category", "customer_device_id", "recent_attempt_count_10m",
+    "order_cancellable", "channel", "fulfillment_method",
+)
+
+
+def pairs(max_values: int = 3, policy=None):
+    """CAN TWO CHANGES THAT EACH BUY NOTHING BUY SOMETHING TOGETHER?
+
+    Every sweep so far varies ONE field. That cannot see a composition failure: two
+    restatements, each individually refused, whose combination is allowed. The
+    property being tested is that the decision is monotone under composition --
+
+        A alone does not help  and  B alone does not help
+            =>  A and B together do not help
+
+    -- which is not automatic. It fails wherever two facts are read by a rule that
+    needs both, or where one change moves a purchase into a branch the other change
+    then satisfies. A wallet whose refusals can be assembled around is not one whose
+    single-field behaviour tells you anything.
+
+    Scoped rather than exhaustive: `COMPOSABLE` fields only, and the purchase-defining
+    ones are excluded by the same criterion as everywhere else, so an "improvement"
+    bought by describing a different purchase is not counted.
+    """
+    cases = list(official_cases(policy))
+    words = vocabulary(cases)
+    escapes, considered = [], 0
+
+    for scenario_id, auth_id, event, snapshot, history in cases:
+        base, _ = judge(event, snapshot, history)
+        if base.startswith("RAISED") or base == "allow":
+            continue
+
+        singles = []
+        for path in paths(event):
+            if _leaf(path) not in COMPOSABLE:
+                continue
+            try:
+                current = _read(event, path)
+            except (KeyError, IndexError, TypeError):
+                continue
+            if isinstance(current, (dict, list)):
+                continue
+            for alternative in words.get(path, [])[:max_values]:
+                if alternative == current:
+                    continue
+                variant = _write(event, path, alternative)
+                if variant is None:
+                    continue
+                got, _ = judge(variant, snapshot, history)
+                # Keep only the changes that individually buy NOTHING.
+                if not got.startswith("RAISED") and PERMISSIVENESS[got] <= PERMISSIVENESS[base]:
+                    singles.append((path, alternative))
+
+        for i, (path_a, value_a) in enumerate(singles):
+            for path_b, value_b in singles[i + 1:]:
+                if path_a == path_b:
+                    continue
+                both = _write(_write(event, path_a, value_a) or event, path_b, value_b)
+                if both is None:
+                    continue
+                considered += 1
+                got, _ = judge(both, snapshot, history)
+                if not got.startswith("RAISED") and PERMISSIVENESS[got] > PERMISSIVENESS[base]:
+                    escapes.append((scenario_id, auth_id, base, got,
+                                    path_a, value_a, path_b, value_b))
+    return escapes, considered
+
+
 def main() -> None:
     findings, raised, total = sweep()
     forgeries = [f for f in findings if not f[5]]
@@ -219,6 +293,17 @@ def main() -> None:
               "  already declared `advisory` -- nothing can contradict it -- or by a\n"
               "  flag, whose absence is the ordinary case. No undeclared decision\n"
               "  input remains in this sweep's reach.\n")
+
+    escapes, considered = pairs()
+    print(f"  COMPOSITION: {considered:,} pairs of changes that each buy NOTHING alone")
+    if escapes:
+        print("    PAIRS THAT ESCAPE TOGETHER:")
+        for s_, a, base, got, pa, va, pb, vb in escapes[:15]:
+            print(f"      {s_} {a} {base}->{got}  {_leaf(pa)}={va!r} + {_leaf(pb)}={vb!r}")
+    else:
+        print("    none: no two individually useless restatements combined into a\n"
+              "    better answer. The decision is monotone under composition here.")
+    print()
 
     if raised:
         print(f"  NO ANSWER on {len(raised)} restatements:")

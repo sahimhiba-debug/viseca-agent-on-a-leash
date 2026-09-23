@@ -199,8 +199,36 @@ customer cannot say *"ask me about unknowns, but never let silence rescue a
 refusal."* That is a gap in the official mandate format, measured rather than
 asserted, and disclosed with the witness that produces it.
 
+### The same boundary, from three directions
+
+Erasing a fact is one way to say less. Restating it is another, and combining two
+changes that each buy nothing is a third — and a single-field sweep is **structurally
+blind** to the last one. All three were run over the official pack:
+
+| sweep | what it varies | `decline` | `ask` |
+| --- | --- | --- | --- |
+| **erasure** | 8,124 field removals (`null` and absent) | **0** | 4 |
+| **substitution** | 6,415 restatements with values that field really takes | **0** | — |
+| **composition** | 4,068 pairs, each half individually useless | **0** | 6 |
+
+The composition row found something the others could not. `SCEN0002 AU0014` requires
+a return window, and that fact has **two** independent sources — the order-level flag
+and the seller's text. Silencing either alone is useless, because the other still
+refutes it; silence **both** and the fact becomes `unknown`, which is more permissive
+than refuted.
+
+**Two sources for one fact look like redundancy and are not.** They help only while
+the attacker can reach just one of them, and each source masks the value of silencing
+the other — which is precisely why it took a pairwise sweep to see.
+
+So the property this repository can actually claim is one sentence:
+
+> **Under `decline`, no erasure, no restatement, and no pair of individually-useless
+> changes ever buys the same purchase a better answer.**
+
 *Not claimed:* a theorem about the schema. This is exhaustive over the official
-corpus and the paths those events contain.
+corpus and the paths those events contain, and the composition sweep is scoped to
+ten fields rather than all of them.
 
 ---
 
@@ -277,7 +305,7 @@ what the third value is for.
 
 ```
 official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,728 passed · 5 reported skips
+tests                1,731 passed · 5 reported skips
 mutation             39 mutants applied · 39 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)

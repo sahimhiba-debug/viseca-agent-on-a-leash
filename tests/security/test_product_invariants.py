@@ -271,13 +271,48 @@ def test_I11_uncertainty_never_silently_becomes_approval(policy):
 @SETTINGS
 def test_I12_a_missing_fact_is_reported_unknown_and_never_invented(details):
     """If the merchant never stated a return window, the engine must say so rather
-    than substitute a number. Only an explicit statement may establish the fact."""
-    assume("return" not in details.lower() and "day" not in details.lower())
+    than substitute a number. Only an explicit statement may establish the fact.
+
+    THIS TEST WAS WRONG, AND HYPOTHESIS FOUND IT -- on `details='FINAL SALE'`, which
+    the assume below did not exclude. A final-sale notice IS an explicit statement
+    about returns: it says there are none, and the engine reads a 0-day window from
+    it and fails the rule. That is the invariant working, not breaking; the assume
+    had under-enumerated what counts as "stating the fact".
+
+    The real property is DIRECTIONAL, and it is asserted separately below, because
+    "never substitute a number" is not quite what we mean. Reading 0 days from FINAL
+    SALE can only ever REFUSE. What must never happen is a number appearing from
+    nowhere and SATISFYING the rule -- and treating final-sale text as unknown would
+    be strictly worse than the current behaviour, since a customer whose policy is
+    `approve` would then have final-sale goods bought under a returns requirement."""
+    assume("return" not in details.lower() and "day" not in details.lower()
+           and "final" not in details.lower() and "sale" not in details.lower())
     md = _mandate(extra=[HardRule(field="order.return_window_days", operator=">=", value=14)])
     s = _state()
     result = _buy(md, s, "AU1", amt=100.0, details=details)
     windows = [e for e in result.rule_evaluations if e.rule.field == "order.return_window_days"]
     assert windows and windows[0].outcome == "unknown", f"a window was invented from {details!r}"
+
+
+@given(details=st.text(max_size=40))
+@SETTINGS
+def test_I12b_no_text_a_seller_writes_can_SATISFY_a_return_window_rule(details):
+    """THE DIRECTIONAL FORM, which is the one that matters.
+
+    A fact read out of merchant text may refuse a purchase; it may never be the thing
+    that permits one, unless it plainly states a window long enough. Anything else --
+    a final-sale notice, an injection, an empty string, forty characters of noise --
+    must leave the rule `unknown` or `fail`, never `pass`.
+
+    Stated this way the invariant survives inputs like FINAL SALE that broke the
+    absolute form above, and it is the version an attacker actually cares about: they
+    are not trying to make the wallet uncertain, they are trying to make it agree."""
+    assume("return" not in details.lower() and "day" not in details.lower())
+    md = _mandate(extra=[HardRule(field="order.return_window_days", operator=">=", value=14)])
+    result = _buy(md, _state(), "AU1", amt=100.0, details=details)
+    windows = [e for e in result.rule_evaluations if e.rule.field == "order.return_window_days"]
+    assert windows and windows[0].outcome in {"unknown", "fail"}, (
+        f"merchant text {details!r} SATISFIED a return-window rule it never stated")
 
 
 # --- I13: the event's own arithmetic must agree with itself ----------------------
