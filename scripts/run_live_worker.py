@@ -46,6 +46,10 @@ def main() -> None:
     parser.add_argument("--wait", type=int, default=25, help="long-poll wait seconds")
     parser.add_argument("--max-idle-polls", type=int, default=6,
                         help="stop after this many empty polls in a row if the run never reports completed")
+    parser.add_argument("--resume", metavar="RUN_ID",
+                        help="continue an existing run of this scenario instead of starting one")
+    parser.add_argument("--checkpoint-dir", type=Path,
+                        help="persist each run's state here after every decision, and restore it on --resume")
     parser.add_argument(
         "--acknowledge-unsupported",
         action="store_true",
@@ -72,51 +76,17 @@ def main() -> None:
         logger.info("bootstrap: %s", bootstrap)
 
         compiled = compile_instruction(instruction)
-        draft = client.create_mandate_draft(
-            instruction,
-            [r.as_dict() for r in compiled.hard_rules],
-            compiled.uncertainty_policy.value,
-            compiled.guidance,
-            compiled.open_questions,
-        )
-        draft_id = draft["draft_id"]
-        logger.info("mandate draft created: %s", draft_id)
-        logger.info("compiled hard_rules: %s", [r.as_dict() for r in compiled.hard_rules])
-        if compiled.open_questions:
-            logger.warning("open questions for the customer before confirming: %s", compiled.open_questions)
-
-        # THE GATE. This script used to say "in a real product this pauses for the
-        # customer's explicit confirmation" and then confirm anyway, three statements
-        # after compiling. An audit found the consequence: an instruction whose
-        # restriction the compiler cannot represent produced
-        # warning -> automatic confirmation -> unenforced restriction, with no human
-        # in the chain and the warning written only to a log.
-        #
-        # Unsupported restrictive intent now stops this script. `--acknowledge-unsupported`
-        # is the operator standing in for the customer, and it requires them to have
-        # read the list, because the list is printed here and nowhere else in the flow.
-        if compiled.unsupported_restrictions:
-            for item in compiled.unsupported_restrictions:
-                logger.error("UNSUPPORTED RESTRICTION: %s", item)
-            if not args.acknowledge_unsupported:
-                sys.exit(
-                    f"refusing to confirm {draft_id}: this instruction restricts in "
-                    f"{len(compiled.unsupported_restrictions)} way(s) this wallet cannot enforce "
-                    "(listed above). A customer must see and accept them. Re-run with "
-                    "--acknowledge-unsupported to proceed on their behalf."
-                )
-            logger.warning(
-                "proceeding with %d unenforceable restriction(s) on the operator's acknowledgement",
-                len(compiled.unsupported_restrictions),
-            )
-
-        confirmed = client.confirm_mandate(draft_id)
-        mandate_id = confirmed["mandate_id"]
-        logger.info("mandate confirmed: %s", mandate_id)
-
-        run = client.start_scenario_run(args.scenario_id, mandate_id)
-        run_id = run["run_id"]
-        logger.info("run started: %s", run_id)
+        if args.resume:
+            # A worker that died mid-run comes back to the SAME run: nothing is
+            # drafted, confirmed or started again. The rules are recompiled (the
+            # compiler is deterministic) so the platform's echo is still checked.
+            run = client.get_run(args.resume)
+            if run.get("scenario_id") != args.scenario_id:
+                sys.exit(f"run {args.resume} is {run.get('scenario_id')!r}, not {args.scenario_id!r}")
+            run_id = args.resume
+            logger.info("resuming run %s (status %s)", run_id, run.get("status"))
+        else:
+            run_id = _start_run(client, args, instruction, compiled)
 
         history = HistoryIndex.from_csv(history_csv_path())
         questions: "queue.Queue[tuple]" = queue.Queue()
@@ -130,6 +100,7 @@ def main() -> None:
             confirmed_rules=compiled.hard_rules,
             confirmed_uncertainty_policy=compiled.uncertainty_policy,
             on_step_up=lambda run, result, event: questions.put((time.monotonic(), run, result, event)),
+            checkpoint_dir=args.checkpoint_dir,
         )
         # The worker auto-registers the run from the first event's own `mandate`
         # block (see live_worker.py) since customer_id/card_id/profile_id are only
@@ -166,6 +137,55 @@ def main() -> None:
             # The window runs from when the platform took the step_up, not from when
             # the previous question at this terminal was answered.
             _ask_customer(worker, run, result, event, asked_at + step_up_seconds)
+
+
+def _start_run(client: VisecaClient, args: argparse.Namespace, instruction: str, compiled) -> str:
+    draft = client.create_mandate_draft(
+        instruction,
+        [r.as_dict() for r in compiled.hard_rules],
+        compiled.uncertainty_policy.value,
+        compiled.guidance,
+        compiled.open_questions,
+    )
+    draft_id = draft["draft_id"]
+    logger.info("mandate draft created: %s", draft_id)
+    logger.info("compiled hard_rules: %s", [r.as_dict() for r in compiled.hard_rules])
+    if compiled.open_questions:
+        logger.warning("open questions for the customer before confirming: %s", compiled.open_questions)
+
+    # THE GATE. This script used to say "in a real product this pauses for the
+    # customer's explicit confirmation" and then confirm anyway, three statements
+    # after compiling. An audit found the consequence: an instruction whose
+    # restriction the compiler cannot represent produced
+    # warning -> automatic confirmation -> unenforced restriction, with no human
+    # in the chain and the warning written only to a log.
+    #
+    # Unsupported restrictive intent now stops this script. `--acknowledge-unsupported`
+    # is the operator standing in for the customer, and it requires them to have
+    # read the list, because the list is printed here and nowhere else in the flow.
+    if compiled.unsupported_restrictions:
+        for item in compiled.unsupported_restrictions:
+            logger.error("UNSUPPORTED RESTRICTION: %s", item)
+        if not args.acknowledge_unsupported:
+            sys.exit(
+                f"refusing to confirm {draft_id}: this instruction restricts in "
+                f"{len(compiled.unsupported_restrictions)} way(s) this wallet cannot enforce "
+                "(listed above). A customer must see and accept them. Re-run with "
+                "--acknowledge-unsupported to proceed on their behalf."
+            )
+        logger.warning(
+            "proceeding with %d unenforceable restriction(s) on the operator's acknowledgement",
+            len(compiled.unsupported_restrictions),
+        )
+
+    confirmed = client.confirm_mandate(draft_id)
+    mandate_id = confirmed["mandate_id"]
+    logger.info("mandate confirmed: %s", mandate_id)
+
+    run = client.start_scenario_run(args.scenario_id, mandate_id)
+    run_id = run["run_id"]
+    logger.info("run started: %s", run_id)
+    return run_id
 
 
 def _ask_customer(worker: LiveWorker, run_id: str, result, event: dict, deadline: float) -> None:

@@ -80,14 +80,6 @@ DECLARED: dict[tuple[str, str], tuple[str, str]] = {
     ("api.py", "decisions"): (
         PROJECTION, "Scanning finished scenario runs to find one to show a judge. "
                     "An empty list means nothing to show, and decides nothing."),
-    ("live_worker.py", "data"): (
-        GUARDED, "Probing an under-documented listing shape. Anything unrecognised "
-                 "falls through to an empty list, and every record that does not "
-                 "carry a recognised decision is skipped rather than assumed."),
-    ("live_worker.py", "decision"): (
-        GUARDED, "Same listing. A record whose decision is not one of "
-                 "approve/decline/step_up is skipped, so no fallback can become a "
-                 "decision."),
     ("decision_engine.py", "items"): (
         GUARDED, "Inside the unreadable-event check, walking item lines to validate "
                  "each line's currency against the FX table. A missing `items` is "
@@ -185,6 +177,6 @@ def test_the_detector_actually_detects():
     know contains them."""
     found = _sites(RUNTIME / "state.py")
     assert ("state.py", "revoked") in found
-    assert _sites(RUNTIME / "live_worker.py") >= {("live_worker.py", "data"),
-                                                  ("live_worker.py", "decision")}
+    assert ("live_worker.py", "run_id") in _sites(RUNTIME / "live_worker.py")
+    assert ("decision_engine.py", "items") in _sites(RUNTIME / "decision_engine.py")
     assert len(_all_sites()) >= 10, "the walk found suspiciously little"
