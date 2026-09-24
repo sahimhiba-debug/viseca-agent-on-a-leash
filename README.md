@@ -265,8 +265,8 @@ file *is* vendored, at `data/official/schemas/`. The structure is deliberate rat
 - `tests/security/test_state_machine.py` -- a stateful model over the whole lifecycle.
 
 The count is not the argument. `python3 scripts/run_mutation_probe.py` deliberately
-breaks 41 security mechanisms in `src/wallet_control/`, one at a time, and checks the
-suite notices: **41 killed, 0 survived.** Its first run found a real gap and the
+breaks 43 security mechanisms in `src/wallet_control/`, one at a time, and checks the
+suite notices: **43 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
 Official replay: **45 events, 12 allow / 9 review / 24 block** -- a regression
@@ -304,6 +304,7 @@ monitors (CHF 1,430.40) and the running-shoes run three pairs.
 - [docs/archive/SECURITY.md](docs/archive/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
 - [docs/archive/FINAL_AGENTIC_AUDIT.md](docs/archive/FINAL_AGENTIC_AUDIT.md) -- is the agent credible? The old one gave up on five of nine adversarial episodes; what replaced it, and why there is still no model in the loop
+- [docs/REAL_MODEL_PLANNER.md](docs/REAL_MODEL_PLANNER.md) -- Apertus 1.5 70B and gpt-4.1-mini run for real at the planner seam: 7-10/11 against 11/11 for the search, zero forbidden purchases approved
 - [docs/archive/FINAL_AGENT_SECURITY_AUDIT.md](docs/archive/FINAL_AGENT_SECURITY_AUDIT.md) -- every field the agent can reach, and the price of the oracle it cannot be denied
 - [docs/FINAL_DEMO_SCRIPT.md](docs/FINAL_DEMO_SCRIPT.md) · [docs/FINAL_JUDGE_QA.md](docs/FINAL_JUDGE_QA.md) · [docs/FINAL_CLAIMS_REGISTER.md](docs/FINAL_CLAIMS_REGISTER.md)
 - [docs/archive/COMPETITION_READINESS.md](docs/archive/COMPETITION_READINESS.md) -- honest assessment against the five jury criteria, the ten questions a judge could ask, and the strongest argument that this project is mediocre

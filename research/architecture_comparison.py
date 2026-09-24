@@ -102,11 +102,12 @@ ARCHS = [
 def _real_model_arms():
     """The real-model arms, when a key is present. Empty otherwise, loudly."""
     import os
-    from research.model_planner import anthropic_completer, apertus_completer
+    from research.model_planner import anthropic_completer, apertus_completer, openai_completer
 
     arms = []
     for label, factory, env in (("Claude", anthropic_completer, "ANTHROPIC_API_KEY"),
-                                ("Apertus", apertus_completer, "APERTUS_API_KEY")):
+                                ("Apertus", apertus_completer, "APERTUS_API_KEY"),
+                                ("OpenAI", openai_completer, "OPENAI_API_KEY")):
         if not os.environ.get(env):
             print(f"  (no {env}: the {label} arms were NOT run.)")
             continue

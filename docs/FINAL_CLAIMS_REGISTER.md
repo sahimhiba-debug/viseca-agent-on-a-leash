@@ -77,7 +77,7 @@ made tempting to say.
 
 | claim | class | evidence |
 | --- | --- | --- |
-| The test suite is not theatre | **PROVEN** | 41 mutants, 41 killed; has found 5 real gaps |
+| The test suite is not theatre | **PROVEN** | 43 mutants, 43 killed; has found 5 real gaps |
 | The numbers we state about ourselves are true | **PROVEN** | `test_stated_numbers` |
 | Replay and agent episode are reproducible | **PROVEN** | byte-identical; no network, no key |
 | 12/9/24 is a score | **DO NOT CLAIM** | `contains_expected_decisions: false` |
@@ -167,7 +167,8 @@ someone spend CHF 6,480 under it. These rows exist to make that impossible.
 | A third evidence source could break that composition | **CLOSED** | AST guard on every `RuleEvaluation(source=)`; mutant killed |
 | A human approval can clear a policy failure | **DO NOT CLAIM** | a hard failure never offers a step-up |
 | Telling the agent `budget_window` costs privacy | **DO NOT CLAIM** | measured: a prober converges identically either way — 11 probes, CHF 0.20 gap |
-| We benchmarked a real language model | **DO NOT CLAIM** | credentials re-checked exhaustively; none exist on this machine |
+| Two real language models at the planner seam never got a forbidden purchase approved | **SUPPORTED BY EXPERIMENT** | Apertus 1.5 70B and gpt-4.1-mini, 3 runs × 11 episodes: 7-10/11 against the deterministic 11/11, zero mandate breaches. `docs/REAL_MODEL_PLANNER.md` |
+| A model improves the planner | **DO NOT CLAIM** | measured: every model arm scored below the deterministic search |
 
 ## Authorship and intent (this campaign)
 

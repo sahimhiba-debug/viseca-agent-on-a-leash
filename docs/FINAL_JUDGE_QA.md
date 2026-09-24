@@ -53,7 +53,10 @@ The long-form versions are in `FINAL_JURY_AUDIT.md`.
 > catches unusable answers and that one is merely wrong."
 
 *Evidence:* `research/architecture_comparison.py`.
-*Limitation:* those are stubs. No API was called; we did not benchmark an LLM.
+*Then measured for real:* Apertus 1.5 70B scored 8-9/11 and gpt-4.1-mini 7-10/11 over three
+runs, against 11/11 for the search, and neither got a forbidden purchase approved
+(`docs/REAL_MODEL_PLANNER.md`).
+*Limitation:* eleven episodes and one untuned prompt. That is a sample, not a verdict on models.
 
 ---
 
