@@ -63,6 +63,19 @@ for who in ("human", "agent"):
     print(f"  {who:6s} per CARD {pct(new_card[who], tot[who])}   per CUSTOMER {pct(new_cust[who], tot[who])}")
 print(f"  agent purchases on replacement cards (CA9xxx): new per card {pct(repl_new_card, repl_tot)}, new per customer {pct(repl_new_cust, repl_tot)}")
 
+# 2b. the same, with a card inheriting the cards it replaced (what HistoryIndex does)
+from wallet_control.state import _replaced_cards  # noqa: E402
+replaced = _replaced_cards(Path(D) / "cards.csv")
+seen_line = defaultdict(set); line_new = line_tot = 0
+for r in purch:
+    c, m = r["card_id"], r["merchant_id"]
+    if c.startswith("CA9") and r["initiator_type"] == "agent":
+        line_tot += 1
+        line_new += not any(m in seen_line[x] for x in (c, *replaced.get(c, ())))
+    if r["status"] == "approved" and r["initiator_type"] != "agent":
+        seen_line[c].add(m)
+print(f"  ... new per card + the card it replaced: {pct(line_new, line_tot)}")
+
 # 3. what the issuer did with those
 dec = Counter(); cnt = Counter()
 seen = defaultdict(set)
