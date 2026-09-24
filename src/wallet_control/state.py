@@ -79,13 +79,38 @@ class HistoryIndex:
 
     def __init__(self, approved_merchants_by_card: dict[str, frozenset[str]], *,
                  available: bool = True,
-                 agent_only_merchants_by_card: dict[str, frozenset[str]] | None = None) -> None:
+                 agent_only_merchants_by_card: dict[str, frozenset[str]] | None = None,
+                 predecessors_by_card: dict[str, frozenset[str]] | None = None) -> None:
         # The first argument is the CUSTOMER'S OWN history -- purchases they or a
         # merchant-initiated arrangement made. The second is the agent's, and it is
         # kept apart deliberately; see `is_familiar`.
         self._approved_merchants_by_card = approved_merchants_by_card
         self._agent_only_by_card = agent_only_merchants_by_card or {}
         self.available = available
+        # The cards a card REPLACED: the no-longer-active cards on its account. A
+        # replacement starts with no history, so keyed by card alone every shop the
+        # customer used looks new -- on the organisers' 144k-row pack, 30.4% of agent
+        # purchases on replacement cards against 5.9% by customer. Only inactive
+        # cards are inherited: a second ACTIVE card on the account is a separate
+        # card, and "a shop I have used" on it is not widened here.
+        self._predecessors_by_card = predecessors_by_card or {}
+        self._lineage_cache: dict[str, tuple[frozenset[str] | None, frozenset[str]]] = {}
+
+    def _lineage(self, card_id: str) -> tuple[frozenset[str] | None, frozenset[str]]:
+        """(the customer's own shops on this card and the cards it replaced, or None
+        if none of them has any history; the shops only the agent has used)."""
+        if card_id not in self._lineage_cache:
+            self._lineage_cache[card_id] = self._compute_lineage(card_id)
+        return self._lineage_cache[card_id]
+
+    def _compute_lineage(self, card_id: str) -> tuple[frozenset[str] | None, frozenset[str]]:
+        cards = (card_id, *sorted(self._predecessors_by_card.get(card_id, ())))
+        known = [c for c in cards if c in self._approved_merchants_by_card]
+        if not known:
+            return None, frozenset()
+        own = frozenset().union(*(self._approved_merchants_by_card[c] for c in known))
+        agent = frozenset().union(*(self._agent_only_by_card.get(c, frozenset()) for c in cards))
+        return own, agent - own
 
     @classmethod
     def empty(cls) -> "HistoryIndex":
@@ -112,6 +137,7 @@ class HistoryIndex:
         """
         by_card: dict[str, set[str]] = {}
         agent_by_card: dict[str, set[str]] = {}
+        predecessors = _replaced_cards(path.parent / "cards.csv")
         with path.open(newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 if row["status"] != "approved":
@@ -121,7 +147,8 @@ class HistoryIndex:
         agent_only = {card: frozenset(shops - by_card.get(card, set()))
                       for card, shops in agent_by_card.items()}
         return cls({k: frozenset(v) for k, v in by_card.items()}, available=True,
-                   agent_only_merchants_by_card={k: v for k, v in agent_only.items() if v})
+                   agent_only_merchants_by_card={k: v for k, v in agent_only.items() if v},
+                   predecessors_by_card=predecessors)
 
     def is_familiar(self, card_id: str, merchant_id: str) -> bool | None:
         """True, False, or None -- and None now has two causes, both honest.
@@ -139,11 +166,12 @@ class HistoryIndex:
         """
         if not self.available:
             return None
-        if card_id not in self._approved_merchants_by_card:
+        own, agent_only = self._lineage(card_id)
+        if own is None:
             return None
-        if merchant_id in self._approved_merchants_by_card[card_id]:
+        if merchant_id in own:
             return True
-        if merchant_id in self._agent_only_by_card.get(card_id, ()):
+        if merchant_id in agent_only:
             return None
         return False
 
@@ -151,13 +179,35 @@ class HistoryIndex:
         """Whose history answered, for the evidence line and the customer's message."""
         if not self.available:
             return "no purchase history was available"
+        own, agent_only = self._lineage(card_id)
         if merchant_id in self._approved_merchants_by_card.get(card_id, ()):
             return "you have paid this seller before"
-        if merchant_id in self._agent_only_by_card.get(card_id, ()):
+        if own is not None and merchant_id in own:
+            return "you have paid this seller before, with the card this one replaced"
+        if merchant_id in agent_only:
             return "your agent has paid this seller before, but you have not"
-        if card_id not in self._approved_merchants_by_card:
+        if own is None:
             return "this card has no purchase history"
         return "you have never paid this seller"
+
+
+def _replaced_cards(cards_csv: Path) -> dict[str, frozenset[str]]:
+    """card_id -> the expired or blocked cards on the same account, read from the
+    pack's cards.csv when it sits beside the history file."""
+    if not cards_csv.exists():
+        return {}
+    by_account: dict[str, list[dict[str, str]]] = {}
+    with cards_csv.open(newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            by_account.setdefault(row["account_id"], []).append(row)
+    out: dict[str, frozenset[str]] = {}
+    for rows in by_account.values():
+        inactive = {r["card_id"] for r in rows if r["status"] in ("expired", "blocked")}
+        for r in rows:
+            replaced = inactive - {r["card_id"]}
+            if replaced:
+                out[r["card_id"]] = frozenset(replaced)
+    return out
 
 
 @dataclass(frozen=True)
