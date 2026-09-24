@@ -1,5 +1,7 @@
 # Agent on a Leash
 
+> **The agent shops. The wallet decides.**
+
 **An AI shopping agent can think, act and make mistakes. It does not get to authorise
 itself.** A wallet control concept for Viseca's Swiss {ai} Weeks 2026 challenge,
 ["Agent on a Leash"](https://github.com/Swiss-ai-Weeks/viseca-2026). Not an official
@@ -81,7 +83,7 @@ for each, what it is, why, and whether it touches the judged path.
 
 | | |
 | --- | --- |
-| **Jury** | [Jury answers](docs/JURY_ANSWERS.md) · [Demo script](docs/FINAL_DEMO_SCRIPT.md) · [Architecture on one page](docs/ARCHITECTURE_ONE_PAGER.md) |
+| **Jury** | [The pitch, 1 and 3 minutes](docs/PITCH.md) · [52 jury questions](docs/JURY_QA.md) · [Jury answers, short](docs/JURY_ANSWERS.md) · [Demo script](docs/FINAL_DEMO_SCRIPT.md) · [Architecture on one page](docs/ARCHITECTURE_ONE_PAGER.md) |
 | **Security** | [Audit package: where to attack](docs/FINAL_AUDIT_PACKAGE.md) · [Claims register](docs/FINAL_CLAIMS_REGISTER.md) · [What we refuse to claim](docs/WHAT_WE_REFUSE_TO_CLAIM.md) · [Security model](docs/SECURITY_MODEL.md) |
 | **Benchmarks** | [Real models at the planner seam](docs/REAL_MODEL_PLANNER.md) · [Generated corpora](docs/GENERATED_CORPUS.md) · [Customer friction](docs/CUSTOMER_FRICTION.md) |
 | **Research** | [The thesis](docs/THE_THESIS.md) · [The full former README](docs/README_FULL.md) · [Offline replay, all 45 decisions](docs/OFFLINE_REPLAY.md) |
