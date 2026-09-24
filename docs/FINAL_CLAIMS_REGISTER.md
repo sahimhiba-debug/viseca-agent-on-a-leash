@@ -169,6 +169,7 @@ someone spend CHF 6,480 under it. These rows exist to make that impossible.
 | Telling the agent `budget_window` costs privacy | **DO NOT CLAIM** | measured: a prober converges identically either way — 11 probes, CHF 0.20 gap |
 | Two real language models at the planner seam never got a forbidden purchase approved | **SUPPORTED BY EXPERIMENT** | Apertus 1.5 70B and gpt-4.1-mini, 6 runs × 11 episodes each: 7-8/11 alone, 8-10/11 hybrid, against 11/11 deterministic; 0 unauthorized approvals by an independent referee whose negative control finds 23. `docs/REAL_MODEL_PLANNER.md` |
 | One model is better than the other | **DO NOT CLAIM** | the gap is smaller than run-to-run variance |
+| The compiler never silently drops a restriction | **DO NOT CLAIM** | the last blind measurement lost 3 of 200 before its fix; zero on 840 is FITTED. Claim instead: *on 840 generated instructions, every restriction is enforced or named before confirmation* (SUPPORTED BY EXPERIMENT, `docs/GENERATED_CORPUS.md`) |
 | A model improves the planner | **DO NOT CLAIM** | measured: every model arm scored below the deterministic search |
 
 ## Authorship and intent (this campaign)

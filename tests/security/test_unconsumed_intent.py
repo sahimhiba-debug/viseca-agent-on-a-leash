@@ -9,7 +9,10 @@ SAME vocabulary: the return marker is `\\breturn(?:ed|able|s)?\\b`, so
 
 produces no rule, no open question, and no trace. Both the compiler and its own
 safety net are blind to the phrase, for the same reason. Measured over ordinary
-phrasings of restrictions this engine already supports: 20 of 20 vanish silently.
+phrasings of restrictions this engine already supports: 20 of 20 vanished silently.
+After the generated-corpus pass widened the return and period markers ("exchangeable",
+"final-sale", "this week"), 16 of 20 still do: the gap narrowed by exactly the words
+that were added, which is the point this file makes.
 
 THE DIFFERENT AXIS is causal rather than lexical. Delete one word, compile again,
 and see whether the policy moved. A word whose removal changes nothing was never
@@ -18,7 +21,7 @@ cannot inherit the blind spot it is looking for.
 
 These tests pin the three things that make it worth having:
 
-  * it detects what the vocabulary approach cannot (19 of 20);
+  * it detects what the vocabulary approach cannot (15 of the 16 still lost);
   * it is QUIET on sentences that are fine -- including a corpus written for a
     different purpose, so the silence is not its own test set;
   * the two attacks that landed are asserted AS FAILURES, so that "weakened the
@@ -50,11 +53,12 @@ def measured():
 def test_the_vocabulary_gap_is_real(measured):
     """If this ever shrank to nothing, either the compiler grew enormously or the
     corpus stopped containing ordinary English."""
-    assert len(measured["silently_lost"]) >= 18, measured["silently_lost"]
+    assert len(measured["silently_lost"]) >= 16, measured["silently_lost"]
 
 
 def test_the_causal_detector_finds_what_the_vocabulary_cannot(measured):
-    assert len(measured["detected"]) >= 19, measured["missed"]
+    assert len(measured["detected"]) >= 15, measured["missed"]
+    assert [c for _, c in measured["missed"]] == ["Keep it cheap."]
 
 
 def test_it_is_quiet_on_the_five_official_mandates(measured):

@@ -1,0 +1,3209 @@
+{
+ "generator": "gpt-4.1",
+ "prompt_version": 1,
+ "seed": 777,
+ "style": "Write it the way a busy person types a quick note or text message to an assistant: terse, informal, possibly out of order, with abbreviations if natural.",
+ "prompt": "You write test data for a payment wallet. Phrase the facts below as ONE instruction a\ncustomer would type to their shopping agent, in {language}. Keep EVERY fact, including the\nexact amount and its notation \"{notation_example}\". Do not add restrictions that are not listed.\n{style}\n\nFacts: {facts}\n\nReply with the instruction only.",
+ "entries": [
+  {
+   "spec": {
+    "id": "G0000",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Find me a 27-inch monitor, max Fr. 400 total, only from shops I’ve used before, must be returnable at least 30 days, don’t buy if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0001",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order those road-running shoes I picked, one-time buy, max 1200.-, must be returnable 30+ days, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0002",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Compra giacca invernale, max 150 francs a ordine, ricorrente ogni settimana, restituibile entro 14 giorni, chiedimi se hai dubbi"
+  },
+  {
+   "spec": {
+    "id": "G0003",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "get me road-running shoes, must be refundable, spend max 1200 in any 7 days, just go ahead if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0004",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order a winter jacket every week, nothing over CHF 400/month, only from shops I've used before, skip final-sale items, approve if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0005",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Compra scarpe da corsa per strada ogni settimana, max Fr. 40/mese, solo se rimborsabili, rifiuta se dubbio"
+  },
+  {
+   "spec": {
+    "id": "G0006",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Order that winter jacket I picked, max CHF 120, refundable, just this once—if not sure, skip it."
+  },
+  {
+   "spec": {
+    "id": "G0007",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order a winter jacket every week, up to 150/wk, skip final-sale, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0008",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Compra scarpe da corsa strada ogni settimana, max Fr. 400/mese, solo negozi già usati, rimborsabili, approva se dubbio"
+  },
+  {
+   "spec": {
+    "id": "G0009",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "achète courses maison max 1200/7j dans un magasin déjà utilisé, remboursables, demande si doute"
+  },
+  {
+   "spec": {
+    "id": "G0010",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Compra giacca invernale ogni settimana, max 400 franchi svizzeri per ordine, niente articoli saldo finale, approva se dubbio"
+  },
+  {
+   "spec": {
+    "id": "G0011",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "achète chaussures running route chaque semaine, max 120 CHF par commande, retour minimum 30j, demande si doute"
+  },
+  {
+   "spec": {
+    "id": "G0012",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order road-running shoes every week, spending max 1'200 CHF per month, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0013",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "pls find un moniteur 27-inch, max 1200 CHF, pas d’articles vente finale, refuse si t’es pas sûr"
+  },
+  {
+   "spec": {
+    "id": "G0014",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "up to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Jede Woche Laufschuhe für die Straße kaufen, max CHF 40/Woche, nur bei Shops wo ich schon mal gekauft hab, Rückgabe 14 Tage, falls unsicher genehmigen"
+  },
+  {
+   "spec": {
+    "id": "G0015",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "buy winter jacket every week, max 150 Swiss francs/month, only shops I used before, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0016",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "buy winter jacket, max CHF 1200 total, approve if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0017",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order road-running shoes every week, only from shops I’ve used before, must be refundable, max 150 CHF/month, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0018",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Order a 27\" monitor every week, under Fr. 1'200/wk, only from shops I’ve used before, must be returnable for 30+ days, skip if not sure."
+  },
+  {
+   "spec": {
+    "id": "G0019",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Compra scarpe da corsa su strada max Fr. 150 a sett, solo da negozi dove ho già comprato, devono essere restituibili entro 14 giorni, chiedimi se non sei sicuro"
+  },
+  {
+   "spec": {
+    "id": "G0020",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Buy the road-running shoes I picked, just 1, from a shop I've used before, returnable at least 30 days, max 400 francs/order, ask if any questions"
+  },
+  {
+   "spec": {
+    "id": "G0021",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Compra scarpe da corsa strada, max 400 totale, niente articoli saldo finale, è solo 1 acquisto unico già scelto da me, approva se dubbio."
+  },
+  {
+   "spec": {
+    "id": "G0022",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "buy that 27\" monitor I picked, 1 item, max 150.- total in 7 days, only from shops I used before, must be returnable for min 30 days, check w/me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0023",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order a winter jacket every week, max 1'200 total per any 7 days, only from shops I've used before, no final-sale, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0024",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order winter jacket every week, max 40 per order, refundable only, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0025",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Buy the road-running shoes I picked, 1x, not final-sale, only from shops I've used before, max 400 Swiss francs total for any 7 days, just do it if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0026",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "jeden Freitag Laufschuhe fürs Straßentraining bestellen, max 120 CHF pro Bestellung, muss rückgabefähig sein, bei Unsicherheit einfach freigeben"
+  },
+  {
+   "spec": {
+    "id": "G0027",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "buy winter jacket, keep it under 1'200 Swiss francs per order, only from places I’ve shopped before, just go ahead if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0028",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "below",
+    "scope": "in total",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Bestell mir jede Woche nen 27-Zoll Monitor, aber nur wenn’s zusammen unter Fr. 40 kostet, sonst ablehnen."
+  },
+  {
+   "spec": {
+    "id": "G0029",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "buy road-running shoes, max 40/mo, only go ahead if sure"
+  },
+  {
+   "spec": {
+    "id": "G0030",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Straßenschuhe kaufen, max 400 CHF pro Bestellung, nur bei Shops wo ich schon gekauft hab, muss rückgabefähig sein, fragen falls unsicher"
+  },
+  {
+   "spec": {
+    "id": "G0031",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Compra monitor 27 pollici, max 120 Swiss francs per ordine, niente articoli saldo finale, ogni settimana, se dubbio approva"
+  },
+  {
+   "spec": {
+    "id": "G0032",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "set up recurring weekly grocery order for household, total spend under 1'200 CHF/wk, skip final-sale items, if unsure just go ahead"
+  },
+  {
+   "spec": {
+    "id": "G0033",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order a winter jacket every week, total max 150 Swiss francs, must be returnable within 14 days, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0034",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Find a 27-inch monitor, must be returnable at least 30 days, keep under 40 Swiss francs/week, ask me if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0035",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Ricordati ogni settimana: compra spesa casa max 40 tot, solo negozio già usato, deve essere rimborsabile; se dubbio approva tu."
+  },
+  {
+   "spec": {
+    "id": "G0036",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "pls acheter un écran 27 pouces max 40 CHF/semaine, chez un shop où j’ai déjà acheté avant, pas d’articles vente finale, si t’es pas sûr tu valides"
+  },
+  {
+   "spec": {
+    "id": "G0037",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "below",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "get me a winter jacket, total under CHF 120, only from shops I’ve used before, must be returnable within 14 days, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0038",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "commande des chaussures running chaque semaine, <150 CHF/mois, que chez magasin déjà utilisé, retour minimum 30j, demande si doute, merci"
+  },
+  {
+   "spec": {
+    "id": "G0039",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "under",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Achète la veste d’hiver déjà choisie, une seule, max Fr. 1’200, juste chez boutique déjà utilisée, refuse si doute."
+  },
+  {
+   "spec": {
+    "id": "G0040",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Order road-running shoes every week, max CHF 40/order, only shops I've bought from before, must be returnable in 14 days, ask me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0041",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "get 27\" monitor, max 40.- total, must be returnable min 30 days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0042",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order 27\" monitor, max 120 CHF/order, only shops I've used before, refundable only, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0043",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "each semaine, achète une winter jacket max Fr. 120/order, remboursable, demande si pas sûr"
+  },
+  {
+   "spec": {
+    "id": "G0044",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order a 27-inch monitor every week, max 120 CHF/month, ask if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0045",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order those road-running shoes I picked, one-time buy, refund OK, max 120 Swiss francs, check with me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0046",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "find 27\" monitor, max 400 CHF/month, only from shops I've used before, must be refundable, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0047",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "need road-running shoes, max 40.-/order, only shops I’ve used before, skip final-sale, decline if you’re not sure"
+  },
+  {
+   "spec": {
+    "id": "G0048",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Set up a weekly grocery order (household stuff) from any shop I've used before, keep it within 400 CHF/month, ask me if not sure."
+  },
+  {
+   "spec": {
+    "id": "G0049",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "nothing over",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order a 27\" monitor every week, only from shops I've used before, nothing over 1'200 francs total, skip final-sale items, ask me if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0050",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "in total",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Jede Woche Haushaltsgroceries kaufen, max 1'200 CHF, bei Unsicherheit ablehnen."
+  },
+  {
+   "spec": {
+    "id": "G0051",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "buy 27\" monitor, max Fr. 150/mo, must be returnable w/in 14 days, ask me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0052",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "ordina ogni settimana un monitor 27\", max 1'200.- per ordine, solo negozi già usati, deve essere rimborsabile, se dubbio rifiuta"
+  },
+  {
+   "spec": {
+    "id": "G0053",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Cherche manteau d’hiver, max 40/mois, retour sous 14j ok, refuse si doute"
+  },
+  {
+   "spec": {
+    "id": "G0054",
+    "amount": 150,
+    "notation": "CHF {n}",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "toutes les semaines, prends-moi un écran 27\", max CHF 150/7j, juste dans un shop où j’ai déjà acheté, pas de final sale, refuse si doute"
+  },
+  {
+   "spec": {
+    "id": "G0055",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "bitte kauf mir straßenlaufschuhe, pro bestellung max 150 francs ausgeben, rückgabe innerhalb 14 tage möglich, frag nach falls was unklar"
+  },
+  {
+   "spec": {
+    "id": "G0056",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "commande chaque semaine un écran 27\", max 400 francs suisses/semaine, achète seulement chez un magasin déjà utilisé, doit être retournable mini 30j, demande si doute"
+  },
+  {
+   "spec": {
+    "id": "G0057",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "order a winter jacket every week, max Fr. 120/wk, skip final-sale stuff, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0058",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "get me a 27\" monitor, make sure it's refundable, don't spend over 150.-/week, if not sure just go ahead"
+  },
+  {
+   "spec": {
+    "id": "G0059",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Achat veste hiver déjà choisie, 1 seul article, max 40 francs/mois, doit être remboursable, approuve si doute"
+  },
+  {
+   "spec": {
+    "id": "G0060",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "buy winter jacket, spend max Fr. 400 in any 7 days, only shops I’ve used before, approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0061",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "buy the road-running shoes I picked, single purchase, must be refundable, total under 1'200 Swiss francs, ok to approve if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0062",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "buy those road-running shoes I picked, one-time, max 40 CHF total, not final sale, check with me if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0063",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "nothing over",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "find 27\" monitor, total spend max 120 francs, must be returnable at least 30 days, if not sure just approve"
+  },
+  {
+   "spec": {
+    "id": "G0064",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "grab some road-running shoes, max 1'200 CHF/order, if not sure just go ahead"
+  },
+  {
+   "spec": {
+    "id": "G0065",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Compra quell’articolo per la casa che ho scelto, solo da un negozio dove ho già comprato, no articoli in saldo finale, spesa max 1200 CHF per ordine, chiedimi se hai dubbi, è solo per questa volta"
+  },
+  {
+   "spec": {
+    "id": "G0066",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "prends les chaussures running que j’ai déjà choisies, achète-les en une fois dans un magasin où j’ai déjà commandé, max 120 francs, pas d’articles soldés finaux, refuse si doute"
+  },
+  {
+   "spec": {
+    "id": "G0067",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "commande courses ménage pr max Fr. 400, tjrs chez magasin déjà utilisé, retours min 30j, ttes les semaines, demande si doute"
+  },
+  {
+   "spec": {
+    "id": "G0068",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Order the road-running shoes I picked, just 1, from somewhere I shopped before, under Fr. 1200 for the month, must be 14-day returnable, only if sure—otherwise skip."
+  },
+  {
+   "spec": {
+    "id": "G0069",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "find me a winter jacket, total spend max 120 Swiss francs, must be refundable, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0070",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "pls achète chaussures running, <=150 Swiss francs/semaine, same magasin que d'hab, commande chaque semaine stp, approuve si t’es pas sûr"
+  },
+  {
+   "spec": {
+    "id": "G0071",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Buy that 27\" monitor I picked, one-time, single item, under 40/order, only shops I've bought from before, has to be returnable in 14 days, if not sure just approve."
+  },
+  {
+   "spec": {
+    "id": "G0072",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "every week buy a winter jacket, ≤1'200 Swiss francs per month, only shops I've used before, must be refundable, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0073",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Buy that winter jacket I picked, one time only, make sure it’s returnable for at least 30 days, don’t go over 400 this week, just approve if not sure."
+  },
+  {
+   "spec": {
+    "id": "G0074",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "nothing over",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "1x 27\" Monitor kaufen, max 150 francs in 7 Tagen, muss rückerstattbar sein, Einzelkauf, hab schon ausgesucht, bei Unsicherheit einfach freigeben"
+  },
+  {
+   "spec": {
+    "id": "G0075",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Set up weekly grocery order for the house, keep each order under 400.-, skip if not sure, avoid final-sale stuff"
+  },
+  {
+   "spec": {
+    "id": "G0076",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order 27-inch monitor every week, only from shops I've used before, don’t spend over 400 Swiss francs total, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0077",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Buy that one household grocery item I picked, max 40.- this month, only from shops I've used before, refundable, one-time buy, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0078",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Achète mes chaussures de running déjà choisies, 1 article, max 40 CHF/7j, remboursable, demande si doute"
+  },
+  {
+   "spec": {
+    "id": "G0079",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "get me road-running shoes, spend up to 400 Swiss francs a week, only shops I've used before, skip final-sale items, if not sure just approve"
+  },
+  {
+   "spec": {
+    "id": "G0080",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "get me a winter jacket, spend max 120 francs total, only from shops I've used before, make sure it's refundable, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0081",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "need 27\" monitor, spend under 1'200 francs this week, only shops I’ve used before, ask me if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0082",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "find me a winter jacket, under 1'200.- monthly, must be refundable, check with me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0083",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order a 27\" monitor every week, max 120/order, make sure it's returnable 30+ days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0084",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "buy that winter jacket I picked, one-time thing, just make sure it’s not over 400 francs this month, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0085",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "commande manteau d’hiver every week, prix max CHF 120 tout compris, shop habituel seulement, remboursable, demande si doute"
+  },
+  {
+   "spec": {
+    "id": "G0086",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order road-running shoes from any shop I’ve used before, cap spend at 120 per order, must be returnable in 14 days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0087",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Compra subito monitor 27 pollici (già scelto), max 1200 francs, solo da negozio dove ho già comprato, rifiuta se non sicuro"
+  },
+  {
+   "spec": {
+    "id": "G0088",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Hol bitte die ausgesuchten Straßenlaufschuhe, max 40 CHF diese Woche, nur bei nem Shop wo ich schon mal gekauft hab, keine final-sale Sachen, nur 1x, wenn unsicher einfach freigeben."
+  },
+  {
+   "spec": {
+    "id": "G0089",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order household groceries, max 1'200 per order, only from shops I’ve used before, must be returnable in 14 days, if unsure just approve."
+  },
+  {
+   "spec": {
+    "id": "G0090",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "find me a winter jacket, total spend max 150.-, must be returnable at least 30 days, ask if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0091",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "up to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "hey, find me a 27-inch monitor, max CHF 400 any 7 days, only shops I’ve used before, needs to be refundable, skip it if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0092",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Lauf-Schuhe kaufen, max 150 francs in 7 Tagen ausgeben, wöchentlich bestellen, Rückgabe bis 14 Tage, bei Unsicherheit nachfragen"
+  },
+  {
+   "spec": {
+    "id": "G0093",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "pls acheter household groceries, max 1200.- total, pas d'articles vente finale, c’est chaque semaine, approuve si pas sûr"
+  },
+  {
+   "spec": {
+    "id": "G0094",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "buy that winter jacket I picked, 1 item, spend max 1'200 this week, must be returnable 30+ days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0095",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Jede Woche Haushaltsgroceries kaufen, max 150 francs pro Bestellung, nur bei Shops wo ich schon mal gekauft hab, muss rückerstattbar sein, bei Unsicherheit fragen"
+  },
+  {
+   "spec": {
+    "id": "G0096",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Compra giacca invernale solo da negozio dove ho già preso, max 1'200 Swiss francs, deve essere restituibile entro 14gg, fai ogni settimana, chiedimi se hai dubbi"
+  },
+  {
+   "spec": {
+    "id": "G0097",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order that winter jacket I picked, one time, max 150 CHF, ok to approve if not sure, must be returnable within 14 days"
+  },
+  {
+   "spec": {
+    "id": "G0098",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "order a winter jacket every week, max 400.-/month, refundable, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0099",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Compra scarpe da corsa su strada, max 400.- a settimana, niente articoli saldo finale, solo 1 già scelto, chiedimi se dubbi"
+  },
+  {
+   "spec": {
+    "id": "G0100",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "set up weekly groceries order, skip final-sale stuff, max 400.-/month, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0101",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "grab a 27\" monitor, make sure it’s refundable, don’t spend 150 or more in any 7 days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0102",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "under",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Ordina ogni settimana un monitor 27 pollici, max 1200 CHF per ordine, solo da negozi dove ho già comprato, deve essere restituibile entro 14 giorni, chiedimi se hai dubbi"
+  },
+  {
+   "spec": {
+    "id": "G0103",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "order road-running shoes every week, each pair max 40 CHF/month, must be refundable, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0104",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "achète-moi la doudoune déjà choisie chez un shop où j’ai déjà acheté, max 400, retour possible minimum 30j, si doute demande-moi"
+  },
+  {
+   "spec": {
+    "id": "G0105",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "buy those road-running shoes I picked, one-time, single item, make sure they’re returnable in 14 days, don’t spend over 40 Swiss francs this month, ask me if anything’s unclear"
+  },
+  {
+   "spec": {
+    "id": "G0106",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "set up weekly grocery order for household, max 1200.-/month, make sure stuff can be returned in 14 days, check with me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0107",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order winter jacket every week, max 120 CHF each, refundable only, check with me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0108",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Buy a 27\" monitor, max CHF 1200 over 7 days, only from shops I've used before, must be refundable, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0109",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order road-running shoes every week, up to 150.- each, only from shops I’ve used before, must be returnable within 14 days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0110",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order a winter jacket every week, make sure it’s under 120 CHF/month, only if returnable within 14 days, msg me if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0111",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "get me road-running shoes, don’t spend over 150 CHF per week, ask if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0112",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Order that winter jacket I picked, 1 item, from a shop I’ve bought from before, not final sale, max 150 Swiss francs this week, skip if not sure."
+  },
+  {
+   "spec": {
+    "id": "G0113",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Jede Woche Haushaltsgroceries kaufen, max. Fr. 40, nur bei Shop wo ich schon mal war, Rückgabe 14 Tage möglich, bei Unsicherheit ablehnen"
+  },
+  {
+   "spec": {
+    "id": "G0114",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order that 27\" monitor I picked, one-time, must be returnable 30+ days, max CHF 120/month, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0115",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order those road-running shoes I picked, one-time buy, max Fr. 400 this week, must be returnable min 30 days, check with me if any doubt"
+  },
+  {
+   "spec": {
+    "id": "G0116",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "nothing over",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "chaussures running route stp, budget max 400.-/7j, commande chaque semaine, retour minimum 30j, refuse si doute"
+  },
+  {
+   "spec": {
+    "id": "G0117",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "nothing over",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "find me a winter jacket, max 40.-/week, only shops I’ve used before, must be returnable min 30 days, ask me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0118",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Buy household groceries max 150.- total, only from shops I've used before, ask me if not sure."
+  },
+  {
+   "spec": {
+    "id": "G0119",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "chaussures running route, max 400 CHF/sem, que dans boutique déjà utilisée, retour ≥30j, recommence chaque semaine, approuve si doute"
+  },
+  {
+   "spec": {
+    "id": "G0120",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Jede Woche Laufschuhe fürs Straßenlaufen kaufen, max 120/Woche, nur bei Shops wo ich schon mal bestellt hab, keine final-sale Artikel, bei Unsicherheit nachfragen"
+  },
+  {
+   "spec": {
+    "id": "G0121",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "get weekly household groceries, up to 40 CHF total, make sure items are returnable min 30 days, if unsure just approve"
+  },
+  {
+   "spec": {
+    "id": "G0122",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order road-running shoes every week, max 120 Swiss francs/week, approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0123",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "commande écran 27 pouces, max 400 francs chaque achat, retour sous 14j ok, approuve si doute"
+  },
+  {
+   "spec": {
+    "id": "G0124",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Order household groceries, max Fr. 400 per order, only shops I've used before, must be returnable within 14 days, skip if not sure."
+  },
+  {
+   "spec": {
+    "id": "G0125",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order weekly household groceries, only from shops I’ve used before, max CHF 1200 total, skip final-sale items, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0126",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Achète la doudoune que j’ai choisie, max 1200 CHF/7j, 1 seule fois, magasin déjà utilisé, remboursable, refuse si doute"
+  },
+  {
+   "spec": {
+    "id": "G0127",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Ordina il monitor 27\", solo uno, già scelto, sotto CHF 40, da negozio già usato, deve poter restituire per almeno 30gg, se dubbio approva"
+  },
+  {
+   "spec": {
+    "id": "G0128",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "grab household groceries, max spend 150.- any 7 days, only places I’ve shopped before, skip final-sale, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0129",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "jede woche ne winterjacke kaufen, max 150 CHF/Woche ausgeben, nur wenn innerhalb 14 tage rückgabe möglich, bei zweifel freigeben"
+  },
+  {
+   "spec": {
+    "id": "G0130",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Order my usual groceries, weekly, max 40 CHF per 7 days, only from shops I bought at before, must be returnable within 14 days, check with me if unsure."
+  },
+  {
+   "spec": {
+    "id": "G0131",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "not exceeding",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "order a 27\" monitor every week, max 120 total, refundable only, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0132",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "nothing over",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Compra giacca invernale che ho già scelto, max 40 francs a settimana, solo 1 volta, deve poter essere restituita entro 14 giorni, chiedimi se hai dubbi"
+  },
+  {
+   "spec": {
+    "id": "G0133",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "buy household groceries, don’t spend more than 1'200 francs/month, ask me if you’re unsure"
+  },
+  {
+   "spec": {
+    "id": "G0134",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Jede Woche Haushaltsgroceries kaufen, monatlich unter 400 francs bleiben, wenn unsicher bitte trotzdem freigeben."
+  },
+  {
+   "spec": {
+    "id": "G0135",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "max",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "commande-moi un écran 27\", max CHF 40 pour n’importe quels 7 jours, que dans un magasin où j’ai déjà acheté, pas d’articles vente finale, approuve si t’as un doute"
+  },
+  {
+   "spec": {
+    "id": "G0136",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order road-running shoes every week, only from shops i've used before, each order max Fr. 40, must be refundable, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0137",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Order household groceries every week, max CHF 400/month, only if returnable 30+ days, ask me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0138",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Order a winter jacket every week, max 150 CHF total, same shop as before, must be returnable in 14 days, check with me if not sure."
+  },
+  {
+   "spec": {
+    "id": "G0139",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "need 27\" monitor, max 40 CHF/order, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0140",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "set up weekly grocery order per casa, max totale 1'200 Swiss francs, solo rimborsabili, se dubbio approva"
+  },
+  {
+   "spec": {
+    "id": "G0141",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Bestelle jede Woche Haushaltsgroceries, max 400 CHF/Monat, alles was unsicher ist einfach genehmigen, Rückgabe innerhalb 14 Tage möglich"
+  },
+  {
+   "spec": {
+    "id": "G0142",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "find me a 27-inch monitor, max 120 CHF/month, must be returnable within 14 days, check with me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0143",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "grab those road-running shoes I picked out, one time purchase, max 1'200 Swiss francs in any 7 days, only from shops I've shopped at before, nothing final sale, ask if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0144",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order that 27\" monitor I picked out, 1-time buy, max 1'200 francs, from a shop I've used before, has to be returnable within 14 days, just go ahead if in doubt"
+  },
+  {
+   "spec": {
+    "id": "G0145",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order household groceries every week, don’t spend over 40.- per order, check with me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0146",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "commande manteau d’hiver chaque semaine, total max Fr. 40, approuve si doute"
+  },
+  {
+   "spec": {
+    "id": "G0147",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Prends les courses ménagères habituelles jusqu’à 400 francs max sur 7 jours, achète juste chez un magasin où j’ai déjà acheté, retour possible min 30j, refais ça chaque semaine, demande si doute."
+  },
+  {
+   "spec": {
+    "id": "G0148",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Compra quella giacca invernale che ho scelto, max Fr. 400 totali, deve essere restituibile entro 14 giorni, è solo questo acquisto, chiedimi se dubbi"
+  },
+  {
+   "spec": {
+    "id": "G0149",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "find 27\" monitor, max Fr. 1200/wk, must be returnable within 14 days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0150",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Order a winter jacket every week, up to 1'200 per week, only from shops I’ve used before, must be returnable in 14 days, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0151",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "order household groceries every week, max 120 Swiss francs/order, only shops I've used before, skip final-sale items, approve if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0152",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "buy those road-running shoes I picked, 1x only, total spend under 120 francs, must be returnable for min 30 days, ask me if anything’s unclear"
+  },
+  {
+   "spec": {
+    "id": "G0153",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Winterjacke kaufen, max 1'200 Swiss francs diese Woche, nur bei Shop wo ich schon mal was gekauft hab, muss 14 Tage Rückgabe haben, Einzelkauf, schon ausgesucht, bei Unsicherheit freigeben"
+  },
+  {
+   "spec": {
+    "id": "G0154",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "get me une veste d'hiver max 120 CHF/mois, retour sous 14 jours ok, demande si t’es pas sûr"
+  },
+  {
+   "spec": {
+    "id": "G0155",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Compra giacca invernale max 400 franchi tot, rifiuta se non sicuro"
+  },
+  {
+   "spec": {
+    "id": "G0156",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "achete un écran 27\", max CHF 1200/semaine, commande chaque semaine, seulement shops déjà utilisés, demande si doute"
+  },
+  {
+   "spec": {
+    "id": "G0157",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "up to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "courses maison, limite CHF 40/mois, commande chaque semaine, remboursable, demande si doute"
+  },
+  {
+   "spec": {
+    "id": "G0158",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "order road-running shoes, only from shops I've used before, max Fr. 1'200 per order, make sure returnable in 14 days, just go ahead if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0159",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "order household groceries weekly, keep total under 150 CHF, recurring, just approve if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0160",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "below",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Compra monitor 27 pollici già scelto, max totale sotto CHF 40, deve essere restituibile almeno 30gg, è solo un acquisto unico, approva se hai dubbi."
+  },
+  {
+   "spec": {
+    "id": "G0161",
+    "amount": 150,
+    "notation": "CHF {n}",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Order that pair of road-running shoes I picked out, one-time buy, only from a shop I've used before, must be refundable, total not over CHF 150 this week, skip if anything’s unclear."
+  },
+  {
+   "spec": {
+    "id": "G0162",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "nothing over",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "buy that winter jacket I picked, max 40.- for any 7 days, must be returnable min 30 days, just this one, say no if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0163",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "order a 27\" monitor every week, max 40 francs/week, only shops I’ve used before, skip final-sale stuff, approve if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0164",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order winter jacket every week, max 120 francs/wk, only shops I’ve used before, refundable only, ask me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0165",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "buy 27\" monitor, max 1'200 Swiss francs/order, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0166",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "commande un écran 27 pouces déjà choisi, max 120.- tout compris, pas soldes finales, que dans un magasin où j’ai déjà acheté, si doute demande-moi"
+  },
+  {
+   "spec": {
+    "id": "G0167",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "find me a winter jacket, max 40.-/week, must be returnable in 14 days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0168",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "no higher than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "buy that grocery item I picked, one-time, max 120 francs this week, only from shops I’ve used before, check with me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0169",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "pls buy ce manteau d’hiver que j’ai choisi, one-time achat, max total 40 francs, si t’es pas sûr approuve quand même"
+  },
+  {
+   "spec": {
+    "id": "G0170",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "get road-running shoes, make sure can return min 30 days, only from shops I’ve used before, don’t go over 1'200 in any 7 days, if not sure just approve"
+  },
+  {
+   "spec": {
+    "id": "G0171",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "find me a winter jacket, max spend 120 CHF total, only shops I’ve used before, must be returnable within 14 days, skip if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0172",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "hey, trouve-moi un écran 27-inch, pas final-sale, juste chez les shops où j'ai déjà acheté, max Fr. 120/mois, si t'es pas sûr laisse tomber"
+  },
+  {
+   "spec": {
+    "id": "G0173",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "get me road-running shoes, make sure total is under 150 Swiss francs over any 7 days, must be returnable for 30+ days, ok to approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0174",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "commande courses ménage chaque semaine, max 40 CHF/sem, achète que chez un magasin déjà utilisé, retour min 30 jours, si t’es pas sûr tu valides quand même"
+  },
+  {
+   "spec": {
+    "id": "G0175",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "buy that winter jacket I picked, 1x only, max spend Fr. 120 total, if not sure just decline"
+  },
+  {
+   "spec": {
+    "id": "G0176",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "buy winter jacket I picked, 1 item, only from shops I used before, max Fr. 150/week, returnable in 14 days, ok to approve if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0177",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "commande courses ménagères chaque semaine, max 400 Swiss francs/mois, demande si doute, thanks"
+  },
+  {
+   "spec": {
+    "id": "G0178",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Order that winter jacket I picked, 1 piece, max CHF 120 this week, only from places I shopped at before, must be returnable in 14 days, check with me if anything’s unclear."
+  },
+  {
+   "spec": {
+    "id": "G0179",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "below",
+    "scope": "in total",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Order that 27\" monitor I picked, 1 unit, under Fr. 1200 total, only from shops I've used before, just do it if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0180",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "up to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order the road-running shoes I picked, single item, 1x, from a store I've used before, not final-sale, max 150 this month, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0181",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Buy household groceries, spend up to 120 CHF/month, only from shops I've used before, must be refundable, skip if not sure."
+  },
+  {
+   "spec": {
+    "id": "G0182",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Set up weekly grocery order, only from places I shopped at before, max Fr. 120/month, must be returnable min 30 days, decline if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0183",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "get me a winter jacket, max 150 CHF in any 7 days, only from shops I bought from before, must be returnable at least 30 days, ask if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0184",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "get me a winter jacket, only from shops I've used before, must be refundable, don't spend more than CHF 120/week, just approve if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0185",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "order road-running shoes every week, only from shops I've bought from before, total not over 120 Swiss francs in any 7 days, must be returnable for min 30 days, ask if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0186",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "buy that winter jacket I picked, max 400.- total, must be refundable, just this one item, ok to approve if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0187",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "acheter une veste d’hiver, max 40 CHF sur 7 jours, refuse si pas sûr"
+  },
+  {
+   "spec": {
+    "id": "G0188",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "buy 27\" monitor but max 120 CHF any 7 days, skip final sale, decline if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0189",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "order household groceries every week, max 40 per 7 days, only if sure, must be returnable in 14 days"
+  },
+  {
+   "spec": {
+    "id": "G0190",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "set up weekly grocery order, only from shops I've used before, under 400 total in any 7 days, must be returnable min 30 days, if unsure just approve"
+  },
+  {
+   "spec": {
+    "id": "G0191",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "get me road-running shoes, max CHF 40/order, only shops I’ve used before, skip final-sale, check with me if not sure"
+  },
+  {
+   "spec": {
+    "id": "G0192",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "under",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Compra quelle scarpe da corsa su strada che ho già scelto, solo da un negozio dove ho già comprato, max 40.- questa settimana, deve essere rimborsabile, solo una volta, rifiuta se non sei sicuro."
+  },
+  {
+   "spec": {
+    "id": "G0193",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "every week buy a winter jacket, max 1'200 Swiss francs/week, make sure it's refundable, if unsure just approve"
+  },
+  {
+   "spec": {
+    "id": "G0194",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "buy that 27\" monitor I picked, one-time purchase, budget max CHF 120/month, check with me if anything’s unclear"
+  },
+  {
+   "spec": {
+    "id": "G0195",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "commande un écran 27\", max 1200 sur 7j, achète que là où j’ai déjà acheté, refuse si doute"
+  },
+  {
+   "spec": {
+    "id": "G0196",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "nothing over",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "courses maison, max 150 CHF/7j, que dans mes shops habituels, pas de vente finale, toute semaine, check avec moi si doute"
+  },
+  {
+   "spec": {
+    "id": "G0197",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "get me un écran 27-inch, max 40 total, retour mini 30 jours, skip si pas sûr"
+  },
+  {
+   "spec": {
+    "id": "G0198",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Order 27\" monitor every week, only from shops I've bought from, keep under 1'200 CHF/month, check w/me if unsure"
+  },
+  {
+   "spec": {
+    "id": "G0199",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Buy the road-running shoes I picked, one-time purchase, single item, limit Fr. 400/week, must be refundable, check with me if anything’s unclear."
+  }
+ ]
+}
