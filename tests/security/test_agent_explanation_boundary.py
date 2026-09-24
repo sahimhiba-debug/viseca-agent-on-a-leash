@@ -27,7 +27,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from tests.helpers import make_event, make_mandate
-from wallet_control.decision_engine import agent_view, evaluate_authorization, resolve_authorization
+from wallet_control.decision_engine import agent_view, evaluate_authorization
 from wallet_control.mandate import HardRule, UncertaintyPolicy
 from wallet_control.state import HistoryIndex, RunState
 

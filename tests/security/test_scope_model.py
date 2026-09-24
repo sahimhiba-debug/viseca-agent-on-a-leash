@@ -15,7 +15,6 @@ import csv
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-import pytest
 
 from tests.helpers import make_event, make_mandate
 from wallet_control.csv_data import DATA_DIR, load_accounts, load_cards

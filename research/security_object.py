@@ -43,7 +43,6 @@ from decimal import Decimal
 from typing import Literal
 
 from wallet_control.csv_data import account_limits_for_card
-from .fulfillment import MandateShape, classify_shape, job_anchor, units_in_basket
 from wallet_control.mandate import MandateSnapshot, MandateStatus
 from wallet_control.state import RunState, StoredDecision
 

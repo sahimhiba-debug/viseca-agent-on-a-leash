@@ -9,7 +9,6 @@ ledger that could drift from the record it describes).
 
 from __future__ import annotations
 
-from decimal import Decimal
 
 from pathlib import Path
 
@@ -168,7 +167,7 @@ def test_the_audit_timeline_never_invents_a_timestamp():
     a time the LEDGER recorded, never one taken when the page was rendered. Checked by
     revoking at an explicit instant far in the past and requiring the audit to say
     that instant rather than today."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timezone
 
     mandate, state = _run_scenario()
     when = datetime(2026, 8, 12, 9, 30, tzinfo=timezone.utc)

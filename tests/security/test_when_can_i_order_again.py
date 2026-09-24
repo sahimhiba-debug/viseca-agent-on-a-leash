@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 
 from tests.helpers import make_event, make_mandate
 from wallet_control.decision_engine import agent_view, evaluate_authorization

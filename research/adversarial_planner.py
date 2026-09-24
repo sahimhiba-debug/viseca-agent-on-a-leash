@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Callable
 
-from research.shopping_agent import Beliefs, Line, Mission, Offer, Shop
+from research.shopping_agent import Line, Mission, Offer, Shop
 
 
 @dataclass(frozen=True)

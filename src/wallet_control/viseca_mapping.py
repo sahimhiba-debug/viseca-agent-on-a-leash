@@ -4,7 +4,7 @@ Viseca decision vocabulary.
 Kept deliberately explicit and separate from the decision engine: `ALLOW`/`REVIEW`/
 `BLOCK` are this codebase's own words for "what should happen", chosen so nothing
 inside the engine can be misread as "the API's `approve` means the money moved"
-(it does not -- see docs/PAYMENT_BOUNDARY.md). `approve`/`decline`/`step_up` are the
+(it does not -- see payment.py and docs/VISECA_INTEGRATION.md). `approve`/`decline`/`step_up` are the
 official wire values (technical_details.md, table in step 4) and appear nowhere
 else in this package.
 """

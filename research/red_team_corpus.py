@@ -16,7 +16,6 @@ mocked except the passage of time and the clock the payment boundary reads.
 
 from __future__ import annotations
 
-import copy
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone

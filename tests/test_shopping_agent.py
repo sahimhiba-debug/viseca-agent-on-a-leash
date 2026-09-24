@@ -16,7 +16,7 @@ from decimal import Decimal
 
 import pytest
 
-from research.shopping_agent import MAX_REVISIONS, Line, Mission, plan, replan, shop
+from research.shopping_agent import MAX_REVISIONS, Line, Mission, replan, shop
 from tests.helpers import make_event, make_mandate
 from wallet_control.decision_engine import agent_view, evaluate_authorization
 from wallet_control.policy_compiler import compile_instruction
