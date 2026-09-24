@@ -46,7 +46,7 @@ can refuse; at CHF 289 in a Swiss electronics shop it has no reason to.
 5. Pulling the leash cancels anything approved but unpaid, answers any open question
    no, and blocks everything after.
 
-## See it in 60 seconds
+## See it in action
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
@@ -57,7 +57,7 @@ Open **http://localhost:8420/stage.html**. Press **→** for each purchase the a
 proposes, **D** to decline a question, **L** to pull the leash, **S** for *same
 price, different answer*. The 3-minute script: [docs/FINAL_DEMO_SCRIPT.md](docs/FINAL_DEMO_SCRIPT.md).
 
-## What was measured
+## Evidence
 
 | | result | reproduce |
 | --- | --- | --- |
@@ -71,7 +71,7 @@ The model scores (11 episodes, three runs each) are ours, not a ranking of model
 the search 11/11, Apertus and gpt-4.1-mini 7-8/11 on their own. The point is that the
 brains differ and the authority does not.
 
-## What it does not do
+## Limitations
 
 Spending windows are per run, not per mandate. Single use is per process. The demo's
 question channel has no authentication. A seller can still *claim* the fact a rule
@@ -90,7 +90,7 @@ for each, what it is, why, and whether it touches the judged path.
 | **Architecture** | [Architecture](docs/ARCHITECTURE.md) · [Codebase guide](docs/CODEBASE_GUIDE.md) · [Viseca integration](docs/VISECA_INTEGRATION.md) |
 | **Operations** | [Runbook](RUNBOOK.md) · [Current baseline](docs/BASELINE_CURRENT.md) |
 
-## Reproducibility
+## Run it and check it
 
 ```bash
 pytest -q                               # the suite
