@@ -162,6 +162,7 @@ select{padding-right:28px}
 .btn.solid{background:var(--btn); color:var(--btn-text)}
 .btn.ghost{background:transparent; color:var(--ink)}
 .btn.danger{background:var(--alert); border-color:var(--alert); color:#fff}
+.close-errand{height:44px; border:0; background:transparent; color:var(--block); font:600 14px var(--sans); cursor:pointer; text-decoration:underline; text-underline-offset:3px}
 .ring{width:46px; height:46px; flex:0 0 auto}
 .ring circle{fill:none; stroke-width:4}
 .ring .bg{stroke:var(--sunk)} .ring .fg{stroke:var(--accent); stroke-linecap:round; transform:rotate(-90deg); transform-origin:50% 50%; transition:stroke-dashoffset 1s linear}
@@ -317,6 +318,7 @@ kbd{font:500 11px ui-monospace, Menlo, monospace; border:1px solid var(--line); 
           <div class="why" id="ask-why"></div>
           <p class="once">Only this purchase. Your rules stay exactly as they are.</p>
           <div class="btns"><button type="button" class="btn ghost" id="decline">Decline</button><button type="button" class="btn solid" id="approve">Approve once</button></div>
+          <button type="button" class="close-errand" id="close-errand" hidden>I already have it · close this errand</button>
         </div>
 
         <div class="sheet" id="stop" role="dialog" aria-modal="false" aria-labelledby="stop-h">
@@ -456,6 +458,9 @@ function openAsk(card){
   $("ask-item").textContent = card.lines.map(l => `${l.qty} × ${l.name}`).join(", ");
   $("ask-amount").textContent = "CHF " + chf(card.amount);
   $("ask-why").textContent = sentence(card.reasons.join("; ")) || card.message;
+  // A repeat of a one-off errand: the customer who already has the thing can end
+  // the errand in the same gesture (decline this one, revoke the mandate).
+  $("close-errand").hidden = !card.reasons.some(r => r.includes("already bought once"));
   $("scrim").classList.add("on"); $("ask").classList.add("on");
   tickRing(); clearInterval(S.askTimer); S.askTimer = setInterval(tickRing, 1000);
 }
@@ -469,6 +474,17 @@ function tickRing(){
 function closeSheets(){
   S.asking = null; clearInterval(S.askTimer);
   ["ask","stop"].forEach(id => $(id).classList.remove("on")); $("scrim").classList.remove("on");
+}
+async function closeErrand(){
+  if (!S.asking || S.busy) return;
+  const id = S.asking.id; S.busy = true;
+  try {
+    await api(`/api/stage/sessions/${S.session}/resolve`, {authorization_id:id, decision:"block"});
+    await api(`/api/stage/sessions/${S.session}/revoke`, {});
+    closeSheets(); await sync();
+    say("Errand closed", `${firstName()} already has it. This one is declined and the mandate is revoked, so nothing else can be bought for it.`);
+  } catch (e){ toast(e.message); }
+  finally { S.busy = false; }
 }
 async function answer(decision){
   if (!S.asking || S.busy) return;
@@ -671,6 +687,7 @@ function setMode(m){
 
 $("next").onclick = next; $("play").onclick = play; $("restart").onclick = start;
 $("approve").onclick = () => answer("allow"); $("decline").onclick = () => answer("block");
+$("close-errand").onclick = closeErrand;
 $("pull").onclick = () => { $("scrim").classList.add("on"); $("stop").classList.add("on"); };
 $("stop-no").onclick = () => { $("stop").classList.remove("on"); if (!S.asking) $("scrim").classList.remove("on"); };
 $("stop-yes").onclick = () => { $("stop").classList.remove("on"); pullLeash(); };

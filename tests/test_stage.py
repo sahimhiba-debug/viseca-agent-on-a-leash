@@ -110,6 +110,20 @@ def test_pulling_the_leash_cancels_unspent_approvals_and_blocks_what_follows():
     assert client.post(f"/api/stage/sessions/{sid}/advance").json()["card"]["verdict"] == "block"
 
 
+def test_closing_the_errand_declines_the_repeat_and_stops_everything_after_it():
+    """The page's "I already have it" button is decline + revoke, nothing more."""
+    sid = client.post("/api/stage/sessions", json={"scenario_id": "SCEN0004"}).json()["session_id"]
+    client.post(f"/api/stage/sessions/{sid}/advance")                # AU0035, the one monitor
+    asked = client.post(f"/api/stage/sessions/{sid}/advance").json()  # AU0036, the repeat
+    assert any("already bought once" in r for r in asked["card"]["reasons"])
+    declined = client.post(f"/api/stage/sessions/{sid}/resolve",
+                           json={"authorization_id": "AU0036", "decision": "block"}).json()
+    assert declined["card"]["verdict"] == "block"
+    client.post(f"/api/stage/sessions/{sid}/revoke")
+    assert client.post(f"/api/stage/sessions/{sid}/advance").json()["card"]["verdict"] == "block"
+    assert 'id="close-errand"' in client.get("/stage.html").text
+
+
 def test_the_cards_carry_the_explanations_the_page_shows():
     sid = client.post("/api/stage/sessions", json={"scenario_id": "SCEN0004"}).json()["session_id"]
     cards = {}
