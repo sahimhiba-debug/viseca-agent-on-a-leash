@@ -69,3 +69,15 @@ def test_next_decision_request_uses_a_timeout_larger_than_the_long_poll_wait():
     with patch.object(client._client, "request", side_effect=fake_request):
         client.next_decision_request(wait=25)
     assert captured["timeout"] > 25
+
+
+def test_evidence_that_is_not_a_list_of_objects_is_refused_before_any_request():
+    """The hosted sandbox answers string evidence with 422. Refusing it locally
+    costs nothing; learning it from the server cost a decision its deadline."""
+    client = _client()
+    with patch.object(client._client, "request") as request:
+        with pytest.raises(TypeError):
+            client.submit_decision("AU1", "approve", evidence=["merchant.familiar [pass]"])
+        with pytest.raises(TypeError):
+            client.resolve("AU1", "approve", evidence=["the customer said yes"])
+    request.assert_not_called()

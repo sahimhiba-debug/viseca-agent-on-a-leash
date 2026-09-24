@@ -11,7 +11,10 @@ else in this package.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Iterable, Literal
+
+if TYPE_CHECKING:
+    from .rules import RuleEvaluation
 
 Decision = Literal["allow", "review", "block"]
 VisecaDecision = Literal["approve", "decline", "step_up"]
@@ -26,3 +29,16 @@ def to_viseca_decision(decision: Decision) -> str:
 
 def from_viseca_decision(value: str) -> Decision:
     return _FROM_VISECA[value]
+
+
+def to_wire_evidence(evaluations: "Iterable[RuleEvaluation]") -> list[dict[str, Any]]:
+    """The `evidence` list as the hosted API accepts it: one JSON object per check.
+
+    technical_details.md names the field but not its element shape. The sandbox
+    answers a list of strings with 422 ("Input should be a valid dictionary"), which
+    is how SCEN0000's first live run timed out into a decline with an ALLOW in hand.
+    """
+    return [
+        {"field": e.rule.field, "outcome": e.outcome, "detail": e.detail, "source": e.source}
+        for e in evaluations
+    ]
