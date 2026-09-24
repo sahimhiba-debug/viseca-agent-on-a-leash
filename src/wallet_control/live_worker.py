@@ -78,6 +78,36 @@ _FATAL_POLL_STATUS_CODES = frozenset({401, 403})
 _RETRYABLE_CLIENT_STATUS_CODES = frozenset({408, 425, 429})
 
 
+# Statuses of `GET /v1/authorizations` records that mean an answer exists. The first
+# four are what the hosted sandbox returns; the wire decision words are kept because
+# an earlier reading of the contract expected them.
+_ANSWERED_STATUSES = frozenset({"approved", "declined", "timeout", "step_up",
+                                "approve", "decline"})
+
+
+def _listing_records(listing: Any) -> list[dict[str, Any]]:
+    """The records of an authorization listing: the sandbox returns a bare list;
+    an envelope under `data`/`authorizations`/`items` is accepted too."""
+    records: Any = listing
+    if isinstance(listing, dict):
+        records = next((listing[k] for k in ("data", "authorizations", "items")
+                        if isinstance(listing.get(k), list)), [])
+    return [r for r in records if isinstance(r, dict)] if isinstance(records, list) else []
+
+
+def _record_decision(record: dict[str, Any]) -> str | None:
+    """The wire decision a listing record carries, if it carries one. The sandbox
+    nests it (`decision: {"decision": "approve", ...}`); a bare string is accepted."""
+    decision = record.get("decision")
+    if isinstance(decision, dict):
+        decision = decision.get("decision")
+    return decision if decision in ("approve", "decline", "step_up") else None
+
+
+def _record_is_answered(record: dict[str, Any]) -> bool:
+    return _record_decision(record) is not None or record.get("status") in _ANSWERED_STATUSES
+
+
 class EchoedMandateMismatch(RuntimeError):
     """The platform echoed a policy that is not the one the customer confirmed.
 
@@ -309,27 +339,20 @@ class LiveWorker:
         say "unknown" -- and over-triggering costs an ask while under-triggering
         costs the customer's ceiling. The asymmetry is the reason for the choice.
         """
+        # THE SHAPE WAS GUESSED, AND THE GUESS FAILED OPEN. This matched
+        # `decision == "approve"` or `status == "approve"`; the sandbox sends
+        # `status: "approved"` and a nested decision object. Nothing matched, every
+        # lost run looked new, and a SIGKILL test on SCEN0001 approved two purchases
+        # over the customer's CHF 300 / 7 days. Both shapes are read now.
         try:
-            listing = self._client.list_authorizations()
-            records: list[Any] = []
-            if isinstance(listing, dict):
-                for key in ("data", "authorizations", "items"):
-                    candidate = listing.get(key)
-                    if isinstance(candidate, list):
-                        records = candidate
-                        break
-            elif isinstance(listing, list):
-                records = listing
+            records = _listing_records(self._client.list_authorizations())
         except Exception as exc:                  # noqa: BLE001 -- any failure means "cannot establish"
             logger.warning("run_id=%s: could not ask the platform whether this run "
                            "existed (%s); treating prior spend as UNKNOWN", run_id, exc)
             return False
 
         for record in records:
-            if not isinstance(record, dict):
-                continue
-            if record.get("decision") not in ("approve", "decline", "step_up") and \
-               record.get("status") not in ("approve", "decline", "step_up"):
+            if not _record_is_answered(record):
                 continue
             where = record.get("run_id") or record.get("runId")
             if where is not None and where != run_id:
@@ -357,21 +380,13 @@ class LiveWorker:
             logger.warning("reconcile_run(%s): could not list authorizations (%s); nothing recovered", run_id, exc)
             return 0
 
-        records: list[dict[str, Any]] = []
-        if isinstance(listing, dict):
-            records = listing.get("data") or listing.get("authorizations") or listing.get("items") or []
-        elif isinstance(listing, list):
-            records = listing
-
         recovered = 0
-        for record in records:
-            if not isinstance(record, dict):
-                continue
+        for record in _listing_records(listing):
             authorization_id = record.get("authorization_id")
-            wire_decision = record.get("decision") or record.get("status")
             already_known = handle.state.get_stored_decision(authorization_id) is not None
-            if not authorization_id or already_known or wire_decision not in ("approve", "decline", "step_up"):
+            if not authorization_id or already_known or not _record_is_answered(record):
                 continue
+            wire_decision = _record_decision(record) or record.get("status")
             # We deliberately do NOT know this record's true amount/merchant/basket
             # with confidence from an undocumented shape, so we do not fabricate a
             # StoredDecision for it (that would corrupt rolling-window math with a

@@ -402,3 +402,41 @@ def test_a_present_checkpoint_does_not_warn(tmp_path, caplog):
 
     assert handle.state.total_approved_spend_chf() == Decimal("400")
     assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+
+
+# One record exactly as the hosted sandbox lists it (SCEN0001, trimmed of the
+# purchase itself). The tests above used a shape that was guessed before the API
+# was reachable; against the real one the defence matched nothing and a killed
+# worker restarted the customer's weekly allowance at zero.
+_SANDBOX_RECORD = {
+    "authorization_id": "AU0006-34828ee4", "source_authorization_id": "AU0006",
+    "scenario_id": "SCEN0001", "run_id": "RUN_LOST", "status": "approved",
+    "decision": {"type": "authorization.decision", "authorization_id": "AU0006-34828ee4",
+                 "decision": "approve", "reason_codes": ["all_hard_rules_satisfied"],
+                 "customer_message": "", "evidence": [], "engine_version": "wallet-control/0.1.0",
+                 "decision_source": "team"},
+    "decision_source": "team", "reason_codes": ["all_hard_rules_satisfied"],
+    "occurred_at": "2026-09-24T12:21:30.901Z", "finalized_at": "2026-09-24T12:21:31.060Z",
+}
+
+
+def test_the_sandbox_listing_shape_is_read_as_prior_decisions(tmp_path):
+    handle = _worker(tmp_path, listing=[_SANDBOX_RECORD]).register_run("RUN_LOST", _mandate())
+    assert handle.state.resumed_incomplete is True
+
+
+def test_a_pending_record_is_not_a_prior_decision(tmp_path):
+    """The run's own first purchase is already listed, still pending, when the
+    worker registers the run. It must not make every new run look lost."""
+    pending = {**_SANDBOX_RECORD, "status": "pending", "decision": None,
+               "decision_source": None, "finalized_at": None}
+    handle = _worker(tmp_path, listing=[pending]).register_run("RUN_LOST", _mandate())
+    assert handle.state.resumed_incomplete is False
+
+
+def test_a_timed_out_record_counts_as_a_prior_decision(tmp_path):
+    timed_out = {**_SANDBOX_RECORD, "status": "timeout",
+                 "decision": {**_SANDBOX_RECORD["decision"], "decision": "decline",
+                              "decision_source": "timeout"}}
+    handle = _worker(tmp_path, listing=[timed_out]).register_run("RUN_LOST", _mandate())
+    assert handle.state.resumed_incomplete is True
