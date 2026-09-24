@@ -80,12 +80,14 @@ line is marked *"seller takes no returns"*.
 If a jury remembers one thing, it should be that **the approved basket cost more
 than the refused one.**
 
-**2. Policy satisfied, security not.** `SCEN0004 / AU0036`. The page does not
-hard-code that: it asks `GET /api/scenarios/security-override`, which runs the
-scenarios and returns whichever contains a decision where `policy_verdict: allow`
-and `security_verdict != allow`. If that property moves, the demo follows it. A
-previous version of this script pointed at SCEN0002 for two campaigns, whose review
-is a *policy* review — a much weaker claim than the sentence being said over it.
+**2. Policy satisfied, security not.** The page asks
+`GET /api/scenarios/security-override`, which runs the scenarios and returns
+whichever contains a decision where `policy_verdict: allow` and
+`security_verdict != allow`. Since the one-off errand rule none does: the two
+candidates (SCEN0004 AU0036, AU0040) are also repeat monitors, so the customer's own
+rule asks as well, and the endpoint says so rather than pointing at a stale id. Show
+the distinction on the stage instead: AU0040's card carries the seller's instruction
+struck through beside the errand question.
 
 ---
 

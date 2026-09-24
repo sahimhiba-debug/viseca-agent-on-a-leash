@@ -117,7 +117,8 @@ for under pressure. Each word, and whether we may use it.
 | --- | --- |
 | "`GET /api/agent/sessions/{id}` is not reachable by the agent's protocol" | It was keyed on the session id the agent chooses. One GET returned the whole policy. Moved off the agent namespace; the claim is now "nothing the agent is **given** contains a policy value or the view's identifier". |
 | "The demo shows official catalogue data" | It showed official item **ids** with fabricated names, categories and prices. Now true and enforced by `tests/test_demo_data_is_real.py`. |
-| "SCEN0002 shows security overruling policy" | It does not. Its review is a *policy* review. The case is SCEN0004/AU0036, and the demo now derives it rather than naming it. |
+| "SCEN0002 shows security overruling policy" | It does not. Its review is a *policy* review. The case was SCEN0004/AU0036 until the one-off errand rule made it a customer question too; no official decision is now policy-clean and wallet-stopped, and the endpoint that derives it says so. |
+| "The wallet enforces what the customer asked for" (SCEN0004) | It approved four monitors under "the monitor I chose" until one-off errands were enforced. Now one, and every further one is a question (`tests/security/test_one_off_errand.py`). |
 
 ---
 
