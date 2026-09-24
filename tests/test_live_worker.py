@@ -356,3 +356,67 @@ def test_on_step_up_is_told_about_a_step_up_and_nothing_else():
     worker._on_step_up = lambda *a: approved.append(a)
     worker.run_forever(wait_seconds=1, max_events=1)
     assert approved == []
+
+
+# --- after a restart ------------------------------------------------------------------
+#
+# The platform redelivers a purchase while it waits for the customer (six times in
+# one sandbox run of SCEN0002). A restarted worker has forgotten what it delivered.
+
+def _restarted_worker(tmp_path, listing=None, listing_fails=False):
+    familiar = make_mandate(hard_rules=[HardRule(field="merchant.familiar", operator="=", value="true")])
+    event = make_event(mandate=familiar, authorization_id="AU1", amount=50.0)
+    first = FakeVisecaClient([_envelope(event), None])
+    worker = LiveWorker(first, HistoryIndex.empty(), checkpoint_dir=tmp_path, trust_echoed_policy=True)
+    worker.register_run("RUN1", familiar)
+    worker.run_forever(wait_seconds=1, max_events=1)
+    assert first.submitted[0]["decision"] == "step_up"
+
+    second = FakeVisecaClient([_envelope(event), None], authorizations_listing=listing)
+    restarted = LiveWorker(second, HistoryIndex.empty(), checkpoint_dir=tmp_path, trust_echoed_policy=True)
+    restarted.register_run("RUN1", familiar)  # restores the checkpoint; the listing is not consulted
+    if listing_fails:
+        def unreachable():
+            raise VisecaApiError(503, {"error": "unavailable"})
+        second.list_authorizations = unreachable
+    restarted.run_forever(wait_seconds=1, max_events=1)
+    return second
+
+
+def test_a_restarted_worker_does_not_decide_twice_on_a_purchase_the_customer_is_holding(tmp_path):
+    held = [{"authorization_id": "AU1", "run_id": "RUN1", "status": "awaiting_customer",
+             "decision": {"decision": "step_up", "decision_source": "team"}}]
+    assert _restarted_worker(tmp_path, held).submit_attempts == 0
+
+
+def test_a_restarted_worker_sends_what_the_platform_never_received(tmp_path):
+    pending = [{"authorization_id": "AU1", "run_id": "RUN1", "status": "pending", "decision": None}]
+    client = _restarted_worker(tmp_path, pending)
+    assert [s["decision"] for s in client.submitted] == ["step_up"]
+
+
+def test_a_restarted_worker_that_cannot_ask_sends_nothing(tmp_path):
+    assert _restarted_worker(tmp_path, listing_fails=True).submit_attempts == 0
+
+
+def test_concurrent_checkpoint_saves_do_not_collide(tmp_path):
+    import threading
+
+    mandate = _ceiling_mandate()
+    worker = LiveWorker(FakeVisecaClient([]), HistoryIndex.empty(), checkpoint_dir=tmp_path, trust_echoed_policy=True)
+    handle = worker.register_run("RUN1", mandate)
+    errors = []
+
+    def save():
+        try:
+            for _ in range(300):
+                worker._save_checkpoint(handle)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=save) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
