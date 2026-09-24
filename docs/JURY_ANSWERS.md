@@ -87,7 +87,10 @@ known limit.
 We never say "fully secure".
 
 **Does it work on the real platform?**
-> "It ran on the Viseca sandbox with our team key: the one-off rule was accepted and
-> only one monitor was approved. During our final checks the sandbox answered HTTP
-> 500 to every new run. The stage says so on screen and falls back to the local
-> replay of the same data."
+> "Yes. On the Viseca sandbox, same scenario: one monitor was approved, and the agent's
+> five further attempts were each put to the customer and declined through the
+> platform's `/resolve`. One monitor bought, not four. Later, the sandbox answered
+> HTTP 500 to every new run. The stage says so on screen and plays the local replay
+> of the same data."
+
+*Shows it:* run `run_3670ec5b72562b85`, [CUSTOMER_FRICTION.md](CUSTOMER_FRICTION.md) "On the real platform".

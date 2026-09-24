@@ -336,3 +336,28 @@ def test_a_sandbox_that_refuses_the_run_is_reported_with_its_status(monkeypatch)
     r = client.post("/api/stage/sessions", json={"scenario_id": "SCEN0004", "mode": "live"})
     assert r.status_code == 502 and "HTTP 500" in r.json()["detail"]
     assert "Live mode unavailable" in client.get("/stage.html").text
+
+
+def test_customer_friction_is_what_this_page_says():
+    """docs/CUSTOMER_FRICTION.md: 9 questions in 45 official purchases if the customer
+    declines each; 3 if they close each errand at its first repeat; 12 approved either way."""
+    counts = {}
+    for strategy in ("decline", "close"):
+        questions = approved = 0
+        for scenario_id in ("SCEN0000", "SCEN0001", "SCEN0002", "SCEN0003", "SCEN0004"):
+            sid = client.post("/api/stage/sessions", json={"scenario_id": scenario_id,
+                                                          "acknowledge_unsupported": True}).json()["session_id"]
+            for _ in range(40):
+                r = client.post(f"/api/stage/sessions/{sid}/advance").json()
+                if r.get("finished"):
+                    break
+                card = r["card"]
+                approved += card["verdict"] == "allow"
+                if card["verdict"] == "review":
+                    questions += 1
+                    client.post(f"/api/stage/sessions/{sid}/resolve",
+                                json={"authorization_id": card["authorization_id"], "decision": "block"})
+                    if strategy == "close" and any("already bought once" in x for x in card["reasons"]):
+                        client.post(f"/api/stage/sessions/{sid}/revoke")
+        counts[strategy] = (questions, approved)
+    assert counts == {"decline": (9, 12), "close": (3, 12)}

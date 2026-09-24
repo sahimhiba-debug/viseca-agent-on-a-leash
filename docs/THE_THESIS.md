@@ -504,7 +504,7 @@ with what each now has to prove before its passes count:
 
 ```
 official replay      45 events · 12 allow / 9 ask / 24 block · byte-identical ×3
-tests                2,004 collected · 5 reported skips
+tests                2,006 collected · 5 reported skips
 mutation             43 mutants applied · 43 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)
