@@ -273,8 +273,8 @@ file *is* vendored, at `data/official/schemas/`. The structure is deliberate rat
 - `tests/security/test_state_machine.py` -- a stateful model over the whole lifecycle.
 
 The count is not the argument. `python3 scripts/run_mutation_probe.py` deliberately
-breaks 43 security mechanisms in `src/wallet_control/`, one at a time, and checks the
-suite notices: **43 killed, 0 survived.** Its first run found a real gap and the
+breaks 45 security mechanisms in `src/wallet_control/`, one at a time, and checks the
+suite notices: **45 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
 Official replay: **45 events, the split in README.md** -- a regression
