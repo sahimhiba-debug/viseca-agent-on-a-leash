@@ -83,6 +83,23 @@ select{padding-right:28px}
 .mode.live{color:var(--allow); background:var(--allow-soft)} .mode.live i{background:var(--allow); animation:blink 1.6s infinite}
 @keyframes blink{50%{opacity:.25}}
 
+/* ---------------------------------------------------------------- same price, different answer */
+.same{position:fixed; inset:0; z-index:60; background:rgba(0,9,19,.55); display:flex; align-items:flex-start; justify-content:center; padding:5vh 16px; overflow-y:auto}
+.same[hidden]{display:none}
+.same-box{background:var(--surface); color:var(--text); border-radius:14px; box-shadow:var(--shadow); width:min(980px,100%); padding:22px 24px 18px}
+.same-box h3{margin:0; font:700 clamp(22px,2.4vw,30px)/1.2 var(--sans); color:var(--ink); text-wrap:balance}
+.same-box .sub{margin:6px 0 14px; font-size:14px; color:var(--muted); max-width:80ch}
+.same-grid{display:grid; grid-template-columns:minmax(0,1fr) 116px 116px; border-top:1px solid var(--line)}
+.same-grid > div{padding:10px 8px; border-bottom:1px solid var(--line); display:flex; align-items:center; font-size:14.5px; color:var(--ink); min-width:0}
+.same-grid .hd{font:700 12px/1 var(--cond); letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.same-grid .ch small{display:block; color:var(--muted); font-size:12.5px; margin-top:2px}
+.same-grid .ch{flex-direction:column; align-items:flex-start}
+.same-grid .v{justify-content:center}
+.same-grid .v .pill{min-width:84px; text-align:center}
+.same-foot{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; font-size:12.5px; color:var(--muted)}
+@media (max-width:640px){ .same-grid{grid-template-columns:minmax(0,1fr) 74px 82px} .same-grid .v .pill{min-width:0; padding-inline:6px}
+  .same-box{padding:18px 14px} .same-grid > div{font-size:13.5px; padding:9px 4px} }
+
 /* caption: the one line the jury reads */
 .caption{max-width:1520px; margin:0 auto; padding:18px 20px 4px; display:flex; gap:14px; align-items:baseline; flex-wrap:wrap}
 .caption .act{font:700 12px/1 var(--cond); letter-spacing:.14em; text-transform:uppercase; color:var(--accent-text); white-space:nowrap}
@@ -261,11 +278,22 @@ kbd{font:500 11px ui-monospace, Menlo, monospace; border:1px solid var(--line); 
       <button type="button" class="tool" id="restart" title="Start this scenario again (R)">Restart</button>
       <button type="button" class="tool" id="play" aria-pressed="false" title="Play or pause (Space)">▶ Play</button>
       <button type="button" class="tool primary" id="next" title="Next purchase (→)">Next purchase →</button>
+      <button type="button" class="tool" id="same-open" title="Same price, different answer (S)">Same price?</button>
       <span class="mode" id="mode"><i></i><span>Replay</span></span>
       <a class="lab" href="/index.html">The lab ↗</a>
     </div>
   </div>
 </header>
+
+<div class="same" id="same" hidden role="dialog" aria-modal="true" aria-labelledby="same-title">
+  <div class="same-box">
+    <h3 id="same-title">Same price, different answer</h3>
+    <p class="sub" id="same-sub"></p>
+    <div class="same-grid" id="same-grid"></div>
+    <div class="same-foot"><span id="same-rule"></span>
+      <button type="button" class="tool" id="same-close">Close</button></div>
+  </div>
+</div>
 
 <div class="caption" aria-live="polite">
   <span class="act" id="act">The leash</span>
@@ -530,7 +558,10 @@ function cardHTML(card){
     const d = new Date(card.retry_at);
     parts.push(`<div class="retry">It would fit again on <b>${d.toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long", timeZone:"UTC"})} at ${d.toISOString().slice(11,16)}</b>.</div>`);
   }
-  const vr = {allow:"met", review:"met", block:"broken"}[card.your_rules] || card.your_rules;
+  // "review" on the customer's side means one of THEIR rules could not be settled
+  // (the errand already bought once): it is not "met", and saying so contradicted the
+  // reason printed right above it.
+  const vr = {allow:"met", review:"not sure", block:"broken"}[card.your_rules] || card.your_rules;
   const vw = {allow:"all clear", review:"unsure", block:"stopped it"}[card.wallet_checks] || card.wallet_checks;
   if (card.your_rules || card.wallet_checks) parts.push(`<div class="split">${card.your_rules ? `<span>${esc(who)}'s rules: <b>${esc(vr)}</b></span>` : ""}${card.wallet_checks ? `<span>Wallet checks: <b>${esc(vw)}</b></span>` : ""}</div>`);
   parts.push(`<details class="tech"><summary>Evidence the engine recorded</summary><ul>${card.evidence.map(e =>
@@ -580,7 +611,7 @@ function handle(e){
     restyle(e.authorization_id, "block", "No answer", "Expired: declined");
     closeSheets(); say("No answer", "Nobody answered in time, so the purchase is declined. Silence never approves.");
   } else if (e.kind === "revoked"){
-    S.revoked = true;
+    S.revoked = true; closeSheets();
     $("agent-state").textContent = "Leash pulled"; $("agent-state").classList.add("off"); $("pull").disabled = true; $("pull").textContent = "Leash pulled · your agent is stopped";
     (e.cancelled || []).forEach(id => restyle(id, "block", "Cancelled", "Cancelled: leash pulled"));
     sys(e.text + (e.cancelled?.length ? ` Cancelled: ${e.cancelled.length}.` : ""), "revoked");
@@ -703,9 +734,38 @@ document.addEventListener("keydown", ev => {
   else if (k === "d" && S.asking) answer("block");
   else if (k === "l" && !$("pull").disabled) $("pull").click();
   else if (k === "r") start();
-  else if (k === "escape") closeSheets();
+  else if (k === "s") toggleSame();
+  else if (k === "escape"){ closeSheets(); $("same").hidden = true; }
 });
 setInterval(() => { const d = new Date(); $("clock").textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; }, 15000);
+
+// Same price, different answer: eight versions of the flagship purchase, each decided
+// by the real engine and by an explicit card rule (/api/stage/same-price).
+const VERDICT_WORD = {allow: "Yes", review: "Asks you", block: "No"};
+async function toggleSame(){
+  const box = $("same");
+  if (!box.hidden){ box.hidden = true; return; }
+  let data;
+  try { data = await api("/api/stage/same-price"); } catch (e){ return; }
+  const r = data.card_rule;
+  const yes = side => data.rows.filter(x => x[side] === "allow").length;
+  const times = n => n === 1 ? "once" : n === 0 ? "never" : `${n} times`;
+  const all = data.rows.length, card = yes("card");
+  $("same-title").textContent = `Same CHF ${data.rows[0].amount.toFixed(0)}. A card says yes to `
+    + `${card === all ? "all " + all : card + " of " + all}. The wallet says yes ${times(yes("wallet"))}.`;
+  $("same-sub").textContent = `Oliver's instruction: "${data.instruction}" Each row changes one thing and keeps the price.`;
+  $("same-rule").textContent = `The card is set as tightly as a card can be: at most CHF ${r.per_purchase_chf} per purchase, `
+    + `electronics shops only, Switzerland only. Both columns are computed, not written.`;
+  $("same-grid").innerHTML = `<div class="hd">What changed · CHF 289 each</div><div class="hd v">Card limit</div><div class="hd v">Wallet</div>`
+    + data.rows.map(x => `<div class="ch">${esc(x.change)}<small>${esc(x.wallet === "allow" ? x.merchant : x.wallet_reason)}</small></div>`
+      + `<div class="v"><span class="pill ${esc(x.card)}">${VERDICT_WORD[x.card]}</span></div>`
+      + `<div class="v"><span class="pill ${esc(x.wallet)}">${VERDICT_WORD[x.wallet]}</span></div>`).join("");
+  box.hidden = false;
+  $("same-close").focus();
+}
+$("same-open").onclick = toggleSame;
+$("same-close").onclick = () => { $("same").hidden = true; };
+$("same").addEventListener("click", ev => { if (ev.target.id === "same") $("same").hidden = true; });
 
 (async function boot(){
   try { S.caps = await api("/api/stage/capabilities"); }

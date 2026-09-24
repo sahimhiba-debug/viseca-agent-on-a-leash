@@ -1270,6 +1270,19 @@ def stage_capabilities() -> dict[str, Any]:
                           for k, v in sorted(load_scenario_catalogue().items())]}
 
 
+_SAME_PRICE: dict[str, Any] | None = None
+
+
+@app.get("/api/stage/same-price")
+def stage_same_price() -> dict[str, Any]:
+    """Eight versions of the flagship purchase at the same CHF 289: a card's answer and
+    the wallet's, each decided by its rule. Deterministic, so computed once."""
+    global _SAME_PRICE
+    if _SAME_PRICE is None:
+        _SAME_PRICE = _stage.same_price(HistoryIndex.from_csv(history_csv_path()))
+    return _SAME_PRICE
+
+
 @app.post("/api/stage/leash")
 def stage_leash(req: StageLeash) -> dict[str, Any]:
     """What the sentence hands over, clause by clause, through the real engine."""

@@ -252,3 +252,55 @@ def _history():
     from wallet_control.csv_data import history_csv_path
     from wallet_control.state import HistoryIndex
     return HistoryIndex.from_csv(history_csv_path())
+
+
+# ---------------------------------------------------------------- same price, different answer
+
+def test_same_price_rows_are_decided_by_the_engine_and_the_card_rule():
+    data = client.get("/api/stage/same-price").json()
+    rows = data["rows"]
+    assert {r["amount"] for r in rows} == {289.0}
+    assert [r["card"] for r in rows] == ["allow"] * 8
+    assert [r["wallet"] for r in rows] == ["allow", "block", "block", "block", "block", "block", "review", "review"]
+    assert "already bought once" in rows[-1]["wallet_reason"]
+
+
+def test_the_card_column_can_refuse():
+    """Negative control: the card rule is computed, not a column of yeses."""
+    base = {"authorization": {"billing_amount_chf": 289.0,
+                              "merchant": {"merchant_mcc": "5732", "merchant_country": "CH"}}}
+    assert stage._card_decides(base)[0] == "allow"
+    foreign = {"authorization": {**base["authorization"], "merchant": {"merchant_mcc": "5732", "merchant_country": "US"}}}
+    dear = {"authorization": {**base["authorization"], "billing_amount_chf": 401.0}}
+    grocer = {"authorization": {**base["authorization"], "merchant": {"merchant_mcc": "5411", "merchant_country": "CH"}}}
+    assert [stage._card_decides(e)[0] for e in (foreign, dear, grocer)] == ["block"] * 3
+
+
+def test_the_same_price_view_is_on_the_stage():
+    assert 'id="same-open"' in client.get("/stage.html").text
+
+
+def test_a_question_about_the_customers_own_rule_is_not_labelled_met():
+    """The AU0036 question showed "Oliver's rules: met" above the reason "this errand
+    was already bought once" -- his own rule, unsettled. The engine said review."""
+    page = client.get("/stage.html").text
+    assert 'review:"met"' not in page.replace(" ", "")
+    sid = client.post("/api/stage/sessions", json={"scenario_id": "SCEN0004"}).json()["session_id"]
+    client.post(f"/api/stage/sessions/{sid}/advance")
+    asked = client.post(f"/api/stage/sessions/{sid}/advance").json()["card"]
+    assert asked["your_rules"] == "review"
+
+
+def test_pulling_the_leash_during_a_question_answers_it_no_and_the_run_goes_on():
+    """Rehearsal found the stage stuck on "waiting for Oliver" after the leash was
+    pulled mid-question: the open question could never approve anything, and the next
+    purchase could never come."""
+    sid = client.post("/api/stage/sessions", json={"scenario_id": "SCEN0004"}).json()["session_id"]
+    client.post(f"/api/stage/sessions/{sid}/advance")                      # AU0035 allowed
+    assert client.post(f"/api/stage/sessions/{sid}/advance").json()["card"]["verdict"] == "review"   # AU0036
+    revoked = client.post(f"/api/stage/sessions/{sid}/revoke").json()
+    assert revoked["cancelled"] == ["AU0035", "AU0036"]
+    assert client.post(f"/api/stage/sessions/{sid}/resolve",
+                       json={"authorization_id": "AU0036", "decision": "allow"}).status_code == 409
+    after = client.post(f"/api/stage/sessions/{sid}/advance").json()
+    assert after["card"]["authorization_id"] == "AU0037" and after["card"]["verdict"] == "block"
