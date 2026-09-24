@@ -60,6 +60,16 @@ _MAX_PLAUSIBLE_RETURN_WINDOW_DAYS = 3650  # 10 years
 _INVISIBLE_CHARS_RE = re.compile("[​‌‍⁠﻿\xad]")
 
 
+# Merchant text is read inside the platform's 8-second decision deadline, and the
+# seller decides its length. Every pattern here is linear, but linear in a length the
+# seller picks: five lines of 4 MB took 11.6 s per decision (measured). Reading only
+# the first 16 KB bounds the work. Truncation can only make a fact UNKNOWN (a return
+# window stated past the cut is not read), never satisfy one; and a description this
+# long is itself reported to the customer below, so the cut cannot hide an attempt
+# in silence. An honest product description is a few hundred characters.
+_MAX_UNTRUSTED_CHARS = 16_384
+
+
 def _normalize_untrusted_text(text: str) -> str:
     """Normalize merchant-supplied text before running any whitelist pattern over
     it, so Unicode obfuscation (zero-width characters, fullwidth digit lookalikes,
@@ -67,7 +77,7 @@ def _normalize_untrusted_text(text: str) -> str:
     fact extraction. This does not make the text trusted -- it is still only ever
     read through the narrow patterns below -- it just makes "the pattern didn't
     match because of an invisible character" a non-issue in either direction."""
-    return _INVISIBLE_CHARS_RE.sub("", unicodedata.normalize("NFKC", text or ""))
+    return _INVISIBLE_CHARS_RE.sub("", unicodedata.normalize("NFKC", (text or "")[:_MAX_UNTRUSTED_CHARS]))
 
 
 def extract_return_window_days(item_details: str) -> int | None:
@@ -188,7 +198,10 @@ def instructions_to_a_machine(item_details: str) -> tuple[str, ...]:
     Returns descriptions of what was ATTEMPTED, never the text itself -- quoting an
     injection back into a customer-facing string would hand it a second audience."""
     text = _normalize_untrusted_text(item_details)
-    return tuple(label for label, pattern in _INJECTION_PATTERNS if pattern.search(text))
+    labels = tuple(label for label, pattern in _INJECTION_PATTERNS if pattern.search(text))
+    if len(item_details or "") > _MAX_UNTRUSTED_CHARS:
+        labels += ("its description is too long for the wallet to read in full",)
+    return labels
 
 
 @dataclass(frozen=True)

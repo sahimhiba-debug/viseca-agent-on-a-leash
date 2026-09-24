@@ -173,6 +173,7 @@ someone spend CHF 6,480 under it. These rows exist to make that impossible.
 | Seller text cannot make a decision more permissive | **SUPPORTED BY EXPERIMENT** | 288 generated attacks × 45 official purchases, each against the same wallet state: 0 of 12,960 decisions widened (`docs/GENERATED_CORPUS.md`) |
 | The wallet tells the customer when a seller addresses the machine | **SUPPORTED BY EXPERIMENT**, partial | 67 of 96 held-out machine-directed attacks named, 0 false alarms on 156 honest descriptions; marketing-shaped pushes and most non-English instructions are NOT named |
 | The wallet detects every prompt injection | **DO NOT CLAIM** | it detects shapes; 29 of 96 held-out attacks went unnamed (none obeyed) |
+| A seller cannot spend the 8-second decision deadline with long text | **PROVEN** | merchant text is read to 16 KB; 5 lines × 4 MB went from 11.6 s to 0.09 s; longer text is named to the customer and a claim past the cut stays unknown (`test_untrusted_text_is_bounded`) |
 | The compiler never silently drops a restriction | **DO NOT CLAIM** | the last blind measurement lost 3 of 200 before its fix; zero on 840 is FITTED. Claim instead: *on 840 generated instructions, every restriction is enforced or named before confirmation* (SUPPORTED BY EXPERIMENT, `docs/GENERATED_CORPUS.md`) |
 | A model improves the planner | **DO NOT CLAIM** | measured: every model arm scored below the deterministic search |
 

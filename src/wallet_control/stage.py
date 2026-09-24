@@ -544,7 +544,19 @@ class LiveSession(StageSession):
                          card={"authorization_id": authorization_id, "verdict": result.decision})
 
     def revoke(self) -> dict[str, Any]:
-        killed = self._worker.revoke_run(self.run_id) if self.customer is not None else ()
+        killed = list(self._worker.revoke_run(self.run_id)) if self.customer is not None else []
+        # As in replay: an open question is answered no by the leash, here on the
+        # platform too, rather than left on the phone until its 120 s run out.
+        with self.lock:
+            pending = sorted(self.asking)
+            self.asking.clear()
+        for authorization_id in pending:
+            try:
+                self._worker.resolve(self.run_id, authorization_id, "block",
+                                     customer_message="The customer revoked the mandate.")
+                killed.append(authorization_id)
+            except Exception as exc:          # noqa: BLE001 -- the platform will expire it anyway
+                logger.warning("declining %s on revocation failed: %s", authorization_id, exc)
         try:
             self._client.revoke_mandate(self.mandate_id)
         except Exception as exc:              # noqa: BLE001 -- local revocation already holds

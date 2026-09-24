@@ -211,7 +211,7 @@ data/official/             Read-only copy of the official synthetic data pack
 ui/stage.html              The demo: the customer's phone and the purchase stream
 ui/index.html              The lab: every panel and proof, mobile-first, one file,
                            no framework, no build step
-tests/                     2000 tests
+tests/                     2004 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      The system as it is now: thesis, architecture, security
                            model, claims, demo script
@@ -280,7 +280,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**2000 tests**, of which 5 are reported skips rather than silent ones — **6 in a
+**2004 tests**, of which 5 are reported skips rather than silent ones — **6 in a
 fresh clone**, because one test validates the organisers' own example fixture and
 that file lives in their repository rather than this one (`reference/` is not
 vendored). Our events are still checked against the official schema everywhere: that

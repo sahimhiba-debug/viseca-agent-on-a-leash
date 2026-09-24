@@ -236,6 +236,22 @@ def test_live_mode_decides_through_the_worker_and_answers_through_resolve():
     assert "secret-key" not in repr(session.summary())
 
 
+def test_live_leash_during_a_question_declines_it_on_the_platform():
+    fake = {}
+    session = stage.LiveSession("SCEN0004", _history(),
+                                base_url="https://sandbox.invalid", api_key="secret-key",
+                                client_factory=lambda url, key: fake.setdefault("c", _FakeSandbox(url, key)))
+    deadline = time.time() + 10
+    while not session.asking and time.time() < deadline:
+        time.sleep(0.05)
+    assert list(session.asking) == ["AU0036"]
+    session.revoke()
+    session.stop()
+    assert fake["c"].resolved == [("AU0036", "decline")]
+    assert not session.asking
+    assert [e for e in session.since(0) if e["kind"] == "revoked"][-1]["cancelled"][-1] == "AU0036"
+
+
 def test_live_mode_is_refused_when_the_server_has_no_key(monkeypatch):
     monkeypatch.delenv("TEAM_API_KEY", raising=False)
     monkeypatch.delenv("LEASH_BASE_URL", raising=False)
