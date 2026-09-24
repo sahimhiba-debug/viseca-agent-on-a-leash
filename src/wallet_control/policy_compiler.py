@@ -407,7 +407,11 @@ _COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
     ),
     (
         "per-order ceiling",
-        re.compile(r"CHF\s*[\d.,]+", re.IGNORECASE),
+        # A currency amount, OR a limit word followed by a bare number ("spend no more
+        # than 400"): the customer stated a ceiling even without naming the currency.
+        re.compile(r"CHF\s*[\d.,]+|\b(?:no\ more\ than|not\ more\ than|max(?:imum)?|at\ most|up\ to|"
+                   r"under|below|less\ than|budget|limit|cap(?:ped)?\ at|exceed(?:ing)?)"
+                   r"\s*(?:of\s+)?\d", re.IGNORECASE | re.VERBOSE),
         "authorization.billing_amount_chf",
         "You named an amount, but no spending ceiling was recognised from the way it is "
         "worded, so purchases are NOT limited by amount. Rephrase it, for example "
@@ -467,7 +471,65 @@ def _coverage_questions(text: str, rules: list[HardRule]) -> list[str]:
         if required_field and required_field in present:
             continue
         out.append(message)
+    if _looks_non_english(text):
+        out.append(_NON_ENGLISH_MESSAGE)
     return out
+
+
+# Every pattern in this file is English, and every marker above is English, so an
+# instruction in French, German or Italian -- this is a Swiss card -- loses whatever
+# the patterns cannot read and the markers cannot see. Measured: "chez un vendeur où
+# j'ai déjà acheté ... N'ajoute rien que je n'ai pas demandé" compiled to a ceiling
+# alone, with the familiarity and no-add-ons requirements gone and NOTHING said;
+# "CHF 80 max chaque semaine" became CHF 80 per order with the weekly cap gone.
+#
+# Translating is out of scope for a deterministic compiler, and a list of foreign
+# restriction phrases would be the paraphrase chase again, in three more languages.
+# Detection is enough: function words that do not occur in English instructions, two
+# DISTINCT ones so a single borrowed word ("chez", "café") does not trip it. It never
+# creates a rule; it turns a silent loss into a question before confirmation.
+_NON_ENGLISH_WORDS = frozenset("""
+    je j tu que qui pas rien seulement chez où déjà achète acheter achat demande moi
+    les des une sur chaque semaine mois jour ne suis sûr sûre vendeur magasin connu
+    ich nicht nur und bei wenn du den der das mit für höchstens maximal kauf kaufe kaufen frag
+    woche monat geschäft geschäften schon habe mich mir unsicher eingekauft
+    che compra comprare massimo ho il della chiedi settimana negozio già sono
+""".split())
+
+
+def _looks_non_english(text: str) -> bool:
+    words = set(re.findall(r"[^\W\d_]+", text.lower()))
+    return len(words & _NON_ENGLISH_WORDS) >= 2
+
+
+_NON_ENGLISH_MESSAGE = (
+    "Part of your instruction does not appear to be in English. This wallet reads English only, "
+    "so anything written in another language was NOT read and is NOT enforced. Please write the "
+    "whole instruction in English and check the rules listed before you confirm."
+)
+
+
+# Every amount pattern above is written "CHF 400", and a Swiss customer writes
+# "400 CHF", "400 francs", "Fr. 400", "SFr 400", "400.-" and "1'000" at least as
+# often. None of those produced a ceiling, and the coverage marker below only looked
+# for "CHF 400", so "Buy the monitor I chose, max 400 francs" compiled with no amount
+# rule and NOTHING told the customer: the most basic limit a person can state, lost
+# silently. Same remedy as the whitespace collapse: normalise the spelling of an
+# amount once, for matching only, rather than teaching every pattern every spelling.
+_SWISS_THOUSANDS_RE = re.compile(r"(?<=\d)[’'](?=\d{3}\b)")
+_AMOUNT_TOKEN = r"\d[\d.,]*\d|\d"
+_CURRENCY_AFTER_RE = re.compile(
+    rf"(?<![\w.])(?:CHF\s*)?(?P<n>{_AMOUNT_TOKEN})(?:\.[-–])?\s*"
+    r"(?:CHF\b|Swiss\s+francs?\b|francs?\b|Franken\b|franchi\b|SFr\.?|Fr\.)", re.IGNORECASE)
+_CURRENCY_BEFORE_RE = re.compile(rf"(?<!\w)(?:SFr\.?|Fr\.)\s*(?P<n>{_AMOUNT_TOKEN})(?:\.[-–])?", re.IGNORECASE)
+_SWISS_DASH_RE = re.compile(rf"(?<![\w.])(?:CHF\s*)?(?P<n>{_AMOUNT_TOKEN})\.[-–]")
+
+
+def _normalise_currency(text: str) -> str:
+    text = _SWISS_THOUSANDS_RE.sub("", text)
+    for pattern in (_CURRENCY_AFTER_RE, _CURRENCY_BEFORE_RE, _SWISS_DASH_RE):
+        text = pattern.sub(lambda m: f"CHF {m.group('n')}", text)
+    return text
 
 
 def _parse_amount(raw: str) -> float:
@@ -525,6 +587,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     # touching a dozen patterns individually, and it cannot change meaning. Only the
     # matching text is normalised; nothing the customer wrote is rewritten for them.
     text = re.sub(r"\s+", " ", instruction).strip()
+    text = _normalise_currency(text)
     rules: list[HardRule] = []
     # Intent that was RECOGNISED but cannot be turned into an enforceable rule, as
     # opposed to intent `_coverage_questions` failed to recognise at all. Merged into
