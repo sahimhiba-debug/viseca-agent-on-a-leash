@@ -260,19 +260,31 @@ def _evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Ru
         # that order was delivered, cancelled or sent back is not something the wallet
         # can see, so the second one is UNKNOWN -- a question for the customer under
         # "ask me", never a silent third monitor and never a guessed refusal.
+        # A platform that echoes the value as "False" means what we sent; comparing
+        # case-sensitively made every purchase under the errand fail.
+        wanted = str(rule.value).strip().lower()
         if not facts.items:
             return RuleEvaluation(rule, "unknown", "the order carries no item lines to count")
-        units = sum(max(1, int(i.quantity)) for i in facts.items)
-        if units > 1 and not _compare(rule.operator, "true", rule.value):
+        # `facts` carries the quantity as the event sent it. `int("abc")` raised here
+        # and took the whole decision down with it; a count that cannot be read is a
+        # count the wallet does not know, not a crash and not "one".
+        try:
+            units = sum(max(1, int(float(i.quantity))) for i in facts.items
+                        if not isinstance(i.quantity, bool))
+        except (TypeError, ValueError, OverflowError):
+            return RuleEvaluation(rule, "unknown", "the order's quantity is not a number the wallet can count")
+        if any(isinstance(i.quantity, bool) for i in facts.items):
+            return RuleEvaluation(rule, "unknown", "the order's quantity is not a number the wallet can count")
+        if units > 1 and not _compare(rule.operator, "true", wanted):
             # Certain, not uncertain: this one order is already more than one thing.
             return RuleEvaluation(rule, "fail", f"this order is for {units} units of a one-off errand")
         if not ctx.errand_prior_approvals and not ctx.errand_ledger_complete:
             return RuleEvaluation(rule, "unknown", "this wallet restarted without its record of what was "
                                   "already approved, so it cannot tell whether this errand was done")
         if not ctx.errand_prior_approvals:
-            ok = _compare(rule.operator, "false", rule.value)
+            ok = _compare(rule.operator, "false", wanted)
             return RuleEvaluation(rule, "pass" if ok else "fail", "nothing has been approved for this errand yet")
-        if _compare(rule.operator, "true", rule.value):
+        if _compare(rule.operator, "true", wanted):
             return RuleEvaluation(rule, "pass", "this errand already has an approved purchase")
         return RuleEvaluation(
             rule, "unknown",

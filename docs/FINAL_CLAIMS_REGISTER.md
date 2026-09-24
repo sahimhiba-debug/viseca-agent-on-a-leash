@@ -167,7 +167,8 @@ someone spend CHF 6,480 under it. These rows exist to make that impossible.
 | A third evidence source could break that composition | **CLOSED** | AST guard on every `RuleEvaluation(source=)`; mutant killed |
 | A human approval can clear a policy failure | **DO NOT CLAIM** | a hard failure never offers a step-up |
 | Telling the agent `budget_window` costs privacy | **DO NOT CLAIM** | measured: a prober converges identically either way — 11 probes, CHF 0.20 gap |
-| Two real language models at the planner seam never got a forbidden purchase approved | **SUPPORTED BY EXPERIMENT** | Apertus 1.5 70B and gpt-4.1-mini, 3 runs × 11 episodes: 7-10/11 against the deterministic 11/11, zero mandate breaches. `docs/REAL_MODEL_PLANNER.md` |
+| Two real language models at the planner seam never got a forbidden purchase approved | **SUPPORTED BY EXPERIMENT** | Apertus 1.5 70B and gpt-4.1-mini, 6 runs × 11 episodes each: 7-8/11 alone, 8-10/11 hybrid, against 11/11 deterministic; 0 unauthorized approvals by an independent referee whose negative control finds 23. `docs/REAL_MODEL_PLANNER.md` |
+| One model is better than the other | **DO NOT CLAIM** | the gap is smaller than run-to-run variance |
 | A model improves the planner | **DO NOT CLAIM** | measured: every model arm scored below the deterministic search |
 
 ## Authorship and intent (this campaign)

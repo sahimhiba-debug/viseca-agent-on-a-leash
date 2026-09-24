@@ -236,3 +236,62 @@ def test_the_official_replay_puts_every_repeat_to_the_customer():
         assert [a for a, d in decisions.items() if d.decision == "allow"] == [first]
         for aid in repeats:
             assert "uncertain:order.errand_already_fulfilled" in decisions[aid].reason_codes, aid
+
+
+# ------------------------------------------------------------------ malformed input (final attack pass)
+
+@pytest.mark.parametrize("quantity", ["abc", float("nan"), float("inf"), True, None])
+def test_a_quantity_that_cannot_be_counted_is_a_question_not_a_crash(quantity):
+    """`int("abc")` used to raise inside the rule and take the whole decision down."""
+    mandate, state = _setup(rules=(ERRAND,))
+    result = _buy(mandate, state, "AU1", lines=[dict(MONITOR, quantity=quantity)])
+    assert result.decision in {"review", "block"}
+
+
+@pytest.mark.parametrize("item_id", [None, "", "IT_NOT_IN_ANY_CATALOGUE"])
+def test_the_rule_counts_purchases_not_item_ids(item_id):
+    """Changing, blanking or inventing the item_id does not make a second one new."""
+    mandate, state = _setup()
+    _buy(mandate, state, "AU1")
+    again = _buy(mandate, state, "AU2", lines=[dict(MONITOR, item_id=item_id)], at=T0 + timedelta(days=1))
+    assert again.decision == "review"
+
+
+@pytest.mark.parametrize("value", ["false", "False", "FALSE", " false "])
+def test_the_rule_value_is_read_case_insensitively(value):
+    """A platform echoing "False" meant what we sent; comparing case-sensitively
+    blocked every purchase under the errand, the flagship first monitor included."""
+    rule = HardRule(field=ERRAND.field, operator="=", value=value)
+    mandate, state = _setup(rules=(rule,))
+    assert _buy(mandate, state, "AU1").decision == "allow"
+    assert _buy(mandate, state, "AU2", at=T0 + timedelta(days=1)).decision == "review"
+
+
+def test_the_rule_is_not_keyed_to_the_official_scenarios():
+    """Nothing in the mechanism names a scenario, a purchase or a product: it is
+    compiled from wording and evaluated from the ledger. Comments and docstrings may
+    tell the monitor story; names and string literals may not."""
+    import io
+    import tokenize
+    from wallet_control import decision_engine, policy_compiler, rules
+    # Product words ("monitor", "shoes") are the compiler's general category vocabulary
+    # and are allowed; identifiers of the official data are not.
+    forbidden = ("scen0", "au00", "me00", "ca00", "pixelharbor", "cu00")
+    for module in (rules, decision_engine, policy_compiler):
+        with open(module.__file__, encoding="utf-8") as fh:
+            tokens = list(tokenize.generate_tokens(io.StringIO(fh.read()).readline))
+        code = [t.string.lower() for t in tokens
+                if t.type == tokenize.NAME
+                or (t.type == tokenize.STRING and not t.string.lstrip("rbfuRBFU").startswith(("'''", '"""')))]
+        hits = [c for c in code if any(f in c for f in forbidden)]
+        assert not hits, (module.__name__, hits[:3])
+
+
+def test_KNOWN_LIMIT_the_ledger_is_per_run():
+    """Like the rolling cap, the errand ledger is the RUN's ledger: the same mandate in
+    a fresh run starts with nothing approved. Pinned so it cannot be mistaken for a
+    cross-run guarantee (docs/FINAL_AUDIT_PACKAGE.md, known vulnerability 1)."""
+    mandate, state = _setup()
+    _buy(mandate, state, "AU1")
+    _, next_run = _setup()
+    assert _buy(mandate, next_run, "AU2", at=T0 + timedelta(days=1)).decision == "allow"

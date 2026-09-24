@@ -180,7 +180,7 @@ data/official/             Read-only copy of the official synthetic data pack
 ui/stage.html              The demo: the customer's phone and the purchase stream
 ui/index.html              The lab: every panel and proof, mobile-first, one file,
                            no framework, no build step
-tests/                     1933 tests
+tests/                     1951 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      The system as it is now: thesis, architecture, security
                            model, claims, demo script
@@ -249,7 +249,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1933 tests**, of which 5 are reported skips rather than silent ones — **6 in a
+**1951 tests**, of which 5 are reported skips rather than silent ones — **6 in a
 fresh clone**, because one test validates the organisers' own example fixture and
 that file lives in their repository rather than this one (`reference/` is not
 vendored). Our events are still checked against the official schema everywhere: that
@@ -304,7 +304,7 @@ monitors (CHF 1,430.40) and the running-shoes run three pairs.
 - [docs/archive/SECURITY.md](docs/archive/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
 - [docs/archive/FINAL_AGENTIC_AUDIT.md](docs/archive/FINAL_AGENTIC_AUDIT.md) -- is the agent credible? The old one gave up on five of nine adversarial episodes; what replaced it, and why there is still no model in the loop
-- [docs/REAL_MODEL_PLANNER.md](docs/REAL_MODEL_PLANNER.md) -- Apertus 1.5 70B and gpt-4.1-mini run for real at the planner seam: 7-10/11 against 11/11 for the search, zero forbidden purchases approved
+- [docs/REAL_MODEL_PLANNER.md](docs/REAL_MODEL_PLANNER.md) -- Apertus 1.5 70B and gpt-4.1-mini run for real at the planner seam, same wallet: 7-8/11 each (no ranking between them) against 11/11 for the search; zero forbidden purchases approved, adversarial brain included
 - [docs/archive/FINAL_AGENT_SECURITY_AUDIT.md](docs/archive/FINAL_AGENT_SECURITY_AUDIT.md) -- every field the agent can reach, and the price of the oracle it cannot be denied
 - [docs/FINAL_DEMO_SCRIPT.md](docs/FINAL_DEMO_SCRIPT.md) · [docs/FINAL_JUDGE_QA.md](docs/FINAL_JUDGE_QA.md) · [docs/FINAL_CLAIMS_REGISTER.md](docs/FINAL_CLAIMS_REGISTER.md)
 - [docs/archive/COMPETITION_READINESS.md](docs/archive/COMPETITION_READINESS.md) -- honest assessment against the five jury criteria, the ten questions a judge could ask, and the strongest argument that this project is mediocre
