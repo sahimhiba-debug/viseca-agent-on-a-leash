@@ -690,7 +690,13 @@ async function start(){
     else { $("next").disabled = false; $("play").disabled = false; S.poll = setInterval(() => sync().catch(() => {}), 1500); }
   } catch (e){
     toast(e.message);
-    if (S.mode === "live"){ setMode("replay"); start(); }
+    if (S.mode === "live"){
+      // Never fall back silently: a jury must not mistake the replay for the live run.
+      setMode("replay"); await start();
+      sys(`Live mode unavailable: ${e.message}. `
+        + `What you see is the local replay of the same scenario, decided by the same engine.`, "revoked");
+      say("Sandbox unavailable", "The live sandbox did not start a run, so this is the local replay: same data, same engine.");
+    }
   }
 }
 async function next(){

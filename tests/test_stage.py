@@ -304,3 +304,19 @@ def test_pulling_the_leash_during_a_question_answers_it_no_and_the_run_goes_on()
                        json={"authorization_id": "AU0036", "decision": "allow"}).status_code == 409
     after = client.post(f"/api/stage/sessions/{sid}/advance").json()
     assert after["card"]["authorization_id"] == "AU0037" and after["card"]["verdict"] == "block"
+
+
+def test_a_sandbox_that_refuses_the_run_is_reported_with_its_status(monkeypatch):
+    """The hosted sandbox answered 500 to every run start for hours. The page must say
+    so plainly, not fall back to the replay in silence."""
+    from wallet_control.viseca_client import VisecaApiError
+
+    class Refusing(_FakeSandbox):
+        def start_scenario_run(self, scenario_id, mandate_id):
+            raise VisecaApiError(500, "Internal Server Error")
+
+    monkeypatch.setattr(stage, "live_configuration", lambda: ("https://sandbox.invalid", "k"))
+    monkeypatch.setattr("wallet_control.viseca_client.VisecaClient", Refusing)
+    r = client.post("/api/stage/sessions", json={"scenario_id": "SCEN0004", "mode": "live"})
+    assert r.status_code == 502 and "HTTP 500" in r.json()["detail"]
+    assert "Live mode unavailable" in client.get("/stage.html").text

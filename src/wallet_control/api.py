@@ -1313,7 +1313,10 @@ def stage_start(req: StageStart) -> dict[str, Any]:
         except PermissionError as exc:
             raise HTTPException(409, f"this instruction restricts in a way the wallet cannot enforce: {exc}") from exc
         except Exception as exc:  # noqa: BLE001 -- the platform refused or is unreachable
-            raise HTTPException(502, f"the Viseca sandbox could not start the run ({type(exc).__name__})") from exc
+            status = getattr(exc, "status_code", None)
+            why = (f"it answered HTTP {status}" if status else
+                   "it could not be reached" if status == 0 else type(exc).__name__)
+            raise HTTPException(502, f"the Viseca sandbox did not start the run: {why}") from exc
     else:
         raise HTTPException(400, "mode must be 'replay' or 'live'")
     _stage.register(session)
