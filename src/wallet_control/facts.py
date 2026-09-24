@@ -60,6 +60,16 @@ _MAX_PLAUSIBLE_RETURN_WINDOW_DAYS = 3650  # 10 years
 _INVISIBLE_CHARS_RE = re.compile("[​‌‍⁠﻿\xad]")
 
 
+# Merchant text is read inside the platform's 8-second decision deadline, and the
+# seller decides its length. Every pattern here is linear, but linear in a length the
+# seller picks: five lines of 4 MB took 11.6 s per decision (measured). Reading only
+# the first 16 KB bounds the work. Truncation can only make a fact UNKNOWN (a return
+# window stated past the cut is not read), never satisfy one; and a description this
+# long is itself reported to the customer below, so the cut cannot hide an attempt
+# in silence. An honest product description is a few hundred characters.
+_MAX_UNTRUSTED_CHARS = 16_384
+
+
 def _normalize_untrusted_text(text: str) -> str:
     """Normalize merchant-supplied text before running any whitelist pattern over
     it, so Unicode obfuscation (zero-width characters, fullwidth digit lookalikes,
@@ -67,7 +77,7 @@ def _normalize_untrusted_text(text: str) -> str:
     fact extraction. This does not make the text trusted -- it is still only ever
     read through the narrow patterns below -- it just makes "the pattern didn't
     match because of an invisible character" a non-issue in either direction."""
-    return _INVISIBLE_CHARS_RE.sub("", unicodedata.normalize("NFKC", text or ""))
+    return _INVISIBLE_CHARS_RE.sub("", unicodedata.normalize("NFKC", (text or "")[:_MAX_UNTRUSTED_CHARS]))
 
 
 def extract_return_window_days(item_details: str) -> int | None:
@@ -109,9 +119,11 @@ def extract_stated_size(item_details: str) -> str | None:
 # can see, observed and discarded, is the defect this repository keeps finding.
 _INJECTION_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
     ("it tells an automated buyer to ignore your instructions",
-     re.compile(r"\b(?:ignore|disregard|override)\b[^.;]{0,40}?"
+     re.compile(r"\b(?:ignor(?:e|es|ed|ing)|disregard\w*|overrid\w*)\b[^.;]{0,40}?"
                 r"\b(?:previous|prior|earlier|all|any)?\s*"
-                r"(?:instruction|spending|limit|polic|rule)", re.IGNORECASE)),
+                r"(?:instruction|spending|limit|polic|rule|preference|budget|setting)"
+                r"|\bprioriti[sz]e\b[^.;]{0,30}?\bover\s+(?:any|all|your|the)\s+(?:previously\s+set\s+)?"
+                r"(?:preferences|instructions|limits|settings|rules)", re.IGNORECASE)),
     ("it is addressed to an automated purchasing agent",
      re.compile(r"\b(?:note|message|instruction)s?\s+(?:for|to)\s+"
                 r"(?:automated|ai|purchasing|shopping)\b", re.IGNORECASE)),
@@ -126,6 +138,57 @@ _INJECTION_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
     ("it asks for approval without your confirmation",
      re.compile(r"\bapprove\b[^.;]{0,40}?\b(?:immediately|without\s+further|"
                 r"without\s+confirm|no\s+further\s+check)", re.IGNORECASE)),
+    # Added after a generated corpus of 144 seller attacks, of which the six shapes
+    # above noticed 16 (research/merchant_injection_corpus.py). None of the misses
+    # was OBEYED -- seller text never reaches a rule -- but the customer was not told a
+    # seller had tried. Each shape below is something honest product copy has no
+    # reason to say; the same file measures them against 185 honest descriptions.
+    ("it impersonates your wallet, bank or agent",
+     re.compile(r"(?:^|[.;!?()\[\]]\s*)(?:wallet|bank|payment\s+(?:system|processor|provider)|ai|agent|"
+                r"note\s+to\s+(?:ai|agents?|assistants?))\s*:", re.IGNORECASE)),
+    ("it claims your wallet or bank already approved this",
+     re.compile(r"\b(?:wallet|bank|card\s+issuer|payment\s+(?:system|provider|processor))\b[^.;]{0,40}?"
+                r"\b(?:has\s+|have\s+)?already\s+(?:been\s+)?(?:pre-?approved|approved|authori[sz]ed|cleared)",
+                re.IGNORECASE)),
+    ("it says your security checks are not needed",
+     re.compile(r"\b(?:security|verification|step[- ]?up|authentication|confirmation)\s+(?:checks?\s+|steps?\s+)?"
+                r"(?:(?:is|are|will)\s+)?(?:not\s+(?:be\s+)?(?:required|needed|necessary)|unnecessary|waived|skipped)"
+                r"|\bno\s+need\s+(?:for\s+(?:any\s+)?|to\s+)(?:confirm|verif|ask|check|approv|wait\s+for)"
+                r"|\b(?:skip|bypass)\w*\s+(?:\w+\s+){0,2}?(?:security|verification|confirmation|step[- ]?up|approval)"
+                r"|\bno\s+(?:need\s+for\s+)?(?:\w+[- ]?\w*\s+){0,2}?(?:security\s+checks?|verification\s+steps?|"
+                r"payment\s+verifications?|step[- ]?up\b)",
+                re.IGNORECASE)),
+    ("it claims you already confirmed this purchase",
+     re.compile(r"\bas\s+you\s+(?:already\s+)?(?:confirmed|approved|agreed)"
+                r"|\b(?:you|customer|cardholder)\s+(?:have\s+|has\s+)?already\s+(?:confirmed|approved|authori[sz]ed|agreed)"
+                r"|\b(?:confirmed|approved|authori[sz]ed)\s+(?:by\s+(?:the\s+)?(?:customer|cardholder)|"
+                r"(?:during|on|in|by)\s+(?:our|the|your)\s+(?:recent\s+)?(?:call|phone|email|chat))"
+                r"|\b(?:confirmed|finali[sz]ed|agreed)\s+(?:\w+\s+){0,3}?(?:by|with)\s+you\b"
+                r"|\bphone\s+confirmation\b|\bpre-?approved\s+order\b", re.IGNORECASE)),
+    ("it claims your budget was changed",
+     re.compile(r"\b(?:higher|increased|raised|updated|extended)\s+(?:spending\s+)?(?:limit|budget|allowance|cap)\b(?!-)"
+                r"|\byour\s+new\s+(?:spending\s+)?(?:limit|budget|allowance)\b(?!-)"
+                r"|\b(?:limit|budget|allowance|cap)\s+(?:has\s+been|was|is\s+now|have\s+been)\s+"
+                r"(?:raised|increased|updated|lifted|extended|removed)"
+                r"|\b(?:increas|rais)\w*\s+(?:your|their|the)\s+(?:spending\s+)?(?:limit|budget)"
+                r"|\bbudget\s+increase\b|\bnewly\s+(?:adjusted|increased|raised)\s+(?:budget|limit)", re.IGNORECASE)),
+    ("it tells an automated buyer to override your settings",
+     re.compile(r"\b(?:even\s+if|regardless\s+of|despite|irrespective\s+of)\s+(?:the\s+|any\s+|your\s+)?"
+                r"(?:customer'?s?\s+|cardholder'?s?\s+|user'?s?\s+)?(?:has\s+set\s+)?(?:spending\s+|previous\s+)?"
+                r"(?:limits?|instructions?|settings|rules|restrictions)\b", re.IGNORECASE)),
+    ("it hides text in markup",
+     re.compile(r"<!--|\[\[|\{\{|display\s*:\s*none", re.IGNORECASE)),
+    ("it is addressed to an automated purchasing agent",
+     re.compile(r"\b(?:ai|automated|autonomous)\s+(?:shopping\s+|purchasing\s+|buying\s+)?(?:agents?|buyers?|bots?)\b"
+                r"|\b(?:shopping|purchasing|buying)\s+(?:agents?|bots?)\b", re.IGNORECASE)),
+    ("it gives payment instructions in another language",
+     re.compile(r"\b(?:ignorier\w*|ignorez|ignora(?:re)?|missachte\w*)\b"
+                r"|\b(?:für\s+die\s+ki|pour\s+l'?ia|per\s+l'?ia)\b|\bohne\s+dass\s+der\s+(?:kunde|käufer)"
+                r"|\bsans\s+que\s+le\s+client|\bsenza\s+che\s+il\s+cliente"
+                r"|\b(?:secrètement|heimlich|unsichtbar|segretamente)\b"
+                r"|\b(?:genehmig\w*|approuve[rz]?|approva(?:re)?|autorisez|autorizza\w*)\b[^.;]{0,40}?"
+                r"\b(?:transaktion|zahlung|transaction|paiement|transazione|pagamento|achat|kauf|acquisto)",
+                re.IGNORECASE)),
 )
 
 
@@ -135,7 +198,10 @@ def instructions_to_a_machine(item_details: str) -> tuple[str, ...]:
     Returns descriptions of what was ATTEMPTED, never the text itself -- quoting an
     injection back into a customer-facing string would hand it a second audience."""
     text = _normalize_untrusted_text(item_details)
-    return tuple(label for label, pattern in _INJECTION_PATTERNS if pattern.search(text))
+    labels = tuple(label for label, pattern in _INJECTION_PATTERNS if pattern.search(text))
+    if len(item_details or "") > _MAX_UNTRUSTED_CHARS:
+        labels += ("its description is too long for the wallet to read in full",)
+    return labels
 
 
 @dataclass(frozen=True)

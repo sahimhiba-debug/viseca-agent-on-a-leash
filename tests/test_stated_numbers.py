@@ -165,6 +165,12 @@ SPLIT_SPELLINGS = (
     r"(\d{1,2})\s*allow\s*,\s*(\d{1,2})\s*(?:review|ask)\s*,\s*(\d{1,2})\s*block",
     r"'allow':\s*(\d{1,2}),\s*'review':\s*(\d{1,2}),\s*'block':\s*(\d{1,2})",
     r"allow:\s*(\d{1,2}),\s*review:\s*(\d{1,2}),\s*block:\s*(\d{1,2})",
+    # The markdown results table's total row. docs/OFFLINE_REPLAY.md stated 19/2/24
+    # this way for three boundary moves and no spelling above could read it.
+    r"\|\s*\*\*45\*\*\s*\|\s*\*\*(\d{1,2})\*\*\s*\|\s*\*\*(\d{1,2})\*\*\s*\|\s*\*\*(\d{1,2})\*\*\s*\|",
+    # The README's two-minute table: "12 allowed · 9 asked · 24 blocked". Added with
+    # the line, so the newest statement of the split is not the one the guard can't read.
+    r"(\d{1,2})\s*allowed\s*[·,/]\s*(\d{1,2})\s*asked\s*[·,/]\s*(\d{1,2})\s*blocked",
 )
 
 # What the guard must FIND, per document. A search that matches nothing passes every
@@ -172,8 +178,9 @@ SPLIT_SPELLINGS = (
 # a spelling this guard cannot read, the count drops and this fails LOUDLY rather than
 # going quietly blind. That is exactly how 19/2/24 survived in the audit package.
 EXPECTED_STATEMENTS = {
-    "README.md": 1,
-    "docs/BASELINE_CURRENT.md": 5,
+    "README.md": 3,
+    "docs/OFFLINE_REPLAY.md": 2,
+    "docs/BASELINE_CURRENT.md": 6,
     "docs/FINAL_AUDIT_PACKAGE.md": 6,
     "docs/THE_THESIS.md": 1,
 }
@@ -196,6 +203,7 @@ SNAPSHOT_MARKER = "<!-- snapshot -->"
 
 MAINTAINED_DOCS = (
     "README.md",
+    "docs/OFFLINE_REPLAY.md",
     "RUNBOOK.md",
     "docs/BASELINE_CURRENT.md",
     "docs/FINAL_AUDIT_PACKAGE.md",
@@ -318,6 +326,7 @@ def test_no_current_document_states_a_stale_replay_split():
     "official replay: 45 events — 19 allow, 2 review, 24 block",
     "TOTAL events: 45  {'allow': 19, 'review': 2, 'block': 24}",
     "Official engine (UNCHANGED): 45 events  {allow: 19, review: 2, block: 24}",
+    "| **Total** | **45** | **19** | **2** | **24** |",
 ])
 def test_the_stale_split_guard_actually_fires(spelling):
     """THE NEGATIVE CONTROL, and the reason this file exists in its current form.

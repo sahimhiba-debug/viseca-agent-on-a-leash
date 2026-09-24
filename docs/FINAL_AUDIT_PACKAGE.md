@@ -7,23 +7,24 @@ this repository, start here.
 | --- | --- |
 | commit | see `git log -1` on `main` |
 | branch | all work is on `main`. Earlier revisions of this page said `main` was untouched at `1aa3bac` and that the work lived on `rnd/productization`; that branch is gone and the statement was false by the time you read it |
-| tests | 1844 collected, 5 reported skips (6 in a fresh clone — one needs the organisers' example fixture, which is in their repo, not ours) |
-| official replay | **45 events — 17 allow / 4 review / 24 block**. THIS PAGE SAID 19/2/24 FOR TWO BOUNDARY MOVES: see "The number on this page was wrong" below |
+| tests | 2006 collected, 5 reported skips (6 in a fresh clone — one needs the organisers' example fixture, which is in their repo, not ours) |
+| official replay | **45 events — 12 allow / 9 review / 24 block**. THIS PAGE SAID 19/2/24 FOR TWO BOUNDARY MOVES: see "The number on this page was wrong" below |
 | runtime | 5,112 code lines across 27 modules — 9,986 with the comments, which carry most of the reasoning · research apparatus separated into `research/` |
 | dependencies | 4 runtime (fastapi, uvicorn, httpx, pydantic), 3 dev |
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
-python3 -m pytest -q                      # 1844 collected
-python3 scripts/run_replay.py             # 45 / 17 / 4 / 24
+python3 -m pytest -q                      # 2006 collected
+python3 scripts/run_replay.py             # 45 / 12 / 9 / 24
 python3 scripts/run_red_team_corpus.py    # 133/133
 python3 scripts/run_red_team.py           # 17/17
-python3 scripts/run_mutation_probe.py     # 41 mutants, 41 killed — breaks the core on purpose
+python3 scripts/run_mutation_probe.py     # 45 mutants, 45 killed — breaks the core on purpose
 uvicorn wallet_control.api:app --port 8420
 ```
 
 ## The number on this page was wrong
 
+<!-- superseded -->
 The replay split is the headline result of this project, and until this commit the
 table above stated **19 allow / 2 review / 24 block** while the engine produced
 **17 allow / 4 review / 24 block**. Two defects were fixed, each moved one event from
@@ -88,6 +89,15 @@ Ranked by where I think you are most likely to find something:
    mandate, and (b) the rules used by the offline replay, which means **the whole
    replay split is conditional on our own reading of five English sentences.** Attack the parse:
    find an instruction whose compiled rules a reasonable customer would reject.
+   The last attack found two silent losses: Swiss amount spellings ("max 400 francs",
+   "400.-", "1'200 CHF") compiled no ceiling and warned nobody, and French/German/Italian
+   restrictions were dropped without a word. Amounts are now normalised; other
+   languages are **detected and named back, not read** -- the compiler is English-only
+   (`tests/security/test_compiler_languages_and_currency.py`).
+   A generated corpus (840 instructions, meaning drawn in code before a model phrased
+   them) then found the weekly-budget inversion back through three spellings
+   ("within any seven-day period", "40 CHF weekly", "CHF 120/month"). The last blind
+   measurement lost 3 of 200 silently before its fix (`docs/GENERATED_CORPUS.md`).
 8. **Evidence semantics.** I audited 13 absent/inapplicable/conflicting cases and fixed
    two. A rule field added later would default to the wrong side; only the monotonicity
    fuzz would catch it.
@@ -101,7 +111,7 @@ Ranked by where I think you are most likely to find something:
 | Merchant text can only narrow | find text that widens a rule or raises a ceiling |
 | Revocation reaches a pending step-up | find a path that mints authority after `_revoked_at` |
 | The decision path is atomic in one process | widen a different race window than the one I widened |
-| The test suite is not theatre | `python3 scripts/run_mutation_probe.py` breaks 39 security mechanisms one at a time and every one is caught. It is a targeted probe, not exhaustive — **find a mechanism I did not think to mutate.** It found one real gap on its first run (the rolling window's start boundary was unpinned) |
+| The test suite is not theatre | `python3 scripts/run_mutation_probe.py` breaks 45 security mechanisms one at a time and every one is caught. It is a targeted probe, not exhaustive — **find a mechanism I did not think to mutate.** It found one real gap on its first run (the rolling window's start boundary was unpinned) |
 | Deleting a required field never helps an attacker | find a required field whose omission is more permissive than its strictest legal value |
 | Every invariant in `FINAL_INVARIANTS.md` cites a real test | `test_every_test_the_register_cites_exists` — the register is machine-checked, so attack the MAPPING instead: find an invariant whose cited test does not actually exercise it |
 | The 8s deadline is never at risk | measured, not assumed: EXACTLY quadratic in a run's approved purchases — ms/n² is flat at ~63e-6 once you remove window saturation — crossing 8,000 ms at **n ≈ 11,200 worst case**, against an official max of 12. This number took three passes and two of them were wrong (`tests/test_scale_limits.py` documents both). **Find a workload where n is large, or where the cost is worse than quadratic.** Find a workload where n is large or the cost is worse than quadratic (`tests/test_scale_limits.py`) |

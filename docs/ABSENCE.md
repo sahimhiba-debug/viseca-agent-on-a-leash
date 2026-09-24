@@ -95,6 +95,7 @@ INVENTED id, labelled groceries           ALLOW
 NO id at all, labelled groceries          ALLOW
 ```
 
+<!-- superseded -->
 The fix is scoped, not global: an unidentifiable item is `unknown` only where the
 mandate actually constrains the kind of goods, and `unknown` goes to the customer's
 own `uncertainty_policy`, never to `fail`. On the official pack it costs nothing
@@ -293,6 +294,7 @@ that "the defense must not overcorrect into blind suspicion". The worry was righ
 the conclusion was not; that test now asserts the invariant that actually matters —
 merchant text can only narrow — and says why it changed.
 
+<!-- superseded -->
 **Replay: 18/3/24 → 17/4/24.**
 
 ## The tenth was approving money while writing the evidence against itself

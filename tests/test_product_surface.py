@@ -257,7 +257,7 @@ def test_health_reports_the_regression_boundary(client):
     body = client.get("/api/health").json()
     assert body["status"] == "ok"
     replay = body["official_replay"]
-    assert (replay["events"], replay["allow"], replay["review"], replay["block"]) == (45, 17, 4, 24)
+    assert (replay["events"], replay["allow"], replay["review"], replay["block"]) == (45, 12, 9, 24)
     assert replay["matches_regression_boundary"] is True
 
 
@@ -281,7 +281,7 @@ def test_demo_reset_clears_runs_without_touching_official_data(client):
     client.post("/api/scenarios/SCEN0000/run")
     assert client.post("/api/demo/reset").json()["cleared_runs"] >= 1
     assert client.get("/api/health").json()["active_runs"] == 0
-    assert replay_all().total_counts() == {"allow": 17, "review": 4, "block": 24}
+    assert replay_all().total_counts() == {"allow": 12, "review": 9, "block": 24}
 
 
 # --- the ledger records WHY, not only what ----------------------------------------

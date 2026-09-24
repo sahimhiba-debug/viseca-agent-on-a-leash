@@ -144,7 +144,7 @@
   .muted { color:var(--ink2); font-size:14px; margin:0 0 8px; }
   .tiny { color:var(--ink3); font-size:12px; }
 
-  button.act {
+  button.act, a.act {
     width:100%; min-height:var(--tap); border:none; border-radius:11px; cursor:pointer;
     font:inherit; font-size:15.5px; font-weight:700; padding:12px 16px; margin-top:8px;
   }
@@ -291,7 +291,10 @@
       <h1>Agent on a Leash</h1>
       <p class="sub">The agent is autonomous. The authority is not.</p>
     </div>
-    <div class="health" id="health"><span class="dot"></span><span>checking</span></div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <a href="/stage.html" style="font-weight:600;font-size:13px;line-height:1;background:#F69F29;color:#000913;padding:8px 12px;border-radius:6px;text-decoration:none">Open the demo</a>
+      <div class="health" id="health"><span class="dot"></span><span>checking</span></div>
+    </div>
   </div>
 </div>
 
@@ -309,10 +312,13 @@
 <!-- ========== HOME ========== -->
 <section class="panel on" id="p-home">
   <div class="card">
-    <p class="lede">Your agent can shop for you — without holding your payment authority.</p>
-    <p class="lede2">A spending limit asks <b>how much</b>.<br>This asks <b>what for</b>.</p>
-    <p class="muted">It proposes purchases. It never decides whether money moves. This wallet
-      decides, from rules built out of your own words, and tells you why.</p>
+    <p class="lede">The authorisation layer for autonomous commerce.</p>
+    <p class="lede2">The agent shops.<br>The wallet decides.</p>
+    <p class="muted" style="margin:6px 0 14px">A spending limit asks <b>how much</b>. This asks <b>what for</b>.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <a class="act b-dark" href="/stage.html" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">Open the demo</a>
+      <button class="act b-ghost" onclick="go('delegate')">Try your own sentence</button>
+    </div>
   </div>
 
   <div class="card">
@@ -470,7 +476,7 @@
       to send, and the real rule will answer — the same function the build runs.</p>
     <div class="row2" style="margin-bottom:8px">
       <input id="af-name" placeholder="e.g. max_amount" value="max_amount"
-             style="font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:11px;min-height:var(--tap)">
+             style="flex:1 1 auto;min-width:0;font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:11px;min-height:var(--tap)">
       <select id="af-author" style="flex:0 0 132px">
         <option value="agent">by the agent</option>
         <option value="customer">by the customer</option>
@@ -1436,6 +1442,7 @@ const UNSURE_TEXT = {
   'item.size':'The seller did not state the size.',
   'merchant.familiar':'The wallet has no purchase history to check this seller against.',
   'session.integrity_risk':'Something about this session could not be verified.',
+  'order.errand_already_fulfilled':'This errand was already bought once, and the wallet cannot tell whether you want another.',
 };
 const RULE_TEXT = {
   'authorization.billing_amount_chf':'The amount is above your limit',
@@ -1448,6 +1455,7 @@ const RULE_TEXT = {
   'item.size':'The size is not the one you asked for',
   'session.integrity_risk':'Something about this session looks wrong',
   'order.duplicate_suspected':'This looks like the same order again',
+  'order.errand_already_fulfilled':'This order is for more than the one thing you asked for',
   'authorization.amount_integrity':'The stated CHF amount does not match the currency conversion',
   'authorization.authority_status':'The authority behind this purchase is no longer active',
   'authorization.card_status_at_attempt':'The card is blocked',

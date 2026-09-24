@@ -76,22 +76,15 @@ def test_no_paraphrase_changes_what_the_customer_delegated(rows):
     assert broken == [], broken
 
 
-def test_the_compiler_is_blind_in_exactly_one_declared_place(rows):
-    """And that place is a limit of the RULE FORMAT, disclosed rather than hidden.
+def test_the_compiler_is_blind_nowhere(rows):
+    """It used to be blind in exactly one declared place: "buy one grocery item" and
+    "buy twenty" compiled to the same policy, on the reading that the rule format
+    could not express a quantity. ONE is now a one-off errand rule, so the two
+    compile differently (twenty is still disclosed as not enforced).
 
-    "Buy one grocery item" and "buy twenty" compile to the same policy because the
-    official format has no quantity field. Both produce an `unsupported_restrictions`
-    entry telling the customer that part of their instruction is not enforced and to
-    revoke when done, and that entry blocks automatic confirmation.
-
-    Asserted as an exact count so that a second blind spot cannot appear unnoticed."""
+    Asserted as an exact count so that a blind spot cannot appear unnoticed."""
     blind = [r for r in rows if r["failure"] == "false equivalence"]
-    assert len(blind) == 1, [(r["relation"], r["variant"][:70]) for r in blind]
-    assert "items" in blind[0]["variant"] or "item" in blind[0]["variant"]
-
-    from wallet_control.policy_compiler import compile_instruction
-    assert compile_instruction(blind[0]["variant"]).unsupported_restrictions, (
-        "a distinction the compiler cannot make must at least be one it admits to")
+    assert blind == [], [(r["relation"], r["variant"][:70]) for r in blind]
 
 
 def test_no_reworded_instruction_is_enforced_in_the_wrong_direction(rows):

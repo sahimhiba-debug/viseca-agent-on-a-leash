@@ -53,17 +53,28 @@ The long-form versions are in `FINAL_JURY_AUDIT.md`.
 > catches unusable answers and that one is merely wrong."
 
 *Evidence:* `research/architecture_comparison.py`.
-*Limitation:* those are stubs. No API was called; we did not benchmark an LLM.
+*Then measured for real:* on our 11-episode benchmark, six runs each, Apertus 1.5 70B and
+gpt-4.1-mini both scored 7-8/11 on their own (9-10 with the search as fallback), against
+11/11 for the search. The run-to-run variance is larger than the gap between them, so we
+do not rank them. Neither, nor a deliberately hostile brain, got a purchase approved that
+breaks the customer's sentence (`docs/REAL_MODEL_PLANNER.md`).
+*Limitation:* eleven episodes and one untuned prompt. That is a sample, not a verdict on models.
 
 ---
 
 **5 · Isn't this just a policy engine?**
-> "A policy engine answers 'does this match the rules'. There's one decision in the
-> official data where every rule the customer wrote passed and the wallet stopped it
-> anyway. A policy engine can't produce that — the policy said yes."
+> "A policy engine answers 'does this match the rules'. Ours also runs checks the
+> customer never wrote — the same order twice, a seller writing instructions to the
+> AI, the platform saying the card or mandate is dead — and reports them apart from
+> the customer's own rules. When every rule they wrote passes and one of those fires,
+> the wallet still asks. A policy engine can't: the policy said yes."
 
-*Evidence:* `GET /api/scenarios/security-override` → SCEN0004/AU0036.
-*Limitation:* the policy half genuinely is a simple rules engine.
+*Evidence:* `tests/security/test_verdict_split.py::test_a_safety_check_alone_can_escalate_a_policy_clean_purchase`;
+on the stage, AU0040 shows the seller's instruction struck through beside the
+customer's own reason.
+*Limitation:* in the official data both such cases (AU0036, AU0040) are also repeats
+of a one-off errand, so the customer's own rule asks too; the policy-clean case is
+constructed. The policy half genuinely is a simple rules engine.
 
 ---
 
@@ -204,6 +215,21 @@ we'd change.
 > Understanding intent. Formal proof of anything."
 
 *This is the strongest card. Play it before being asked.*
+
+---
+
+**21 · The agent bought the same monitor four times. Isn't that a failure?**
+> "It was, and we found it on our own flagship scenario. 'The monitor I chose' is
+> one monitor, and nothing represented ONE. Now the first matching purchase goes
+> through and every further one is a question — not a refusal, because the wallet
+> cannot see whether the first order arrived, was cancelled or went back. More than
+> one unit in a single order is refused outright."
+
+*Evidence:* official replay SCEN0004 — AU0035 approved, AU0036/38/40/42/45 put to the
+customer; `tests/security/test_one_off_errand.py` (24 attacks, 4/4 mutants killed);
+run live on the Viseca sandbox with the same result.
+*Limitation:* the ledger is per run. A second run of the same mandate starts without
+knowing the first bought anything; the platform gives no cross-run history to check.
 
 ---
 

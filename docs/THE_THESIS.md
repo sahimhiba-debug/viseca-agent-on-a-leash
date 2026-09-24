@@ -503,9 +503,9 @@ with what each now has to prove before its passes count:
 ## The numbers, all checkable
 
 ```
-official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
-tests                1,789 passed · 5 reported skips
-mutation             41 mutants applied · 41 killed · 0 survived
+official replay      45 events · 12 allow / 9 ask / 24 block · byte-identical ×3
+tests                2,006 collected · 5 reported skips
+mutation             45 mutants applied · 45 killed · 0 survived
 adversarial corpus   133 / 133 held
 planning benchmark   11 / 11   (pre-registered baseline 5/11)
 intent corpus        90% recognised · 0 silently lost · 0 misinterpreted

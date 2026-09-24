@@ -78,6 +78,8 @@ DECLARED_OPTIONAL = {
     ("live_worker.py", "__init__", "trust_echoed_policy"):
         "the explicit opt-out itself; naming it IS the safeguard",
     ("live_worker.py", "__init__", "checkpoint_dir"): "durability, not authority",
+    ("live_worker.py", "__init__", "on_decision"): "display callback, runs after the decision is delivered",
+    ("stage.py", "leash_field", "familiar"): "explanation only; the stage's own decisions go through the engine",
 }
 
 SECURITY_WORDS = ("revok", "consume", "authorit", "spend", "window", "period",

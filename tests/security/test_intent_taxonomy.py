@@ -92,4 +92,4 @@ def test_the_widened_vocabulary_did_not_move_the_official_replay():
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run([sys.executable, str(root / "scripts" / "run_replay.py")],
                             capture_output=True, text=True, cwd=root)
-    assert "{'allow': 17, 'review': 4, 'block': 24}" in result.stdout, result.stdout[-400:]
+    assert "{'allow': 12, 'review': 9, 'block': 24}" in result.stdout, result.stdout[-400:]

@@ -1,5 +1,8 @@
 # Research log — 22 September 2026
 
+<!-- snapshot -->
+> **SNAPSHOT — not maintained.** Figures below were measured when this was written; the official replay split has moved since (see `docs/BASELINE_CURRENT.md`).
+
 Twenty-seven commits on `rnd/productization`. `main` untouched at `1aa3bac`.
 
 > **Phase 2 changed the method.** Everything in phase 1 came from abstractions we

@@ -1,0 +1,3209 @@
+{
+ "generator": "gpt-4.1",
+ "prompt_version": 1,
+ "seed": 4242,
+ "style": "Write it as a chatty, slightly rambling message with some irrelevant context (who it is for, why), the way a real customer might explain it to a new assistant.",
+ "prompt": "You write test data for a payment wallet. Phrase the facts below as ONE instruction a\ncustomer would type to their shopping agent, in {language}. Keep EVERY fact, including the\nexact amount and its notation \"{notation_example}\". Do not add restrictions that are not listed.\n{style}\n\nFacts: {facts}\n\nReply with the instruction only.",
+ "entries": [
+  {
+   "spec": {
+    "id": "G0000",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Ciao! Allora, mi servirebbero delle scarpe da corsa su strada – sì, proprio quelle che ho già scelto personalmente, quindi è solo un acquisto singolo e non voglio abbonamenti o altro. Devono costare meno di CHF 120 al mese, importantissimo! Ah, solo da un negozio dove ho già comprato qualcosa in passato, per sicurezza mi fido solo di quelli. Poi, vorrei poterle restituire almeno entro 30 giorni, nel caso non vadano bene. Se c’è qualche dubbio o qualcosa non ti torna, meglio lasciar perdere, grazie. Le sto prendendo perché mio fratello inizia a correre con me e vorrei fargli una sorpresa!"
+  },
+  {
+   "spec": {
+    "id": "G0001",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey there! So, I need to get some household groceries (stuff for my family, just the usual things), and I want to make sure you don't spend more than 400 CHF total—so that's my absolute max for this. Oh, and please don't include any final-sale items, because I don't want to be stuck with something I can’t return if it’s wrong. By the way, this is gonna be a weekly thing, so just plan on doing this every week for me. If you’re ever unsure about something, just go ahead and approve it rather than asking me every time—thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0002",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi! So I’m looking to get a 27-inch monitor, it’s actually for my home office because my old one finally stopped working, and my eyes are tired of squinting. Just make sure you don’t go over 120.- per week when you’re looking for options—that’s all I’ve got to spend for now. Oh, and it has to be refundable, just in case it doesn’t fit on my desk or something. If you’re not sure about any of this, just let me know rather than guessing or going ahead. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0003",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! Could you please buy household groceries for me? It's for the family, you know, just the usual things we need each week. Try not to spend more than 150.- total in any seven-day period, that's my budget for now. Oh, and very important, anything you buy must be refundable just in case I change my mind or something's not right. This is a recurring thing, so go ahead and place this order every week. If you're ever unsure about anything, just approve it—I trust your judgment! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0004",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, could you please buy me some road-running shoes? It’s for my marathon training, so I’ll need a new pair every week (yes, I go through them fast!). Make sure not to spend more than 400.- each week, that’s my absolute cap. Please only get them from shops I’ve already shopped at before, since I trust them—and make sure whatever you pick is refundable in case they don’t fit right or something. If you’re ever not sure about any of this, just don’t order that week, better safe than sorry! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0005",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey, so could you please buy household groceries for me? I don’t want to spend more than 400.- in total this week—actually, let’s keep it at that as a hard limit each week. Only get stuff from shops I’ve shopped at before, just so I don’t have any surprises. Also, everything should be returnable for at least 30 days, in case something’s not right or I change my mind. This is going to be a recurring weekly order, by the way, so just keep it going every week! And hey, if you’re ever not sure about something, just ask me first. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0006",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey! So, c’est pour mon frère, il veut des chaussures de course sur route, et j’ai déjà choisi le modèle, donc c’est juste une seule paire à acheter cette fois. Please make sure tu ne dépenses pas plus de 400 Swiss francs ce mois-ci, ok? Il faut absolument acheter dans un magasin où j’ai déjà acheté avant (je préfère rester avec ceux que je connais, tu vois?), et je veux que ce soit possible de les retourner dans les 14 jours au cas où il change d’avis. If ever you’re not sure about something, better to decline, pas de risques inutiles. Merci beaucoup!"
+  },
+  {
+   "spec": {
+    "id": "G0007",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! So I’m looking to buy some road-running shoes this week—it’s actually a gift for my sister, she just got into jogging (finally!). Anyway, please make sure you don’t spend over 1'200 for the week, and I’ll feel better if the shoes can be returned for at least 30 days just in case she doesn’t like the color or something. If you’re ever not sure about anything, just go ahead and approve it. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0008",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! I need to get a pair of road-running shoes—it’s just a one-time thing because I finally picked out the exact model I want. It’s for me, by the way, since I’ve started jogging again (wish me luck!). Please make sure the total comes to no more than 40.-, and only buy from one of the shops I’ve already used before, since I trust them and don’t want to try somewhere new for this. Also, skip any final-sale items—I don’t want to risk being stuck if something’s off. If you’re not sure about anything, just go ahead and approve it. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0009",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "under",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Coucou ! Peux-tu s’il te plaît trouver et acheter des chaussures de course sur route ? C’est pour mon cousin qui s’est mis au jogging (il veut battre son propre record !), donc il lui faudrait une bonne paire, mais fais attention à ne pas dépasser 1'200 Swiss francs par semaine, c’est important vu notre budget vacances… Ah, et je veux absolument pouvoir les retourner pendant au moins 30 jours au cas où la taille ne va pas ou s’il change d’avis. Si tu as un doute sur quoi choisir, préfère ne rien acheter, c’est mieux comme ça. Merci beaucoup !"
+  },
+  {
+   "spec": {
+    "id": "G0010",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi! I’m looking to get a 27-inch monitor—this is for my home office setup, since I’ve been working a lot from home lately and my old screen just isn’t cutting it anymore. Please make sure you don’t go over 400.- per week for the purchase, since I want to keep my payments manageable, but if you find something that’s close, that’s fine too. Also, try to avoid any final-sale items since I want the chance to return or exchange it if it doesn’t work out. If you’re ever not sure which to pick, just go ahead and approve whichever seems best to you. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0011",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! Could you please help me buy some road-running shoes? They're for my brother's birthday coming up – he’s really into fitness these days and I thought this would be a nice surprise. Just make sure not to spend more than 40 in total, okay? Also, please only look at shops I’ve used before, just to be safe. It’s important that whatever you pick can be returned for at least 30 days, since he’s picky about fit. If there’s anything you’re not sure about, just check with me before you buy. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0012",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! Could you please help me buy a 27-inch monitor? It’s just for my home office setup, finally upgrading! I’ve actually already picked the specific one I want, so there’s no need to shop around, just grab that one. Important: please make sure not to spend more than CHF 40 total on the order—it’s kind of a strict budget for me right now. Also, I need to be able to return it within 14 days, just in case something’s wrong or I change my mind. This is a one-time thing, only need a single monitor. If you’re not 100% sure about any of this, just let me know instead of guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0013",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! Could you please buy a winter jacket for me? I’ve already picked out the one I want, so this is just a one-time thing. It’s actually for my brother, he’s always cold in winter! Anyway, just make sure not to spend more than 120.- this week on it—I really want to keep things on budget. Oh, and please only get it from a shop I’ve shopped at before, and double-check that it’s refundable just in case it doesn’t fit him. If you’re not sure about any of that, I’d rather you skip it and let me know. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0014",
+    "amount": 150,
+    "notation": "CHF {n}",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So, I need to get a 27-inch monitor for my home office (it’s for my partner, she’s been complaining about her tiny screen and I promised I’d sort it out this week). I’ve already picked out the exact one I want, so it’s just a single, one-time purchase—no need to look for options or compare models or anything like that. The main thing is, please make sure it costs below CHF 150 (that’s my weekly spending limit right now), and it has to be refundable just in case it doesn’t work out or she changes her mind. If you’re not sure about any part, just go ahead and approve it anyway—better to err on the side of getting it done! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0015",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, could you please buy household groceries for me? It's just a one-time thing, and I've already picked out the exact item I want, so you don't need to choose anything—just grab that. Oh, and make sure you keep the total under CHF 120 across any seven days, since I'm keeping an eye on my budget this week. If you're not sure about anything, just decline—I'd rather we skip it than mess something up. Thanks! This is for my parents visiting, so I want to get it right."
+  },
+  {
+   "spec": {
+    "id": "G0016",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hallo, könntest du mir bitte einen 27-Zoll-Monitor kaufen? Es ist für meinen Bruder, weil er gerade angefangen hat, von zu Hause aus zu arbeiten und sein alter Bildschirm echt klein ist. Ach ja, bitte achte darauf, dass das Ganze nicht mehr als 1'200 pro Woche kostet – das ist sozusagen mein Limit derzeit. Und was mir ganz wichtig ist: Der Monitor sollte auf jeden Fall rückerstattbar sein, falls irgendwas nicht passt oder meinem Bruder doch nicht gefällt. Wenn du dir bei irgendwas unsicher bist, dann lieber ablehnen, bevor später ein Problem entsteht. Vielen Dank!"
+  },
+  {
+   "spec": {
+    "id": "G0017",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Coucou, alors j’aimerais que tu m’achètes un écran 27 pouces, c’est pour mon bureau à la maison parce que je commence à avoir mal aux yeux sur mon petit écran d’ordinateur portable ! Par contre, essaie de ne pas dépasser CHF 400 par semaine, c’est un peu la limite que je me suis fixée pour mes achats. Aussi, c’est super important qu’il puisse être retourné pendant au moins 30 jours, au cas où il ne me conviendrait pas ou si je change d’avis. Et si jamais t’es pas sûr entre deux modèles ou s’il y a un doute, vas-y, approuve quand même, je te fais confiance ! Merci beaucoup !"
+  },
+  {
+   "spec": {
+    "id": "G0018",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hi, könntest du bitte für mich Haushaltslebensmittel besorgen? Es geht um einen einmaligen Einkauf von einem bestimmten Produkt, das ich schon ausgesucht habe (ich sag dir gleich welches genau, falls du es brauchst). Bitte kauf das nur in einem Laden, bei dem ich schon mal eingekauft habe – du weißt ja, neue Shops machen mich immer etwas nervös. Wichtig ist auch, dass ich im Monat nicht mehr als Fr. 150 dafür ausgebe, also bleib bitte darunter. Und falls du dir bei irgendwas nicht sicher bist, frag bitte einfach nochmal nach. Ach so, Rückgabe sollte für mindestens 30 Tage möglich sein, falls mit dem Artikel mal was nicht stimmt. Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0019",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Coucou, pourrais-tu m’acheter une veste d’hiver chaque semaine s’il te plaît ? C’est pour mon cousin qui vient d’emménager dans une région très froide, donc il en aura souvent besoin. Fais attention à ne pas dépasser 400 francs par semaine pour l’achat (c’est important pour mon budget !), et assure-toi que la veste puisse être retournée dans les 14 jours au cas où ça n’irait pas – il est un peu difficile sur les couleurs. Si jamais tu n’es pas sûr·e de quoi que ce soit, vas-y, approuve quand même, on verra après. Merci beaucoup !"
+  },
+  {
+   "spec": {
+    "id": "G0020",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey, so I'm looking to pick up this 27-inch monitor I already picked out, it's just for my home office—I think it’ll really help with my spreadsheets and stuff. Just make sure you only grab it from a shop I’ve used before (I’m weirdly picky about that!), and the price per order definitely shouldn’t go over 120.-. Oh, and it has to be returnable within 14 days, just in case it turns out I don’t like the thing or it doesn’t fit on my desk. This is just a one-time deal, just the one monitor, and if you’re not totally sure about anything, go ahead and approve it anyway, I trust your judgment!"
+  },
+  {
+   "spec": {
+    "id": "G0021",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So, I’m looking to get a winter jacket—I want it for my dad, he’s always cold and keeps complaining about his old one. Anyway, can you buy one for me? Just make sure it’s not one of those final-sale things, since I like to have the option to exchange if it doesn’t fit him or whatever. Oh, and please don’t spend more than 40 Swiss francs per month on this (I’m kind of budgeting right now). Also, this is something I’d like to order every week for a while—long story, but I’ve got a few people in the family who need jackets. If you’re ever unsure about something, just go ahead and approve it. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0022",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, I need a favor—could you help me find a winter jacket? It’s for me, I lost my old one and it’s getting pretty chilly! Please only look at shops I’ve bought from before, since I trust them more. Make sure the total per order doesn’t go over CHF 40—I’m on a tight budget at the moment. Oh, and I’d feel safer if it can be returned within 14 days, just in case it doesn’t fit right or something. If you’re not sure about any of this, just don’t go through with it. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0023",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Ciao! Allora, ogni settimana vorrei comprare delle scarpe da corsa su strada, ma mi raccomando: non spendere più di Fr. 40 a settimana, ok? È una cosa ricorrente, quindi lo faremo proprio ogni settimana. Ah, importantissimo: scegli solo quelle che si possono rimborsare, non si sa mai che cambino idea o che il modello non piaccia a mio marito (in realtà sono per lui, ma non dirglielo! 😉). Se hai qualche dubbio su tutto questo, chiedimi pure senza problemi!"
+  },
+  {
+   "spec": {
+    "id": "G0024",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! I need you to help me buy some road-running shoes—these are for my cousin’s birthday since he’s started jogging lately and I already picked out the ones I want. Please make sure not to go over Fr. 1'200 for the order, and don’t buy anything that’s final-sale because I just want the regular option in case something’s wrong. It’s just this one pair, nothing else. If you’re not quite sure about any part of this or something seems off with the listing, just decline the purchase, okay? Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0025",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey there! So, could you please buy that winter jacket I picked out (it's just one, and it's a one-time thing) for me? It's for myself because I really need something warmer for the season, but please only get it from a shop I’ve bought from before — I like to stick with places I know. Oh, and make absolutely sure the total doesn’t go over 120 Swiss francs for this month. If you’re not completely sure about anything, like the shop or the price, just decline the whole thing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0026",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi, could you please sort out our household groceries for me? I need this done every week, and it’s for my family so it’s a regular thing—I just get too busy to shop myself. The total should stay below Fr. 1’200 per month (I really don’t want to go over that), and please only order from shops I’ve already bought from before—I like to stick to what I know. If you’re ever not sure about what to buy or where, just decline and let me know, rather than guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0027",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey there! Could you please get me those road-running shoes I picked out? They’re for my morning jogs – I’m trying to get back in shape! I want to make this a one-time purchase (just that single pair), and please only buy from a store I’ve bought from before because I trust them. The total shouldn't go over CHF 400 for this month (I’m watching my budget!). Oh, and make sure they can be returned for a minimum of 30 days, just in case they don’t fit right. If you’re not sure about something, go ahead and approve it anyway. Thanks a ton!"
+  },
+  {
+   "spec": {
+    "id": "G0028",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi! Could you please help me out by buying the usual household groceries for me? It’s for my family, and I’d like to keep things simple this month. Just make sure the total doesn’t go over 150 francs per month, I’m trying to stick to a budget these days! Oh, and only get them from a shop I’ve bought from before—I trust those places. I want this to happen every week automatically. If you’re ever not sure about something, just go ahead and approve it, no worries. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0029",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! So I need to get some new road-running shoes—it’s for me, just trying to get back into jogging and my old ones are falling apart. I’ve already picked out the exact pair I want, and it should just be this one-time thing. Can you please buy them for me, but only if the total is capped at 40 CHF? Oh, and make sure you order from a shop I’ve used before; I feel safer that way! Also, I want to be able to return them within 14 days just in case they don’t fit or whatever. If you’re not sure about anything, just check with me first, okay? Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0030",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hey, ich brauche bitte eine neue Winterjacke – es ist langsam wirklich kalt draußen! Könntest du bitte eine für mich finden und bestellen? Wichtig ist, dass die Bestellung pro Auftrag unter 1'200.- bleibt, weil ich nicht so viel auf einmal ausgeben will. Ist eigentlich für meinen Bruder, der zieht jetzt nach Hamburg und friert schnell, deswegen wäre das toll, wenn du dich drum kümmerst. Ach, und falls du dir mal unsicher bist oder so, dann lehne lieber erstmal ab, bevor du etwas Falsches kaufst. Danke dir schon mal!"
+  },
+  {
+   "spec": {
+    "id": "G0031",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey there! So, I need you to buy household groceries for me—it's just the usual stuff I get for my family each week, nothing fancy, but, you know, for everyone at home. Please make sure to only get them from shops where I’ve already shopped before, just so I know I can trust them. Also, only buy if I can get a refund if something goes wrong or I change my mind—returns are important to me. The budget is up to CHF 1'200 per week, but don't go over that, please! And this is something I’ll want you to do every single week moving forward, so just keep it recurring. Oh, and if you’re ever not totally sure about any part of the order or something seems off, just decline it"
+  },
+  {
+   "spec": {
+    "id": "G0032",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi, could you please help me buy a winter jacket? It's actually for my nephew who keeps losing his jackets at school, so I’m hoping to get something affordable (but nice if possible). Please make sure to spend up to 40 francs in total for each one – that's my max budget. Oh, and it's important that the jacket can be returned within 14 days just in case it doesn't fit him or he changes his mind. I’d like this to be a recurring order every week (he really does lose things that often, sadly!), so go ahead and set it up like that. If you’re ever unsure about anything, just ask me. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0033",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hi, ich bräuchte bitte eine Winterjacke, die ich mir schon ausgesucht habe – ist nur dieses eine Teil, also ein einmaliger Kauf. Sie sollte auf jeden Fall maximal 120.- kosten pro Bestellung, mehr möchte ich nicht ausgeben. Ach ja, wichtig ist mir auch, dass ich sie innerhalb von 14 Tagen zurückgeben kann, falls sie doch nicht passt oder gefällt. Falls du dir bei irgendwas nicht sicher bist oder etwas unklar ist, dann bestell lieber nicht, ich will da kein Risiko eingehen. Ist übrigens für mich selbst, weil ich dringend was Warmes brauche! Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0034",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hallo, könntest du mir bitte einen 27-Zoll-Monitor kaufen? Das ist ein einmaliger Kauf für mich selbst, ich habe das Modell schon ausgesucht. Bitte achte darauf, dass der Bestellwert bei maximal 150 francs pro Bestellung liegt, mehr möchte ich nicht ausgeben. Wichtig ist mir auch, dass der Monitor auch zurückgegeben werden kann, falls was nicht passt. Falls du unsicher bist oder noch Fragen hast, sag mir einfach Bescheid! Danke dir schon mal!"
+  },
+  {
+   "spec": {
+    "id": "G0035",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hallo, ich bräuchte bitte neue Laufschuhe fürs Straßenlaufen – es ist ein Geschenk für meinen Bruder, weil seine alten jetzt echt hinüber sind. Ich habe mir das Modell schon ausgesucht, also bitte nur dieses eine Paar kaufen, und es ist wirklich nur dieser einmalige Kauf, kein Abo oder so. Wichtig: Gib bitte insgesamt weniger als CHF 40 dafür aus, gerechnet über jede beliebige Woche (also falls das relevant ist mit dem Betrag). Kauf die Schuhe auch bitte nur in einem Shop, in dem ich schon mal eingekauft habe – keine Experimente mit neuen Läden! Und ich will sie zurückgeben können, falls sie doch nicht passen oder gefallen, also nur mit Rückgabemöglichkeit. Falls du dir bei irgendwas nicht sicher bist, frag lieber nochmal"
+  },
+  {
+   "spec": {
+    "id": "G0036",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "Hey, c’est pour mon frère — I want to buy un manteau d’hiver, mais genre, don’t go over my spending limit, it’s capped at 150 par mois, super important! Also, pas d’articles en vente finale, okay? It’s just a one-time thing, c’est une seule pièce que j’ai déjà choisie, so you don’t need to chercher. And si jamais t’es pas sûr de quoi que ce soit, juste ask me, no stress!"
+  },
+  {
+   "spec": {
+    "id": "G0037",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi! Can you please get me a winter jacket—it's for my brother, he keeps losing his every year, so I just want to make this a weekly thing and get him a new one each week. Please make sure not to go over Fr. 400 total in any seven-day period, I really don’t want to spend more than that in a week. Also, please avoid final-sale items, just in case he needs to swap size or color. If you’re ever not totally sure about something, just go ahead and approve it anyway! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0038",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "Hey, can you please m’acheter une veste d’hiver every week, but make sure you don’t dépenser plus de 40 Swiss francs par mois, ok? C’est pour mon frère qui habite à Zurich, il adore les vestes chaudes! Also, only order from a shop where j’ai déjà acheté avant (je veux pas tester de nouveaux magasins), et il faut absolument que ce soit remboursable au cas où il n’aime pas. Si tu n’es pas sûr de quoi que ce soit, demande-moi toujours avant, d’accord? Merci!"
+  },
+  {
+   "spec": {
+    "id": "G0039",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hallo! Ich möchte gerne eine Winterjacke kaufen – es soll ein Geschenk für meinen Bruder sein, der ständig friert. Bitte achte darauf, dass du insgesamt höchstens CHF 1'200 ausgibst, und zwar innerhalb von sieben Tagen, weil ich da ungern mehr zahlen würde, das Budget ist knapp diesen Monat. Wichtig ist mir auch, dass die Jacke innerhalb von 14 Tagen zurückgegeben werden kann, falls sie ihm doch nicht passt oder gefällt. Wenn du dir irgendwie unsicher bist, dann lieber erstmal ablehnen, ich will da kein Risiko eingehen. Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0040",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "under",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So I need you to buy some road-running shoes for me—it's actually just a one-time thing, I already picked out the exact pair I want, so no need to look for options or anything! It's for my training, nothing fancy, but make sure the price for the order stays under CHF 400, okay? Oh, and I definitely want them to be returnable for at least 30 days, just in case they don’t fit right or whatever. If you’re ever not sure about anything, just go ahead and approve it anyway. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0041",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi! Could you please order some road-running shoes for me? I need them every week—yup, this is going to be a regular thing, because my brother and I keep going through shoes like crazy with all our jogging lately. Oh, and please don’t spend more than 400 total in any seven-day stretch; I’d like to keep to my fitness budget! Could you also make sure you only get them from shops I’ve bought from before (I trust those places), and make sure the shoes are refundable, just in case they don’t fit right or I change my mind. If you’re ever not sure about any part of this, just go ahead and approve it. Thanks a lot!"
+  },
+  {
+   "spec": {
+    "id": "G0042",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "Hey, could you please acheter des chaussures de course sur route for me? C’est juste une fois, pas every month or anything, et j’ai déjà choisi which ones I want – only une paire, s’il te plaît. Oh and surtout, don’t go over 40 per month, that’s really important! Si jamais tu n’es pas sûr de quoi que ce soit, just demande-moi, ok? Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0043",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi! I’d like you to help me buy a pair of road-running shoes—I actually already picked out the exact ones I want, so you won’t have to choose. This is just a one-time thing (don’t worry about weekly repeats or anything), and it’s just a single item. Oh, and please make sure it’s not a final-sale item since I might need to return or exchange it. My budget for this is up to 120.- per week, though this is just for right now. If anything isn’t clear or you’re not sure about something, just ask me!"
+  },
+  {
+   "spec": {
+    "id": "G0044",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey there! So I need to get a 27-inch monitor (it’s actually for my home office—my old one finally bit the dust and my neck is killing me on the laptop screen). Anyway, I’ve already picked out exactly which one I want, so just the single item, no extras or bundles or anything. Please make sure not to spend over Fr. 150 in total—my budget’s tight this month! Oh, and only get it from a shop I’ve shopped at before, please, I just feel more comfortable that way. It has to be refundable too, just in case. If you’re ever unsure about any of this, just decline and let me know, don’t guess. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0045",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, can you please help me out? I need to get a new 27-inch monitor (it’s for my home office, my old one just died and I can’t work without it!). Make sure you don’t spend more than Fr. 1'200 on each order, I really want to keep my budget in check. Oh, and only buy it from a shop I’ve already bought from before—just to be on the safe side, you know? Also, it should be something that I can return for at least 30 days, just in case I change my mind or there’s a problem. I’m going to need this every week (don’t ask, it’s a project thing!), so please repeat this order weekly. If you’re ever unsure about any of this"
+  },
+  {
+   "spec": {
+    "id": "G0046",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! Could you please handle my weekly grocery shopping for the house? Just make sure everything you get comes to no more than 40.- total, and only buy from shops I've ordered from before (I just feel more comfortable with the places I know). Oh, please don't include any final-sale items—sometimes they're not returnable and that makes me nervous! This is going to be a recurring thing, so let's do this every week. And if you're ever not sure about something, just ask me first, okay? Thanks a lot!"
+  },
+  {
+   "spec": {
+    "id": "G0047",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "up to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey, so I’m looking to get some road-running shoes—these are actually for me because I’m trying to get back into running after a pretty long break; I know, wish me luck! Just so you know, I don’t want to spend more than 120 Swiss francs in a month on this, so keep that in mind when checking prices. Also, could you only look at shops I’ve already bought from before? I’d rather stick with places I know and have had good experiences with. Oh, and no final-sale items, please—I just want the option to return if they don’t fit right or whatever. If you’re not sure about anything, just ask me, okay? Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0048",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey, can you please m’aider à commander des household groceries chaque semaine pour moi et ma famille? Genre, chaque week tu fais la commande, but make sure le total soit bien en dessous de 400 CHF par commande, ok? Aussi, évite tout ce qui est final-sale parce que j’aime pas les trucs qu’on peut pas retourner au cas où. Ah, et si jamais tu n’es pas sûr pour quelque chose, c’est mieux de refuser, pas de prendre de risque. Merci beaucoup, c’est hyper important pour nous!"
+  },
+  {
+   "spec": {
+    "id": "G0049",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "nothing over",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, so I need you to buy household groceries for me—it's just for my family, you know how busy we get and I keep forgetting! Oh, important: please make sure you don’t spend anything over Fr. 40 in total for any seven-day period, because I’m really trying to stick to my budget this month (thanks for understanding!). Also, can you only get them from shops I’ve already shopped at before? I just feel more comfortable that way. If something can’t be returned for at least 30 days, skip it for now—I get picky sometimes, sorry. And this is going to be a regular thing, so just do this same order every week for me, please! If you’re ever unsure about anything, just don’t go ahead with it and"
+  },
+  {
+   "spec": {
+    "id": "G0050",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Ciao! Sto cercando una giacca invernale per mio fratello perché dice sempre che ha freddo. Vorrei che tu cercassi qualcosa che non costi più di 400 Swiss francs per ordine, anche perché non posso davvero spendere di più in questo momento. Assicurati che si possa restituire almeno per 30 giorni, nel caso non gli piaccia (lo so com’è fatto…). Se non sei sicuro su qualche dettaglio o hai dei dubbi, va bene, approva pure lo stesso, non preoccuparti troppo! Grazie mille!"
+  },
+  {
+   "spec": {
+    "id": "G0051",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey, could you please buy household groceries for me? Make sure you stick to a max of CHF 1'200 per order—don’t go over that! Only shop at places I’ve bought from before (I just feel better sticking with familiar shops, you know?). Also, everything needs to be returnable for at least 30 days, just in case something’s not right or if I change my mind. This will be a recurring thing, so please place the order every week. If you’re ever unsure about anything, just ask me first—better safe than sorry! Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0052",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Coucou, alors j’ai besoin que tu me commandes des chaussures de course sur route, c’est pas pour moi mais pour mon frère qui s’entraîne beaucoup en ce moment. Par contre, ne dépense pas plus de 400 CHF par commande, c’est important pour mon budget ! Et aussi, il faudrait absolument que tu les prennes uniquement dans un magasin où j’ai déjà acheté avant (j’aime bien rester fidèle quand je suis satisfaite). Ah et évite tout ce qui est « final sale », parce que je veux pouvoir échanger ou retourner si ça va pas. Tu vas devoir faire ça toutes les semaines, du coup pense à mettre ça en récurrent. Et si jamais tu doutes ou t’es pas sûr de quelque chose, surtout demande-moi, je préfère qu’on"
+  },
+  {
+   "spec": {
+    "id": "G0053",
+    "amount": 150,
+    "notation": "CHF {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Hallo, könntest du bitte jede Woche für mich einen 27-Zoll-Monitor bestellen? Es ist für meinen Sohn, der jetzt endlich einen eigenen Arbeitsplatz bekommt, weil er immer mehr fürs Studium machen muss. Ich will aber pro Woche nicht mehr als CHF 150 ausgeben, das ist so mein Maximalbudget. Bestell den Monitor bitte nur bei einem Shop, bei dem ich schon mal gekauft habe, ich vertraue denen einfach mehr. Wichtig ist auch, dass der Monitor rückgabefähig ist, falls was nicht passt. Ach ja, falls du dir mal bei irgendwas unsicher bist, dann kannst du es trotzdem gern freigeben – ich schau dann nochmal drüber. Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0054",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! So, could you please help me find and buy a winter jacket? It's for me—my old one finally gave up, and I really need something warm before it snows again. I want to make sure we don't spend more than 1'200 CHF per order, though, so please keep an eye on that. Also, I only want to order from shops I've shopped at before—just feels safer that way. And it’s important that the jacket is refundable, in case it doesn’t fit or I don’t like it. If you’re not sure about anything, just ask me first, okay? Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0055",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hi, könntest du mir bitte einmalig das Haushaltsgroceries besorgen, aber wirklich nur dieses eine Teil, das ich schon ausgesucht habe (ist für meine Familie, wir brauchen das dringend). Das Ganze bitte nur bei einem Geschäft, wo ich schon mal eingekauft habe, und achte darauf, dass ich maximal 120.- diese Woche ausgebe, das ist mein absolutes Limit. Wichtig ist auch, dass das Produkt mindestens 30 Tage zurückgegeben werden kann, weil ich da lieber auf Nummer sicher gehe. Wenn du dir bei irgendwas unsicher bist, frag mich bitte nochmal, danke!"
+  },
+  {
+   "spec": {
+    "id": "G0056",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So I need some help buying a 27-inch monitor—it's actually for my home office setup, since I've been squinting at my little screen for months and it's just not working for me anymore. I've already picked out the one I want, so it's just a one-time thing, not like I'm going on a shopping spree or anything! Please make sure the total spend isn't higher than 150 Swiss francs over any seven days, that's pretty important. Also, I really need to be able to return it for at least 30 days, just in case something's off or it doesn't fit my desk. If you're ever unsure about what to do, just go ahead and approve it for me. Thanks a ton!"
+  },
+  {
+   "spec": {
+    "id": "G0057",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi there! Could you help me out by buying some road-running shoes for me every week (it’s for my morning jogs, trying to stay healthy, you know?), but please make sure you never spend more than 40.- in any seven-day period—so stick to that as the max. Oh, and I definitely don’t want any final-sale items (I’m too indecisive and might change my mind). If anything seems unclear or you’re not sure about something, just decline the purchase instead of guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0058",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey there! So, can you please buy household groceries for me? I’m just trying to make sure we’re stocked up at home—it’s for the family, you know how it is. Oh, and please don’t spend over 400 per order, that’s kind of my budget right now. Also, I’d really prefer if you only buy from shops I’ve already shopped at before, just to keep things simple (I’m a creature of habit!). And it’s important that whatever you get is returnable within 14 days, just in case I need to swap something out. If you’re not really sure about any of this, it’s totally fine to just decline rather than guess. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0059",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! So, I need to buy a winter jacket (yeah, it’s for me – I realized my old one isn’t warm enough), but I don’t want to spend more than CHF 40 each week on it. Really important: only get it from a shop I’ve already bought from before (I like to stick with what I know), and please avoid any final-sale items because I want to be able to return it if it doesn’t fit or something. Oh, and actually, I want to do this every single week as a recurring thing, not just this one time. If you’re ever not sure about something, just ask me first. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0060",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey, could you please buy a winter jacket for me? I’ve actually already picked out the one I want, so it’s just a single-item, one-time thing. Oh, and I don’t want to spend more than 120.- a month on this—really trying to stick to my budget! Also, I need it to be refundable, just in case it doesn’t fit or something. If you have any questions, let me know, I’m happy to clarify!"
+  },
+  {
+   "spec": {
+    "id": "G0061",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey, can you please help me buy household groceries? This is for my family, and I want to make sure we don’t run out of the basics each week. Try to keep the total below 150.- for the week, since I’m really watching my budget right now! Every order should be refundable, just in case I need to return something or change my mind—my kids sometimes surprise me with what they don’t like! This will be a recurring thing, so go ahead and do this every week without me having to remind you. And if you’re ever unsure about anything, just go ahead and approve it—I trust your judgement. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0062",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Hey! So chaque semaine, I need you to buy household groceries for my family (nothing fancy, just the usual stuff we need), mais please, try to make sure le total reste sous Fr. 400 sur any seven days, ok? Also, make sure c’est returnable within 14 days au cas où je change d’avis ou il y a un problème. This will be a recurring order every week, so just set it to repeat automatically. Oh, et si jamais t’es pas sûr pour un truc, approuve quand même, ça ira! Merci d’avance 😊"
+  },
+  {
+   "spec": {
+    "id": "G0063",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, could you help me find a winter jacket? It’s for my brother, he’s always freezing this time of year. Oh, and make sure it’s returnable for at least 30 days in case it doesn’t fit him or he changes his mind. My budget is under 1'200 per month—so don’t go over that, please! Also, if you’re not sure about any of this, just say no. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0064",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey, so I’m looking for some new road-running shoes – c’est pour moi, je veux vraiment recommencer à courir ce mois-ci. Alors, pourrais-tu en trouver, mais surtout, tu ne dépenses pas plus que 1'200 Swiss francs par mois, ça c’est important! Aussi, je veux être sûre que si jamais ça ne me va pas, je peux les retourner pendant au moins 30 jours, sinon je préfère pas. Si t’es pas certain pour un de ces critères, tu refuses, hein! Merci beaucoup!"
+  },
+  {
+   "spec": {
+    "id": "G0065",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey there! So, I need you to buy household groceries for me—this is for my place, just the usual stuff for the week, nothing fancy. Please keep the spending at a max of 40 francs in total each time (trying to stick to a budget, you know how it is!). Oh, and everything needs to be refundable, just in case something’s off or I change my mind. This is actually a recurring order, so I’ll be needing this done every week. If you’re ever unsure about what to get or have any questions, just ask me, no worries!"
+  },
+  {
+   "spec": {
+    "id": "G0066",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! Could you please help me buy household groceries? This is for my family—it's just the usual weekly restock, nothing special. Please make sure that each order doesn’t go over CHF 400 (that’s my limit per order), and it’s important that whatever we buy is refundable, just in case. Oh, and I need this to happen every week, so please make it a recurring thing! If you’re ever unsure about something, feel free to just decline—I’d rather be safe than sorry. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0067",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hey, könntest du mir bitte jede Woche neue Laufschuhe fürs Straßenlaufen bestellen? Sie sind für meinen Bruder, weil seine alten total durch sind und er findet einfach nie Zeit, sie sich selbst zu holen. Die Schuhe sollten nicht mehr als Fr. 40 pro Bestellung kosten, das ist echt wichtig. Bitte bestell nur bei einem Shop, wo ich schon mal gekauft habe, falls das was ausmacht. Und schau bitte, dass ich die Schuhe mindestens 30 Tage lang zurückgeben kann, falls sie nicht passen oder gefallen. Wenn du dir mal nicht sicher bist, dann lieber nicht bestellen und mir kurz Bescheid sagen. Danke dir schon mal!"
+  },
+  {
+   "spec": {
+    "id": "G0068",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! I'm looking to buy a winter jacket—it's actually for myself, since I've finally decided to replace my old one. So I’ve already picked out the exact jacket I want, and this is really just a one-time thing, not a regular purchase or anything. Just make sure you don’t spend more than 1'200.- in total, and please double-check that it’s refundable, because I might change my mind if it doesn’t fit or something. Anyway, let me know if anything’s unclear or you’re not sure about something! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0069",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "no higher than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Hey, kannst du bitte für mich eine Winterjacke kaufen? Ich hab mir das Modell schon ausgesucht, also es ist wirklich nur ein einmaliger Kauf und auch nur ein einziges Teil. Es ist für mich, weil ich dieses Jahr wirklich ständig friere! Ganz wichtig: bitte gib pro Woche nicht mehr als Fr. 40 aus – das ist so mein Limit, damit ich mein Budget einhalte. Ach, und bitte keine Sachen nehmen, die als \"final sale\" markiert sind, weil ich ungern auf Rückgaberecht verzichten möchte, falls irgendwas nicht passt. Falls du mal unsicher bist, ob das alles so passt, kannst du einfach ruhig zustimmen und weitermachen. Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0070",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Ciao! Allora, mi serve un favore: potresti comprarmi quel monitor da 27 pollici che ho già scelto? È per il mio ufficio di casa, così finalmente posso lavorare meglio senza affaticare gli occhi. Ti chiedo solo di non spendere più di 1'200 Swiss francs questa settimana, preferibilmente, però davvero non andare oltre, ok? Mi raccomando, acquistalo solo da uno dei negozi dove ho già comprato in passato, così mi sento più tranquillo. Assicurati anche che posso restituirlo entro 14 giorni, nel caso non sia quello giusto. È solo questa cosa che voglio comprare adesso, quindi non prendere altro. Se hai qualche dubbio scrivimi"
+  },
+  {
+   "spec": {
+    "id": "G0071",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi there! So, I need you to buy some household groceries for me—I’ve already picked out exactly what I want, so it’s just a single item this time (it’s for my brother’s place, actually, since I’m helping him restock after he moved). Please make sure you’re buying it from a shop I’ve actually purchased from before (just to keep things simple), and it absolutely needs to be refundable in case something comes up. Also, the total should stay under 150 Swiss francs over any seven-day period, just to keep my spending on track. And hey, if anything’s unclear or you’re not totally sure about any part of this, please ask me before you order, thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0072",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So, I need you to buy a 27-inch monitor for me—it's a treat for myself because I've been working long hours lately and my eyes are tired! I already picked out the exact one I want, and it's just a one-time thing (not buying more than one or anything). Please make sure you only get it from a shop I've bought from before—I trust those! Oh, and super important: the shop should let me return it for at least 30 days because you never know if things don't work out. The price shouldn’t go over 1'200 CHF for this month, that’s my max budget. If you’re unsure about anything, please just go ahead and approve it anyway, I really want to get this sorted quickly. Thanks a ton!"
+  },
+  {
+   "spec": {
+    "id": "G0073",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi! Could you please help me buy a winter jacket? It’s actually for myself, and I’ve already picked out the one I want—it’s just a single item, and I’m only planning to do this once, so not a recurring thing or anything. I’d like to make sure we don’t spend more than 40 Swiss francs this week on it, just to keep within my budget. Also, it’s really important to me that the jacket is returnable for at least 30 days, just in case it doesn’t fit or I change my mind. If you’re not sure about anything along the way, feel free to just go ahead and approve it. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0074",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey, can you go ahead and get the household groceries for me, please? Just make sure you don’t go over 1'200 francs in total—trying to stick to a budget these days! Oh, and only buy from shops I’ve used before—I trust those places and don’t want any surprises. Everything should be returnable within 14 days, just in case something’s not quite right. This will be a weekly thing, by the way—so keep it recurring each week. And if you’re ever unsure about anything, just go ahead and approve it. Thanks a ton, this is for my family and I really appreciate the help!"
+  },
+  {
+   "spec": {
+    "id": "G0075",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "Hey, so every week I need you to acheter des household groceries pour moi (c’est pour ma famille, you know how it is with kids always needing snacks!), but please don’t dépasser Fr. 1'200 pour tout, ok? Aussi, only get them from les shops où j’ai déjà acheté avant, I don’t want any surprises there. Make sure tout peut être retourné for au moins 30 jours, just in case. Ah, and si jamais t’es pas sûr pour quelque chose, juste ask me, pas de souci!"
+  },
+  {
+   "spec": {
+    "id": "G0076",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hey, könntest du mir bitte eine Winterjacke kaufen? Ich habe sie mir schon ausgesucht, es ist also wirklich nur dieser eine Kauf und kein weiteres Teil, nur die eine Jacke. Ich will übrigens nicht mehr als 150 dafür ausgeben, und zwar insgesamt innerhalb von sieben Tagen – also bitte wirklich darauf achten, dass es über die Woche hinweg nicht zusammen mehr wird. Wichtig ist mir auch, dass ich sie mindestens 30 Tage lang zurückgeben könnte, falls irgendwas nicht passt oder ich es mir doch anders überlege. Falls du irgendwo unsicher bist oder noch was wissen musst, frag mich einfach nochmal, okay? Die Jacke ist übrigens für mich, ich friere immer so schnell!"
+  },
+  {
+   "spec": {
+    "id": "G0077",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! So, every week I need you to buy a winter jacket for me—it's for my cousin who gets cold really easily (long story!). Please make sure not to spend more than Fr. 150 each week, that's my budget limit, but don't stress if you're not sure about something, just go ahead and approve it. Oh, and please avoid any final-sale items, since I might need to return things if they don't fit. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0078",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hi, könntest du bitte für mich ein Paar Laufschuhe fürs Straßenlaufen kaufen? Es ist für meinen Bruder, der mit dem Laufen anfangen will, aber bitte gib insgesamt nicht mehr als 40 francs aus. Wichtig ist auch, dass sie auf jeden Fall rückerstattbar sind, falls sie ihm doch nicht passen oder so. Wenn du dir bei irgendwas nicht sicher bist, dann lass es lieber bleiben und sag mir Bescheid. Vielen Dank!"
+  },
+  {
+   "spec": {
+    "id": "G0079",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Ciao! Allora, mi serve un monitor da 27 pollici, perché quello vecchio di mio fratello si è rotto e voglio fargli una sorpresa per il suo compleanno. Però non voglio spendere più di 120 franchi svizzeri in totale, quindi controlla bene il prezzo per favore! Ah, importantissimo, compra solo da un negozio dove ho già acquistato qualcosa in passato, non vorrei sorprese con nuovi venditori strani. E mi raccomando, assicurati che il monitor sia rimborsabile, non si sa mai che non vada bene. Se c’è qualcosa che non ti è chiaro o hai dubbi su qualche dettaglio, chiedimi pure senza problemi!"
+  },
+  {
+   "spec": {
+    "id": "G0080",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hi, ich suche einen 27-Zoll-Monitor – das ist für meinen Home-Office-Arbeitsplatz, weil mein alter Bildschirm echt langsam den Geist aufgibt. Bitte achte darauf, pro Bestellung nicht mehr als CHF 40 auszugeben, das ist mein Limit, und es wäre super, wenn man den Monitor innerhalb von 14 Tagen zurückgeben kann, falls doch etwas nicht passt. Das Ganze soll übrigens jede Woche automatisch bestellt werden, weil ich ein paar Kollegen auch noch damit ausstatten will. Und falls du unsicher bist, ob das Angebot passt, lieber nicht bestellen – danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0081",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! So I’m looking to get a 27-inch monitor—it’s actually for my cousin, he’s just started college and I promised I’d help him out. But here’s the thing, I don’t want to spend more than 40 CHF per order, like, that’s my absolute max (money’s a bit tight this month!). Oh, and could you ONLY look at shops I’ve shopped at before? I just trust them more, you know? If you aren’t sure about something, just say no or skip it—I’d rather be safe than sorry. Thanks a ton!"
+  },
+  {
+   "spec": {
+    "id": "G0082",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi! So I need to set up a weekly order for a 27-inch monitor (yep, every week—don’t ask, it’s for my cousin’s new business!). Please make sure you only buy from a shop I’ve already used before, and don’t spend more than 400 francs per order. Also, make sure whatever you pick can be refunded, just in case. If you’re ever not sure about any of this, just decline the order instead of guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0083",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! Could you please buy a 27-inch monitor for me? It’s for my home office—my old one’s flickering and it’s really annoying! Please make sure the total doesn’t go over 120 CHF. Oh, and only get it from a shop I’ve ordered from before—just to keep things simple. I also really need it to be returnable within 14 days, just in case there’s any issue. By the way, I’m planning on getting this every week (yep, I go through a lot of monitors, long story!). If you’re unsure about anything, go ahead and approve it—I trust your judgment. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0084",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hallo, ich brauche jede Woche eine neue Winterjacke – das ist für meinen Bruder, der irgendwie ständig seine Sachen verliert, frag nicht. Könntest du bitte darauf achten, dass der Preis pro Bestellung auf maximal 120 Schweizer Franken begrenzt ist? Und bitte nur bei einem Shop bestellen, bei dem ich schon mal vorher eingekauft habe – das ist mir wichtig, weil die Abwicklung dann meistens einfacher ist. Die Jacke sollte außerdem mindestens 30 Tage lang zurückgegeben werden können, falls irgendwas nicht passt oder gefällt. Ach ja, falls du dir mal nicht sicher bist, ob das alles passt, dann bestell lieber nicht. Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0085",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "not exceeding",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi there! So, I’m looking for a 27-inch monitor—this is actually for my home office because my old screen is just too small for all the spreadsheets I have to deal with! Please find one for me, but make sure the total price doesn’t go over 1'200.- and only get it from a shop I’ve bought from before (I just feel more comfortable that way). It’s really important that it can be refunded in case it’s not quite right. If you’re not sure about any of this, just let me know and don’t go ahead, okay? Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0086",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Coucou, alors voilà, je cherche à acheter des chaussures de course sur route, c’est juste pour moi parce que j’ai décidé de me remettre au jogging – enfin, tu vois l’idée, il faut bien que je me motive ! J’ai déjà repéré le modèle que je veux, donc c’est juste une seule paire à acheter, c’est un achat unique, je ne compte pas refaire ça tous les mois hein. Par contre, très important : il ne faut surtout pas dépasser Fr. 150 pour ce mois-ci, je me suis fixé cette petite limite budgétaire, donc rien au-dessus s’il te plaît. Aussi, il faut absolument que les chaussures soient remboursables, au cas où elles ne m’iraient pas. Si jamais tu hésites ou tu n’es"
+  },
+  {
+   "spec": {
+    "id": "G0087",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey, could you please acheter les household groceries pour moi, mais genre only from a shop I’ve déjà acheté before (so pas de nouvelles boutiques, ok?), et il faut que tout ça ne dépasse pas 40 francs au total — genre c’est un spending limit strict, parce que c’est pour ma famille et on garde le budget serré! Aussi, it’s super important que tout soit returnable within 14 days, au cas où il y a un souci. Ah, et c’est une commande que je veux chaque semaine, donc fais-le comme recurring order, s’il te plaît. If jamais t’es pas sûr pour un truc, mieux vaut décliner, je préfère éviter les problèmes. Merci!"
+  },
+  {
+   "spec": {
+    "id": "G0088",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey, could you please help me buy a winter jacket? It’s just the one jacket I already picked out (so only that, not multiples), and it’s for me—my old one finally gave up! Just make sure you don’t spend more than 40 francs total over any seven days for this purchase, and only get it from a shop I’ve shopped at before (I don’t love trying entirely new shops for jackets, you know?). It needs to be refundable too, just in case it doesn’t fit or I change my mind. And if you’re ever not sure about any detail, just ask me—thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0089",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! Can you please help me buy household groceries? It’s for my family—just the usual things we need around the house like food and cleaning stuff, nothing fancy. Oh, and try to keep it under 40.- for each order, that’s my budget per week, so don’t go over 40.- at all, please! This is going to be a weekly thing, so just do the same kind of order every week. And if you’re ever unsure about what to buy or if something doesn’t fit the usual, just decline instead of guessing. Thanks a bunch!"
+  },
+  {
+   "spec": {
+    "id": "G0090",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Coucou ! J’ai besoin de ton aide pour acheter des chaussures de course sur route – c’est pour moi, je me suis enfin décidé à remplacer mes vieilles baskets qui grincent, haha. J’ai déjà choisi le modèle exact que je veux donc il n’y a rien d’autre à chercher, c’est vraiment juste cette paire-là à prendre en une seule fois (pas besoin d’autres articles). Tu peux y aller tant que le prix ne dépasse pas CHF 1’200 pour la commande, surtout pas plus ! Aussi, fais attention à ne pas prendre de produits en vente finale, car j’aimerais pouvoir les retourner au cas où. Si jamais tu hésites ou tu n’es pas sûr·e de quelque chose, vas-y quand même, tu as mon feu vert. Merci"
+  },
+  {
+   "spec": {
+    "id": "G0091",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi! So I need to get a winter jacket—this one’s for me, I’ve been meaning to replace my old one before it gets really cold. Can you look for one, but just make sure you don’t spend over 400 in total for it, and that’s across any seven days (not just one day, I guess that matters?). Oh, and could you only buy it from a shop I’ve already bought stuff from before? If you’re ever not sure about any of this or aren’t quite clear, just ask me! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0092",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Ciao, sto cercando di organizzare la spesa settimanale di casa—è per me e la mia famiglia, ci piace avere tutto a posto senza doverci pensare ogni volta! Per favore, puoi comprare generi alimentari e tutto ciò che serve per la casa, ma non spendere più di 400 CHF a settimana, ok? Ah, e mi raccomando: vorrei che fossero solo da negozi in cui ho già acquistato in passato, niente di nuovo per ora. Devono essere prodotti che si possono restituire per almeno 30 giorni, non si sa mai, magari qualcosa non va. Questa cosa vorrei farla ogni settimana, quindi è un ordine ricorrente. Se hai dei dubbi o qualcosa non ti è chi"
+  },
+  {
+   "spec": {
+    "id": "G0093",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! I’m looking for a 27-inch monitor, but could you please stick to a spending limit of 150 per month for this? It’s for my home office—my old one finally gave up. Oh, make sure it’s only from a shop I’ve bought from before (I like to stay loyal you know!), and just double check that it’s returnable for at least 30 days in case I change my mind or something. If you’re not sure about anything, just ask me—happy to clarify! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0094",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Coucou, j’aimerais que tu me trouves des chaussures de course sur route – c’est pour mon frère, il fait beaucoup de footing en ce moment et ses anciennes chaussures sont complètement usées ! Par contre, fais attention à ne pas dépasser 150 francs par commande, c’est important pour moi de rester dans ce budget. Ah, et au cas où il ne lui plairait pas ou qu’il y ait un souci, il faut absolument qu’elles soient remboursables. Si jamais tu hésites sur un modèle ou quelque chose d’autre, n’hésite surtout pas à me demander, je préfère qu’on vérifie ensemble. Merci beaucoup !"
+  },
+  {
+   "spec": {
+    "id": "G0095",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey! So I need to acheter des courses pour la maison, c’est pour ma famille (on essaie de manger un peu plus sain en ce moment, alors tu vois), et tu dois t’assurer que tu ne dépenses pas plus que 40 Swiss francs par mois, d’accord? Achète seulement dans un magasin où j’ai déjà acheté avant—pas envie de galérer avec de nouveaux shops! Aussi, surtout, évite tout ce qui est “final-sale items”, on ne veut pas se retrouver avec des trucs non-retournables s’ils ne plaisent pas. Et c’est un truc régulier, genre tu fais cette commande chaque semaine pour moi. Si jamais tu n’es pas sûr de quelque chose, refuse ou demande-moi, mais ne prends pas de risques, ok? Merci"
+  },
+  {
+   "spec": {
+    "id": "G0096",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey there! So I need you to buy a pair of road-running shoes for me—already picked out which ones I want, so it should be just a one-time thing for this item. It’s actually a gift for my cousin who just got into running, so I want to make sure it’s just right. Please don’t spend anything over CHF 1'200 on the order, that’s kind of my upper limit. If you’re ever not sure about any part of this (like if the exact item isn’t clear or whatever), just go ahead and decline rather than guessing—I don’t want any mix-ups. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0097",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi! So, could you please help me with a weekly recurring order for household groceries? This is for my family, we always run out of the basics so it just makes sense to have you help with this regularly. Please make sure the total amount doesn’t go over 400 CHF per month – really need to stick to the budget! Also, it’s important that you only buy from shops I’ve already shopped at before (I’m just more comfortable that way), and can you double-check that everything you buy is refundable, in case anything isn’t right? If there’s ever anything you’re not sure about, just ask me, okay? Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0098",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! So, I need your help with something—I'm looking to get a new 27-inch monitor, actually it's for my home office setup because I've been straining my eyes with my old screen lately. Here's the deal: I want to order one every week (I know, sounds excessive, but I'm sorting out setups for a bunch of family members too!). Just make sure you never go over Fr. 120 per month for this, as that's my absolute limit. If you ever feel a bit unsure about what to pick, just go ahead and approve the order anyway—I'm not too fussy as long as it's 27 inches and sticks to that budget. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0099",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Ciao! Ho bisogno che tu mi ordini un monitor da 27 pollici, è per il mio ufficio visto che quello vecchio ormai dà problemi, quindi finalmente mi sono deciso. Ho già scelto il modello che mi interessa, quindi serve solo quello, niente altro. Importante: per favore non spendere più di 40 franchi per l’ordine, non voglio sorprese. Ah, ricordati anche di comprarlo solo da un negozio dove ho già acquistato in passato (così dovrebbe essere più facile gestire eventuali problemi). Deve essere restituibile entro 14 giorni, non si sa mai con queste cose tecnologiche. Se per caso non sei sicuro su uno qualsiasi di questi punti, meglio rifiutare l’acquisto"
+  },
+  {
+   "spec": {
+    "id": "G0100",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So, I need you to buy a pair of road-running shoes for me—it’s just a one-time thing, I already picked out the exact pair I want, it’s for my half-marathon coming up. Please make sure not to spend more than 120 on the order, and only buy it from a shop I’ve shopped at before (I like to stick with places I know and trust, you know?). Oh, can you also double-check that I can return them for at least 30 days just in case they don’t fit? And if you’re ever not sure about something, just go ahead and approve it—I trust your judgment! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0101",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hallo, könntest du bitte für mich eine Winterjacke kaufen? Es soll aber bitte nicht mehr als 1'200 Swiss francs pro Monat kosten – das ist so ein Budget, das ich mir gesetzt habe, ich will ja nicht übertreiben. Ach, und ganz wichtig: bitte kauf die Jacke nur in einem Shop, bei dem ich schon mal bestellt habe, da habe ich einfach ein besseres Gefühl. Außerdem wäre es super, wenn man sie mindestens 30 Tage lang zurückgeben kann, falls sie doch nicht passt oder gefällt – mir passiert das leider öfter, dass ich dann noch mal tauschen will. Falls irgendwas unklar ist, frag mich einfach, ich bin da manchmal ein bisschen chaotisch und hab nicht immer an alles gedacht! Die Jacke ist übrigens für mich,"
+  },
+  {
+   "spec": {
+    "id": "G0102",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! So, could you please buy some household groceries for me? It’s for my family—we’re trying to eat a bit healthier and I just haven’t had the time to go shopping myself. Just make sure you don’t spend more than 40 Swiss francs over any seven days, I really have to stick to a tight budget this month. Oh, and it’s important that whatever you buy can be returned within 14 days, just in case I change my mind or something isn’t right. If you’re not sure about any of this, it’s totally fine to just skip it rather than guess. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0103",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hallo! Also, ich brauche bitte einen 27-Zoll-Monitor, aber ganz wichtig: Es geht hier wirklich um einen einzelnen Monitor, den ich mir schon ausgesucht habe, also nur dieses eine Gerät – ich brauche sonst nichts dazu. Der ist für meinen Bruder, weil sein alter Bildschirm den Geist aufgegeben hat. Bitte achte darauf, dass der Einkauf höchstens Fr. 150 pro Woche kostet, das darf auf keinen Fall überschritten werden. Und ganz wichtig: bitte nur in einem Laden kaufen, bei dem ich schon mal früher etwas bestellt habe – ich will mich da auf nichts Neues einlassen. Und bitte keine Ausverkaufs- oder Final-Sale-Artikel nehmen, falls du sowas siehst. Wenn irgendwas unklar ist oder du dir nicht sicher bist, dann lehne lieber"
+  },
+  {
+   "spec": {
+    "id": "G0104",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Hi, so c’est pour mon bureau à la maison—please help me acheter un moniteur 27-inch, j’en ai déjà choisi un et c’est juste cet achat unique, nothing else. Oh and important—don’t go over 400 Swiss francs par mois, ça c’est mon max. If tu n’es pas sûr about something, just approuve quand même et proceed, merci!"
+  },
+  {
+   "spec": {
+    "id": "G0105",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Coucou ! Peux-tu m’acheter une veste d’hiver, s’il te plaît ? C’est pour moi, parce qu’il commence à faire vraiment froid, et j’ai décidé de me faire plaisir cette année. Par contre, il ne faut pas dépasser les 400 Swiss francs par mois, j’essaie de mieux gérer mes dépenses (tu me connais !). Aussi, commande-la seulement dans une boutique où j’ai déjà acheté avant, j’ai plus confiance comme ça. Très important aussi, je veux pouvoir la retourner pendant au moins 30 jours, en cas où la taille ne va pas ou si je change d’avis. Ah, et il faudra faire cette commande toutes les semaines – je sais, c’est bizarre, mais c’est pour un petit projet perso ! Si jamais tu"
+  },
+  {
+   "spec": {
+    "id": "G0106",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! Could you please buy me those road-running shoes I picked out earlier? It’s just a one-time thing, I only need the one pair (it’s for my weekend runs, trying to get in shape!). Please make sure you get them from a shop I’ve shopped at before—I like to stick with places I know. Oh, and don’t spend over 1'200 CHF this week, that’s my budget limit. If you’re not sure about any part of this, just ask me, no worries! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0107",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hi, can you stp, please find for me un winter jacket, c’est pour mon frère qui vient d’arriver en Suisse et il a vraiment froid là-bas! Oh, and il faut absolument que le prix soit max Fr. 120 par commande, pas plus! Aussi, très important, je veux que ce soit remboursable au cas où ça ne lui irait pas du tout. If you’re not sûre about ça, refuse l’achat s’il te plaît, je ne veux pas prendre de risque. Merci d’avance!"
+  },
+  {
+   "spec": {
+    "id": "G0108",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey there! Could you please buy household groceries for me? It's just for my family, nothing too fancy, and I want to keep the spending below CHF 120 per week (don’t go over that, I’m trying to stick to a budget!). Oh, and it’s going to be a recurring order every week, so just set it up like that. Also, make sure everything is returnable within 14 days, just in case we change our minds or something’s not right. And if you’re ever not sure about anything—like if an item’s not clear or you’re not certain it fits these rules—just decline it rather than guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0109",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Coucou ! Alors j’aurais besoin que tu m’achètes un écran 27 pouces, c’est pour moi, je fais pas mal de travail à la maison en ce moment et mon vieux moniteur me fatigue les yeux… Bref, j’ai déjà choisi le modèle, donc c’est juste cette pièce que je veux (pas d’autres trucs, c’est vraiment un achat unique !). Ah, et très important : il faut absolument que ça vienne d’un magasin où j’ai déjà acheté avant, parce que je préfère rester chez les mêmes, tu me connais ;) Aussi, pas d’articles en liquidation ou vente finale, je veux pouvoir retourner au cas où ! Pour le prix, veille bien à ce que tout (frais inclus !) reste sous les 1’200.- au total"
+  },
+  {
+   "spec": {
+    "id": "G0110",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, I’m looking to get a 27-inch monitor, it’s actually for my home office setup because my old one is too small and my eyes are getting tired! Can you find something for me, but make sure it’s under 120.- per month? Oh and if you’re not sure about anything along the way, just say no—better safe than sorry. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0111",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Coucou, j’aimerais acheter un moniteur de 27 pouces, c’est pour mon bureau à la maison parce que mon vieil écran fatigue vraiment mes yeux à force. J’ai déjà choisi le modèle donc ce serait juste cette seule fois, pas besoin d’abonnement ni d’accessoires en plus. Ah, et il ne faut pas dépasser 400 francs pour ce mois, c’est mon budget maximum, donc si jamais tu n’es pas sûr que ça rentre dans la limite ou si le total risque d’être au-delà, laisse tomber l’achat et tiens-moi au courant s’il te plaît. Merci beaucoup !"
+  },
+  {
+   "spec": {
+    "id": "G0112",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, could you help me out and order a 27-inch monitor for me? It’s for my home office set-up – I’ve been meaning to upgrade for a while now! Please make sure that you don’t spend more than 120 CHF per order, and only buy from shops I’ve already used before (I just feel more comfortable that way). Also, really important: it has to be returnable within 14 days, just in case something’s wrong or it doesn’t fit my desk. I’d like this to be a weekly thing, to keep my workspace fresh or to have backups for my team — hope that makes sense! Oh, and if you’re ever not sure about any of these details, just decline the order rather than guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0113",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Coucou, alors voilà, j’aimerais bien que tu t’occupes de me commander une veste d’hiver – c’est pour mon frère qui perd toujours les siennes, donc il en a besoin tout le temps en ce moment ! Important : ne dépense pas plus de Fr. 120 par commande, ok ? Et il faut qu’on puisse la retourner dans les 14 jours au cas où elle ne lui plaît pas ou ne lui va pas, parce que tu le connais… Ah, et comme il en a besoin souvent, ce serait génial que tu passes cette commande toutes les semaines, comme une routine. Franchement, si jamais tu hésites sur un détail ou tu n’es pas sûr, vas-y, approuve quand même, je te fais confiance ! Merci beaucoup 😊"
+  },
+  {
+   "spec": {
+    "id": "G0114",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hi, könntest du bitte jede Woche für mich neue Laufschuhe fürs Straßenlaufen bestellen? Es ist für mich, weil ich wirklich oft jogge und mein altes Paar langsam durch ist. Wichtig ist, dass du pro Bestellung maximal 400.- ausgibst, das ist mein Limit. Bestell die Schuhe bitte nur bei einem Shop, bei dem ich schon mal was gekauft habe (ich will keine Experimente mit neuen Shops machen). Und bitte nimm nichts aus dem Final Sale, weil ich schon mal schlechte Erfahrungen mit Rückgaben hatte. Falls du dir mal unsicher bist, frag mich bitte lieber nochmal nach, bevor du etwas bestellst. Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0115",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! So I need you to help me buy household groceries every week, since this is a recurring thing for me and my family—yeah, just the usual supplies we go through pretty fast. Please make sure that for each order, you don’t spend over 120 Swiss francs (so, keep it below that per order). Also, it’s important that whatever you get is returnable for at least 30 days, just in case something’s not right. If you’re not sure about anything—like brands or quantities or whatever—just ask me, no problem! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0116",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "under",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi! Can you please help me buy some household groceries? This is for my family, we go through quite a bit every week, so I’d like this to be a regular weekly order. Please make sure you keep each order under 150 CHF, and don’t include any final-sale items because I don’t want to get stuck with something I can’t return if it’s not right. If you’re ever not sure about something, just decline or skip it instead of guessing. Thanks a lot!"
+  },
+  {
+   "spec": {
+    "id": "G0117",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey there! So, I’m looking to get a 27-inch monitor (it’s actually for my home office, finally trying to upgrade my setup, haha). But here’s the thing: I can only spend up to 120 CHF per month on this, so please don’t go over that. Also, I’d really prefer you stick to shops I’ve shopped at before—just feels safer, you know? Oh, and it’s super important that whatever you pick is returnable within 14 days, just in case it’s not the right fit or something. If you’re not sure about any of this, just say no and don’t go ahead. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0118",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi, could you please help me find a 27-inch monitor? It’s for my home office—I need a bit more screen space for all these spreadsheets! I don’t want to spend more than 400 francs per month on it, and please only look at shops I’ve bought from before (just to keep things simple). Also, I want to make sure it’s returnable within 14 days, just in case it doesn’t work out. If you’re not sure about any of these things, just say no. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0119",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey, could you please buy household groceries for me? I'm trying to keep each order below 150, just to stay on budget, you know? It’s for my family, and we like to have groceries coming in every week, so this will be a recurring thing. Oh, and if you’re ever unsure about something, just go ahead and approve it—I trust you! Also, make sure that whatever you buy is refundable, just in case we change our minds or get something we don’t need. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0120",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey, could you please help me buy a winter jacket? It's for me because mine is totally falling apart and it's getting so cold out! Oh, and please make sure not to spend more than CHF 120 in a week—I'm really trying to stick to my budget these days. Also, I’d rather not get any final-sale items, just in case I need to return it or something. If you’re not sure about anything, go ahead and approve it, I trust your judgment! Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0121",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "below",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! Could you please help me buy a winter jacket? I’ve already picked one out, so it’s just a one-time purchase of a single item for myself (trying to be cozy this season, haha). Please make sure the total spend stays below 120, and it’s important that it’s returnable for at least 30 days, just in case it doesn’t fit or something. If you’re not sure about anything, just go ahead and approve it anyway. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0122",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So I need to get a 27-inch monitor (it’s for my home office, my old one’s acting up and my partner keeps borrowing it for their art projects 😂). Please make sure you only buy it from a shop I’ve purchased from before—no new places, just to keep things simple. The spending limit is a maximum of 400 Swiss francs per month, don’t go over that. Oh, and this needs to be a recurring thing—like, place the same order every week (strange, I know, but trust me, it makes sense for what I’m setting up). If you’re ever unsure about something, just go ahead and approve it. Thanks a ton!"
+  },
+  {
+   "spec": {
+    "id": "G0123",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! I’m looking to buy a winter jacket (it’s for my brother, he’s always cold!). Could you find one, but make sure not to spend more than 40 CHF per month on it? If you’re not sure about anything while doing this, please double-check with me first. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0124",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Ciao! Allora, ogni settimana vorrei che tu mi comprassi un monitor da 27 pollici, perché mi serve uno nuovo per mia sorella che studia a casa e si lamenta sempre dello schermo troppo piccolo. Importante: per favore, non spendere più di Fr. 120 in totale nell’arco di qualsiasi sette giorni, che sto cercando di risparmiare questo mese! Ah, e fallo solo da un negozio dove ho già acquistato in passato, così sono tranquilla; deve essere anche rimborsabile, caso mai dovessi cambiare idea. Se hai qualche dubbio su qualcosa, chiedimi pure! Grazie mille!"
+  },
+  {
+   "spec": {
+    "id": "G0125",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! So I need to buy a winter jacket—it’s actually just a one-time thing since I already picked out the exact one I want, no browsing needed. The thing is, please make sure not to go over Fr. 150 per order, and I definitely don’t want anything that’s final sale, just in case. It’s for me, just trying to be warm this winter! If you’re not sure about anything, feel free to check with me first. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0126",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi there! Could you please help me buy household groceries, but make sure not to spend more than 40 francs in any seven-day period? It’s for my family, and I like to keep to a budget! Also, please don’t include any final-sale items, since I might want to return things sometimes. I’ll be needing this every week, so just set it up as a regular thing, and if you’re ever not sure about something, just ask me first. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0127",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, could you help me find a 27-inch monitor? It’s for my home office setup—my old one’s acting up again, so I really want something reliable but not too pricey. Please make sure not to go over 400 per week when you’re looking, and avoid any of those final-sale items since I’d like the option to return it if needed. If you’re not totally sure about any detail, just say no for now rather than guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0128",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So, every week I need to order household groceries—nothing fancy, just the basics—but make sure you only get them from a shop I’ve already used before (I just feel more comfortable with the ones I know, you know?). Try not to spend more than 1'200 CHF per order, that should definitely be enough, but don’t go over that. Also, it’s really important that everything can be returned for at least 30 days (sometimes stuff goes wrong!). This is going to be a recurring thing, by the way, so just set it up for weekly orders. Oh, and if you’re ever unsure about anything, just go ahead and approve it—I trust your judgement. Thanks, this will save me so much time!"
+  },
+  {
+   "spec": {
+    "id": "G0129",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey, I need your help please! C’est pour mon bureau à la maison – j’ai vraiment besoin d’un écran, specifically a 27-inch monitor, mais écoute bien, faudrait pas dépasser 400 Swiss francs tout compris, ok? Aussi, could you make sure you don’t pick anything qui est en vente finale, parce que je veux pouvoir retourner si jamais. Si t’es pas sûr pour un détail, it’s better to just decline, rather than prendre le risque. Merci d’avance!"
+  },
+  {
+   "spec": {
+    "id": "G0130",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi there! So, I need you to buy road-running shoes for me—it’s for my weekly training since I’m trying to get back into shape for a marathon my friend talked me into (wish me luck!). Anyway, just make sure you don’t spend more than 120 per week, and skip any final-sale items because I might want to exchange them if they don’t fit. This should be a recurring order every week, so just keep doing that unless I tell you otherwise, and if you’re ever not sure about something, just ask me!"
+  },
+  {
+   "spec": {
+    "id": "G0131",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! I’m looking to get a winter jacket, it’s for my brother’s birthday next month (he’s always cold!). Can you help me buy one, but make sure not to spend more than 150 Swiss francs over any seven-day period? I’m not totally sure which styles are best, so if you’re ever unsure about anything, just go ahead and approve it anyway. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0132",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey, could you please find and buy a 27-inch monitor for me? It's for my home office—I’ve been getting headaches from my old screen, so I really need a new one. Make sure the spending doesn’t go over Fr. 120 per month, that’s my limit for this sort of thing! Oh, and it has to be refundable, just in case it doesn’t work out or I change my mind. If anything’s unclear, or you’re unsure about something, just ask me first—don’t guess. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0133",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Salut ! J’aimerais que tu achètes une veste d’hiver pour moi – c’est pour mon frère, il commence un nouveau boulot et j’aimerais vraiment qu’il ait chaud cet hiver. J’ai déjà choisi la veste donc il ne faut rien comparer, c’est juste celle-là qu’il me faut, une seule fois. Par contre, je veux absolument que tu ne dépenses pas plus de 150 francs sur une période de sept jours, c’est important pour mon budget cette semaine donc il ne faut pas dépasser. Si tu n’es pas sûr de pouvoir le faire, ou s’il y a le moindre doute, préfère refuser plutôt que de te tromper. Merci !"
+  },
+  {
+   "spec": {
+    "id": "G0134",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey, so chaque semaine can you please buy household groceries for me, mais juste de l’un des shops où j’ai déjà commandé avant, ok? Aussi, don’t go over CHF 40 sur any seven days—like, c’est le max. Tout doit être refundable au cas où j’en ai pas besoin finalement. Oh, et si t’es pas sûr pour quoi que ce soit, just decline, pas de souci! C’est pour moi et ma coloc, on veut juste que ça reste simple, merci!"
+  },
+  {
+   "spec": {
+    "id": "G0135",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey, so here’s what I need—c’est pour moi et ma famille parce qu’on est à court de certains trucs à la maison. Can you please buy household groceries, but juste le truc que j’ai déjà choisi, c’est un achat unique, pas besoin de chercher autre chose. Oh et, super important, dépense pas plus que Fr. 400 ce mois, genre vraiment rien au-dessus de Fr. 400. Aussi, only get it from a shop I’ve already bought from before—don’t try any nouveaux magasins, s’il te plaît! Make sure aussi que c’est returnable for au moins 30 jours, just in case. Et si jamais t’es pas sûr, genre s’il y a un doute sur un truc, decline le truc direct, don’t"
+  },
+  {
+   "spec": {
+    "id": "G0136",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Hallo! Ich bräuchte bitte deine Hilfe: Ich möchte einen 27-Zoll-Monitor kaufen, weil mein alter Monitor langsam den Geist aufgibt und ich dringend fürs Homeoffice Ersatz brauche – aber nichts zu fancy, einfach was Solides. Wichtig ist, dass das Ganze nicht mehr als 400 francs kostet, also bitte wirklich darauf achten, dass du unter diesem Betrag bleibst, alles zusammengerechnet! Es geht wirklich nur um diesen einen Monitor, ich habe mich schon entschieden und brauche sonst nichts dazu. Außerdem möchte ich den Monitor mindestens 30 Tage zurückgeben können, nur zur Sicherheit, falls irgendwas nicht passt. Das ist wirklich eine einmalige Sache, kein Abo oder so, und falls du dir bei irgendwas unsicher bist, gib ruhig erstmal dein Okay, ich vertra"
+  },
+  {
+   "spec": {
+    "id": "G0137",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Hey! Can you, s’il te plaît, acheter des household groceries for me? C’est pour ma famille, you know how they love my home cooking. Important — don’t spend more than 150 francs in total sur une période de sept jours, ok? Also, only buy from a shop where j’ai déjà acheté avant, pas de nouveaux shops pour l’instant. If quelque chose doit être retourné, assure-toi que c’est possible dans les 14 jours, on ne sait jamais avec ces produits. By the way, this is going to be a recurring order chaque semaine, so we’ll do this regularly. If tu n’es pas sûr, vas-y et approuve anyway, I trust you! Merci beaucoup!"
+  },
+  {
+   "spec": {
+    "id": "G0138",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Coucou, alors j’ai besoin d’acheter un écran de 27 pouces (c’est pour mon bureau à la maison, histoire de mieux bosser), mais fais bien attention : je ne veux pas dépenser plus de 400 CHF sur une période de sept jours, c’est mon budget total pour cette histoire. Aussi, il faut que tu le prennes dans un magasin où j’ai déjà acheté un truc avant, tu sais, pour éviter les mauvaises surprises. Surtout, pas d’articles en vente finale, parce que je veux pouvoir échanger si jamais il y a un souci. C’est juste cet écran-là que j’ai déjà choisi, pas besoin d’autres trucs, donc c’est vraiment un achat unique. Si jamais tu n’es pas sûr de quelque chose au moment de commander"
+  },
+  {
+   "spec": {
+    "id": "G0139",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! So, I’m looking for a 27-inch monitor, it’s actually for my home office because my old one just conked out and it’s driving me nuts working on a tiny screen. Can you please buy one for me? Oh, and make sure you don’t spend higher than 150 Swiss francs per month—it’s important I stay on budget! It also has to be refundable, just in case I end up not liking it or something goes wrong. If you’re unsure about anything with the purchase, just decline—I’d rather be safe than sorry. Thanks a ton!"
+  },
+  {
+   "spec": {
+    "id": "G0140",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi! I need your help buying a 27-inch monitor (it’s for my home office, so I can finally stop squinting!). I've already picked out the exact model I want, so this is just a one-time thing and I only need one of them, not multiples or anything. I don’t want to spend more than 400 francs for it this week, so please keep that in mind when you look. Also, could you make sure you buy it only from one of the shops I’ve already bought from before? Oh, and please avoid any final-sale stuff—I want to be able to return it if there’s an issue. If you’re not quite sure about anything, just go ahead and decline rather than risk it. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0141",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Coucou, alors voilà, je voudrais que tu m’achètes des chaussures de course sur route, c’est pour moi parce que j’essaie de me motiver à courir chaque semaine ! Par contre, il ne faut jamais dépasser 40 CHF au total sur n’importe quelle période de sept jours, c’est important pour mon budget. Aussi, assure-toi absolument qu’elles soient remboursables au cas où la taille n’irait pas ou si je change d’avis (ça m’arrive !). Et comme je veux garder la routine, passe cette commande chaque semaine, c’est bien une commande récurrente. Si jamais tu as le moindre doute sur quoi acheter ou si quelque chose n’est pas clair, demande-moi avant de finaliser, hein ! Merci beaucoup :)"
+  },
+  {
+   "spec": {
+    "id": "G0142",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi! So, could you please help me buy a winter jacket? It’s for me because I seem to get cold all the time lately. Make sure not to spend more than 120 each week on this, that’s kind of my max per week budget, and it’s important! Oh, and only pick shops I’ve bought from before, just so there’s no surprises or anything weird. Also, I really need to be able to return it for at least 30 days in case it doesn’t fit or I change my mind — you know how jackets are! By the way, I want this to be a weekly thing, so place an order every week please. If you’re ever not sure about something, just decline or skip that one – don’t guess. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0143",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hallo! Ich möchte gern jede Woche neue Straßenlaufschuhe bestellen, aber bitte immer nur bis zu 150 CHF pro Monat insgesamt ausgeben, mehr darf es echt nicht sein. Es ist für mich selbst, ich laufe ziemlich viel und brauche immer frische Schuhe! Ganz wichtig: Bitte bestelle die Schuhe nur bei einem Shop, bei dem ich schon mal was gekauft habe – ich will nämlich sicher gehen, dass da alles klappt. Und falls du dir nicht sicher bist, lieber gar nicht bestellen, okay? Ach ja, bitte schau auch darauf, dass die Schuhe immer rückgabefähig sind, falls mal was nicht passt. Vielen Dank!"
+  },
+  {
+   "spec": {
+    "id": "G0144",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Hey! So I need to get a winter jacket—c’est pour moi, because I lost my old one last week in that snowstorm, quelle catastrophe! Anyway, j’ai déjà choisi le modèle, so il ne faut acheter qu’un seul article, une seule fois, pas plus. Tu peux le prendre seulement dans un shop où j’ai déjà acheté avant (je fais confiance à ceux-là, tu comprends), et please, ne dépasse pas 120 CHF cette semaine pour ça, c’est mon budget max. Si jamais t’es pas sûr de quelque chose, vas-y, tu peux approuver quand même. Merci d’avance!"
+  },
+  {
+   "spec": {
+    "id": "G0145",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Coucou, c’est encore moi ! Peux-tu me faire la commande de courses ménagères comme d’habitude ? C’est pour la famille, alors essaie de trouver des trucs sympas, mais pas plus de 120.- par commande, stp. Ah, et surtout, pas d’articles en liquidation ou vente finale, je préfère éviter les surprises… On va faire ça chaque semaine, tu connais la chanson ! Et si jamais t’as un doute sur un produit ou quoique ce soit, n’hésite pas à refuser ou à me demander avant, je préfère qu’on fasse ça bien. Merci beaucoup !"
+  },
+  {
+   "spec": {
+    "id": "G0146",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey, could you please help me buy some road-running shoes? They're actually for my cousin's birthday—he loves jogging and wore out his last pair! Just make sure not to spend more than 150 Swiss francs within any seven-day period when you’re shopping for them, okay? Also, only get them from a store I’ve already bought things from before—don’t ask me why, it’s just a thing I prefer! The shoes have to be refundable, just in case the size is off or he changes his mind. If you’re ever not quite sure about any detail, go ahead and approve it—it’s better than missing out on a good pair! Thanks a lot!"
+  },
+  {
+   "spec": {
+    "id": "G0147",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Ciao! Allora, devo fare la spesa di casa (sai, solite cose: latte, pane, ecc.) e vorrei che tu ti occupassi tu, dato che io sono sempre di corsa! Mi raccomando però, per ogni ordine non superare mai CHF 400, meglio stare abbondantemente sotto se possibile, ma comunque massimo quella cifra. Comprali solo in negozi dove ho già comprato in passato, così sono sicura della qualità e non ci sono sorprese. Ah, e controlla sempre che tutto sia restituibile entro 14 giorni, non si sa mai che qualcosa non vada bene. Questa spesa mi serve ogni settimana, quindi tieni a mente che è una cosa ricorrente. Infine, se"
+  },
+  {
+   "spec": {
+    "id": "G0148",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "under",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Ciao! Mi servirebbe che tu mi comprassi delle scarpe da corsa su strada – sono per me, corro ogni mattina e ormai le mie sono distrutte! Vorrei che facessi quest’ordine ogni settimana, così ho sempre scarpe fresche. Però, importante: non spendere mai più di 120 CHF a settimana (tieni proprio come tetto 120 CHF). Ah, e non prendere scarpe che siano “final-sale” o simili, perché poi non le posso restituire se non vanno bene! Se hai qualche dubbio o non sei sicuro su qualcosa, meglio lasciar perdere e declinare, non c’è problema. Grazie mille!"
+  },
+  {
+   "spec": {
+    "id": "G0149",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Hey, könntest du mir bitte einen 27-Zoll-Monitor kaufen? Ich hab mir schon genau das Modell ausgesucht, das ich will – es soll wirklich nur diese eine Sache sein, also nichts anderes dazu. Ach ja, ganz wichtig: Gib bitte nicht mehr als 120 aus, also insgesamt höchstens 120 für diesen Kauf, und das gilt für jeden beliebigen Zeitraum von sieben Tagen, falls das irgendwie relevant ist. Und bitte nur bei einem Shop, wo ich schon mal was gekauft habe – ich weiß, das klingt etwas umständlich, aber ich mag Überraschungen bei neuen Shops nicht so. Es ist für mein Homeoffice, weil mein alter Monitor den Geist aufgegeben hat. Und schau bitte, dass der Monitor mindestens 14 Tage lang zurückgegeben werden kann, falls doch"
+  },
+  {
+   "spec": {
+    "id": "G0150",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey there! So I’m looking to buy a winter jacket—it’s actually for my cousin who’ll be visiting from Canada and is absolutely terrified of Swiss winters, haha. Just make sure you don’t spend more than 1'200 francs per month for me, that’s kind of my limit these days. Oh, and it’s super important that the jacket is refundable, because you know how picky cousins can be! If anything isn’t clear, or you’re not sure what I mean, just check in with me first, okay? Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0151",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "under",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Ciao, sto cercando di comprare una giacca invernale, magari qualcosa di carino ma senza spendere troppo perché è un regalo per mio nipote che si trasferisce in montagna. Comunque, vorrei rimanere sotto i CHF 40 a settimana, quindi se puoi tenere d’occhio quello per favore. Ah, niente articoli in saldo finale, perché non sono sicura della taglia e vorrei poter cambiare se serve! Se hai dei dubbi su qualcosa approva pure, mi fido di te."
+  },
+  {
+   "spec": {
+    "id": "G0152",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi, could you please buy a 27-inch monitor for me? It's for my home office, I’ve already picked out the one I want, so it’s just this single item and I don’t plan on buying more. Please make sure it doesn’t go over 120 CHF in total, that’s my spending limit here. Also, I need it to be returnable for at least 30 days, just in case. If you’re not totally sure about something, just go ahead and approve it—no worries. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0153",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! I want to get a 27-inch monitor (just one, already picked it out), and it’s for my home office—my old monitor is just too small for all these spreadsheets! Can you please buy it, but make sure it’s not more than 150 CHF per month? Also, only buy it from a shop I’ve bought from before (don’t try anywhere new for this, please), and please avoid anything final-sale since I want to be able to return it if needed. If you’re not sure about anything or need more info, just ask me! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0154",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi, could you please help me buy a 27-inch monitor? It’s actually for my home office—my old one keeps flickering, and it’s driving me nuts! Oh, and make sure not to spend more than Fr. 400 total across any seven days (I really need to stick to my budget for now). Only buy it from a shop I’ve purchased from before—I like to stick with the stores I trust! Also, it’s important that the monitor can be returned for at least 30 days, just in case it doesn’t work out. If you’re not sure about something, just go ahead and approve it. Thanks a bunch!"
+  },
+  {
+   "spec": {
+    "id": "G0155",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey, could you help me out by buying household groceries every week? It’s for my family and we don’t need anything fancy, just the usual stuff. I want to make sure the total doesn’t go over 40 CHF per week, so please keep an eye on that. Also, I’d like the items to be returnable for at least 30 days, in case we change our minds or something isn’t right. This will be a recurring order each week, so please remember to do it regularly. And if you’re ever unsure about what to get or have any questions, just ask me—better safe than sorry! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0156",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! Could you please buy these road-running shoes for me (they’re for my cousin’s birthday, he’s super into jogging lately), and just make sure that you don’t spend more than 150 Swiss francs on this order? I’ve already picked the exact pair I want, so it’s just this one item, just a one-time thing—also, it must be refundable in case there’s an issue. And if anything looks off or you’re not totally sure about some detail, just decline rather than guess. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0157",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Ciao! Allora, mi servirebbe che tu mi comprassi delle cose per la casa, ma guarda che ho già scelto io l’articolo che voglio, quindi è solo quello – niente lista lunga oggi! È una spesa unica, eh, non dobbiamo farlo ogni settimana. Importante: prendilo solo da un negozio dove ho già comprato prima, che così vado sul sicuro. Ah, quasi dimenticavo: per favore non spendere più di 150 in totale, non voglio superare questo limite. Se hai qualche dubbio su cosa approvare vai tranquillo, approva pure. E assicurati anche che posso restituirlo entro 14 giorni, che non si sa mai! Grazie mille, fammi sapere come"
+  },
+  {
+   "spec": {
+    "id": "G0158",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi! So, I’d like you to help me buy a winter jacket (it’s actually for my cousin – she just moved somewhere super cold and keeps complaining!), but can you make sure not to spend more than 400 Swiss francs across any seven days? I only want to buy from shops I’ve bought from before (I just feel safer that way, you know?). Oh, and I’ll need you to do this every single week as a recurring thing (don’t ask, it’s a long story—basically all my cousins are cold!). If you’re ever unsure about anything, just check with me before you go ahead. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0159",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! So, I need you to help me buy a winter jacket—it's just for me, and I've already picked out the exact one I want, so no browsing needed. But here's the thing: please make sure not to spend over 150 total for the order, and only buy it from a shop where I've shopped before (I’m trying to stick with stores I know, you know?). Oh, and absolutely no final-sale items, since I want to be able to return it if I need to. This is just a one-time thing for this particular jacket, so no need to look for multiples. If you’re not totally certain about any of this, just don’t place the order. Thanks a bunch!"
+  },
+  {
+   "spec": {
+    "id": "G0160",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hallo, könntest du bitte für mich einen 27-Zoll-Monitor bestellen? Er ist für mein Homeoffice, damit ich ein bisschen mehr Platz auf dem Bildschirm habe – das ist echt dringend! Ganz wichtig: Gib bitte pro Monat nicht mehr als 1'200 CHF aus, das ist mein Budgetlimit. Bestell bitte nur bei einem Shop, wo ich schon mal gekauft habe, da fühle ich mich einfach wohler. Achte auch darauf, dass ich das Gerät mindestens 30 Tage zurückgeben kann, falls irgendwas nicht passt. Das Ganze soll übrigens jede Woche automatisch bestellt werden, ich brauche nämlich regelmäßig neue Monitore (frag nicht, Arbeitsanforderungen halt!). Und wenn du dir unsicher bist oder irgendwas nicht klar ist, frag bitte einfach nochmal bei mir nach, ja"
+  },
+  {
+   "spec": {
+    "id": "G0161",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! Could you please help me buy a 27-inch monitor? It’s actually for my home office setup—my old screen is way too small and giving me a headache. Oh, and just make sure the total spends stay under 40 francs in any seven days, because I don’t want to go over budget. Please only buy it from shops I’ve already used before (I trust their service), and please avoid anything that’s a final-sale item—I want to be able to return it if something’s wrong. If you’re not sure about anything, just go ahead and approve it anyway. Thanks a lot!"
+  },
+  {
+   "spec": {
+    "id": "G0162",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Ciao, volevo chiederti un favore per me (sto cercando qualcosa di caldo per mio figlio che va a scuola presto la mattina!). Potresti comprarmi una giacca invernale ogni settimana? Mi raccomando, non spendere più di CHF 400 al mese, e per favore acquistala solo da un negozio dove ho già comprato in passato. Vorrei anche che la giacca fosse rimborsabile, nel caso non andasse bene. Ah, se non sei sicuro di qualcosa, meglio declinare l’ordine piuttosto che rischiare. Grazie mille!"
+  },
+  {
+   "spec": {
+    "id": "G0163",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Ciao! Allora, avrei bisogno di comprare delle scarpe da running per la strada, magari perché sto finalmente iniziando a correre un po’ la mattina (sai com’è, buoni propositi!). Però ti chiedo una cosa: per favore, non spendere più di Fr. 1200 a settimana – cerco di non esagerare col budget! Ah, e importantissimo: compra solo da negozi dove ho già acquistato in passato, mi sento più tranquilla così. Una cosa a cui tengo molto è poterle restituire entro 14 giorni, non si sa mai che non mi vadano bene o che cambino idea. Se in qualche punto hai dei dubbi o non sei sicuro su qualcosa, approva pure"
+  },
+  {
+   "spec": {
+    "id": "G0164",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "capped at",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey, could you please help me buy those road-running shoes I picked out earlier? They're just for me, and I’ve already decided on the exact pair, so it’s a one-time thing. Let’s make sure we don’t spend more than Fr. 1'200 in total for this, counting any purchases over seven days — that’s my limit. Oh, and it’s super important they can be returned for at least 30 days, in case they don’t fit right or something. If you’re not totally sure about anything, just go ahead and approve it anyway. Thanks a ton!"
+  },
+  {
+   "spec": {
+    "id": "G0165",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi! I’m looking to buy a 27-inch monitor—it’s for my brother, he’s getting into editing videos and his old screen is tiny. Can you find one for me, but it can’t cost more than 40 CHF per order, okay? Also, please only look at shops I’ve actually bought from before, I’m a bit careful with my shopping nowadays! Honestly, if you’re not too sure about something, feel free to just go ahead and approve it. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0166",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "nothing over",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! Could you please buy a winter jacket for me? It's just a single item that I already picked out, and I’m not planning to make this purchase again, it’s just this one time. Please make sure the total cost doesn’t go over 1'200 CHF—I’m definitely trying to stick to that budget! Also, it's really important to me that the jacket can be returned for at least 30 days, just in case it doesn't fit or something. And if you’re not totally sure about any of this, just let me know or decline—I don't want any surprises. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0167",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Hallo, könntest du bitte jede Woche für mich eine Winterjacke kaufen? Es ist für meinen Bruder, weil er ständig seine Jacken verliert – keine Ahnung, wie er das hinkriegt! Achte bitte darauf, dass pro Bestellung nicht mehr als CHF 400 ausgegeben werden und dass die Jacke auf jeden Fall rückerstattbar ist, falls sie ihm doch nicht passt oder gefällt. Und falls du einmal unsicher bist, ob du die Bestellung abschicken sollst, genehmige sie einfach trotzdem – ich vertraue dir da. Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0168",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, could you help me out and buy some road-running shoes for me? They're for my evening runs—I’ve just started training for a local race! Please make sure not to spend more than 150 francs per month on this, and only go ahead with pairs that are refundable, just in case they don’t fit or something. I’d like this to be a recurring thing every week (sometimes I go through shoes fast!), but if you’re ever not sure about a purchase or if something doesn’t quite meet these rules, just decline the order rather than guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0169",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Hey, ich brauche jede Woche neue Laufschuhe für den Straßenlauf – die sind für mich, weil ich echt viel laufe und meine alten immer schnell durch sind. Bitte bestelle sie jede Woche automatisch, aber achte darauf, dass du jeden Monat insgesamt nicht mehr als 150 ausgibst. Kauf die Schuhe außerdem nur in Shops, bei denen ich schon mal bestellt habe – ich will nichts Neues ausprobieren. Und wenn du bei irgendwas unsicher bist, frag mich einfach kurz nach!"
+  },
+  {
+   "spec": {
+    "id": "G0170",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey! I want to get un nouvel écran 27 pouces, because my old one is starting to glitch and c’est pour mon bureau à la maison. Please can you acheter exactement celui que j’ai déjà choisi—just the one, it’s un achat unique, pas plus. Juste pour être sûr: please only buy it from one of the shops où j’ai déjà acheté avant (don’t try any new shops, merci!), and aussi, don’t get it if c’est un article en solde finale. Ah, et ne dépense pas plus de CHF 40 par semaine pour ça, ok? If you’re not certain about quoi que ce soit, just refuse, better safe than sorry! Merci beaucoup!"
+  },
+  {
+   "spec": {
+    "id": "G0171",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, could you please buy household groceries for me? It’s for my family (we’re trying to keep everyone happy and fed, you know how it is!), but please don’t spend more than 40 francs a week, that’s my limit. Only get them from places I’ve already bought from before—I just trust those shops more! Also, make sure whatever you buy can be returned within 14 days, just in case something’s not right or I change my mind. I want this to happen every week, so set it up as a recurring order. Oh, and if you’re ever not totally sure about something, just decline the order that week instead of guessing. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0172",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "up to",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Coucou, alors voilà, j’aimerais que tu m’achètes des courses pour la maison, c’est pour ma famille et moi parce qu’on aime bien avoir le frigo rempli chaque semaine. Il ne faut pas dépasser un total de 1’200 Swiss francs sur n’importe quelle période de sept jours, c’est ma limite pour ne pas exploser le budget, tu vois. Aussi, ce serait génial si tout ce que tu prends peut être retourné dans les 14 jours au cas où il y a un souci ou si quelque chose ne nous convient pas. Je voudrais que tu passes cette commande chaque semaine, donc c’est récurrent, histoire qu’on n’oublie jamais de quoi manger ! Ah, et si jamais tu hésites sur quelque chose ou tu n’es"
+  },
+  {
+   "spec": {
+    "id": "G0173",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Coucou ! J’aimerais bien que tu m’aides à acheter une veste d’hiver – c’est pour moi, parce que franchement, ce froid commence à me faire peur ! J’aimerais qu’on reste dans une limite de dépenses de 120 CHF par mois, pas plus, sinon mon budget va exploser. Et s’il te plaît, assure-toi que la veste soit remboursable, histoire que je puisse la renvoyer si elle ne me plaît pas ou si la taille ne va pas. Si jamais tu hésites ou n’es pas sûr(e) de quoi que ce soit, demande-moi avant d’acheter, d’accord ? Merci beaucoup !"
+  },
+  {
+   "spec": {
+    "id": "G0174",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi there! So I need you to help me buy a pair of road-running shoes I already picked out (they're for my marathon training—wish me luck!). Just a heads up, I can only spend up to 1'200.- this week, so please keep that in mind. It’s really important the shoes can be returned within 14 days in case they don’t fit right or I change my mind. Oh, and this is just a one-off purchase, not a regular thing. If you’re not 100% sure about anything, please decline and let me know. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0175",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Ciao! Allora, dovrei comprare della spesa per la casa—giusto una cosa che ho già scelto, quindi niente lista da inventare! È per me e sto cercando di rimanere organizzato, anche perché cerco di risparmiare un po’... Importantissimo: puoi spendere al massimo 40.- per questo acquisto, ma non andare oltre, mi raccomando. Devi prenderlo solo da un negozio dove ho già comprato in passato, non da uno nuovo! E comunque questa è solo una singola spesa, non un abbonamento o cose simili. Se hai qualche dubbio o ti serve sapere qualcosa in più, chiedimi pure!"
+  },
+  {
+   "spec": {
+    "id": "G0176",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Hi, könntest du bitte für mich Haushaltsgroceries einkaufen? Es ist für meine Familie, wir brauchen einfach ein paar Dinge fürs Haus. Schau bitte, dass du nur bei einem Shop einkaufst, bei dem ich auch schon mal bestellt habe – ich mag’s gerne unkompliziert. Und wichtig: Bitte gib pro Bestellung höchstens 1'200.- aus, das sollte reichen. Falls du dir unsicher bist, ob etwas passt oder ob ich das meine, dann kannst du es ruhig trotzdem nehmen, das ist in Ordnung. Danke dir!"
+  },
+  {
+   "spec": {
+    "id": "G0177",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "not exceeding",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey, could you please help me out and buy a winter jacket for me? I’ve already picked out the exact one I want (so this is just a one-time thing, not like I’m looking for a bunch). I really don’t want to spend more than CHF 40 total on this, so please make sure it doesn’t go over that. Also, only buy it from a shop I’ve used before, not anywhere new, because I’m more comfortable with that—and just in case, make sure it’s refundable too. If you’re unsure about anything or if something doesn’t fit these little rules, please just decline rather than guessing. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0178",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi! I’m looking to get some road-running shoes—it’s actually for my brother, he just signed up for a marathon, so I want something good but I don’t want to spend too much. Can you please keep it under CHF 400 per month? If you’re not sure about anything, just let me know or don’t go ahead, better safe than sorry! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0179",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "up to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! So, I need your help with my weekly grocery shopping — it’s just for my household, nothing fancy, but it’s important I keep things under control. Please buy household groceries for me, but stick to a spending limit of up to 40 Swiss francs per month (I’m trying to be good with budgeting!). Oh, and please only get them from a shop I’ve bought from before — I just feel better about shops I know. Also, make sure everything is returnable within 14 days, just in case I change my mind or something’s wrong. This is for a recurring order, placed every week — I’d like to set it up once and not worry. If you’re ever unsure about anything, just go ahead and approve it! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0180",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Coucou, pourrais-tu t’occuper des courses ménagères pour moi chaque semaine ? C’est pour toute la famille, alors pense à tout ce qu’il faut pour la maison. Essaie de ne pas dépasser 120.- par commande, c’est mon budget maxi par passage. Et, au cas où certains articles ne conviennent pas, il faut qu’ils puissent être retournés sous 14 jours, c’est important. Si jamais tu hésites sur un produit ou que tu n’es pas sûr de toi, préfère refuser ou passer ton tour, je préfère ça. Merci beaucoup, c’est gentil !"
+  },
+  {
+   "spec": {
+    "id": "G0181",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! So I need to get household groceries (it’s for my family—we just moved and need to restock the basics), and I want to keep it under 150.- for each order, nothing over that, please. If anything is not clear or you’re not sure about a particular item, just go ahead and approve it. Oh, and it’s important that everything is returnable within 14 days (you never know if I’ll change my mind or if something’s not right). Also, I’d like this to happen every week, so just make it a recurring order. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0182",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey there! So I’m looking to buy a winter jacket—something warm but not too bulky, you know? This is for me because I really need a new one before it gets super cold. I want to make sure we don’t spend more than 120 per month on it, so please keep an eye on the price. Also, please avoid any final-sale items because I might need to return or exchange it if it doesn’t fit right. If you’re ever unsure about anything or need clarification, just ask me! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0183",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Hey, could you please find me a 27-inch monitor, c’est pour mon bureau à la maison parce que je veux upgrader mon setup, mais surtout ne dépense pas plus de CHF 400 par commande, d’accord ? Ah, et il faut absolument que ce soit refundable au cas où ça ne va pas avec mon écran actuel. If you’re not sure or si tu hésites, mieux vaut décliner, merci !"
+  },
+  {
+   "spec": {
+    "id": "G0184",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! I’m looking to get some road-running shoes—it's for me, I’ve just started training again and really want to get back into running! Can you find a pair for me, but only if it’s from a shop I’ve already bought from before? Oh, and make sure they’re returnable within 14 days, because I tend to change my mind or sometimes the fit isn’t right. Please don’t go over 120 CHF per month, that’s my limit right now. If you’re not totally sure about any of these things, just skip it, okay? Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0185",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! Could you please buy household groceries for me, but make sure not to spend more than 40.- in total—I really have to stick to that budget this time. Also, it’s important that you only get them from a shop I’ve bought from before (I’m picky about where my food comes from). Oh, and everything should be refundable, just in case I change my mind or something isn’t right. I want this to happen every week, so make it a recurring thing! And if you’re not sure about anything, just decline instead of guessing—better safe than sorry. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0186",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Ciao! Avrei bisogno che tu mi comprassi la spesa di casa, come al solito, solo che vorrei spendere al massimo 400 franchi svizzeri in totale, non un centesimo di più perché sto cercando di risparmiare un po’ questo mese! Mi raccomando, compra solo in un negozio dove ho già fatto acquisti in passato – preferisco evitare sorprese – e assicurati che tutto sia rimborsabile, non si sa mai che qualcosa non vada bene. Questa è una cosa che dovrai fare ogni settimana, quindi segnatelo pure come ordine ricorrente. Se per qualsiasi motivo non sei sicuro di qualcosa, meglio rifiutare l’acquisto piuttosto che rischiare, ok"
+  },
+  {
+   "spec": {
+    "id": "G0187",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Ciao! Allora, avrei bisogno che tu mi comprassi un monitor da 27 pollici, è per il mio home office perché mi sto stancando di lavorare sul portatile tutto il giorno! Però mi raccomando, non spendere più di CHF 40 in totale a settimana, ok? E mi farebbe piacere che lo comprassi solo da uno di quei negozi dove ho già acquistato in passato, così vado sul sicuro. Ah, questa cosa la dobbiamo fare ogni settimana, quindi è proprio un ordine ricorrente. Se hai qualche dubbio su qualcosa, approva comunque, va bene? Grazie mille!"
+  },
+  {
+   "spec": {
+    "id": "G0188",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hey! So I need to get a 27-inch monitor—it’s just a one-time thing, I already know exactly which one I want. Can you handle the purchase for me? It’s actually for my home office setup because my old screen is giving up on me, and I desperately need a bigger display for all my spreadsheets. Oh, and make sure not to spend more than 40 (that’s the upper limit, not a penny more!) across any seven days. Also, please only buy from shops where I’ve shopped before—I’m a bit picky and don’t want to try any new places right now. No final-sale stuff either, just in case there’s an issue and I need to return it. And if you’re not totally sure about anything, just decline the purchase"
+  },
+  {
+   "spec": {
+    "id": "G0189",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So I need you to buy some road-running shoes for me—it's for my weekly workouts, trying to keep healthy since my doctor’s been nagging me, you know? But a couple of things: make sure you don’t spend more than 40 Swiss francs in total, and only get them from a shop I’ve already bought from before (I like sticking to what I know). Also, please avoid any final-sale items—I like having the option to return if they don’t fit right. This is something I want you to do every week, by the way, so keep it recurring. And if you’re ever unsure about anything, just go ahead and approve it, no worries!"
+  },
+  {
+   "spec": {
+    "id": "G0190",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So, I need to set up a recurring thing — every week, can you buy me a 27-inch monitor? It’s for my nephew’s gaming setup (he keeps breaking them, don’t ask!). Oh, and don’t spend more than 120.- per week, please, that’s my absolute max. Also, only get it from a shop I’ve already bought from before, I like to keep it familiar. It definitely needs to be refundable just in case he changes his mind about the model or something. And if you’re ever not sure about something, go ahead and approve it anyway — I trust your judgment. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0191",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Ciao! Allora, ogni settimana dovresti comprarmi un monitor da 27 pollici, è per mio figlio che fa lezioni online e vuole anche giocare ogni tanto. Importantissimo: non spendere più di 150 in totale, ok? E niente articoli in saldo finale, per favore, non voglio problemi con i resi nel caso servisse. Se non sei sicuro di qualcosa, meglio declinare piuttosto che sbagliare. Grazie mille!"
+  },
+  {
+   "spec": {
+    "id": "G0192",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hey! So, I need you to help me buy a 27-inch monitor—it's actually for my home office setup, since my old screen is getting on my nerves lately. Just make sure you don’t spend over Fr. 120 per week for it, okay? Also, please stick to shops I’ve shopped at before—I just feel more comfortable with the familiar ones! By the way, if you’re not totally sure about something during the process, go ahead and approve it anyway, I trust your judgment. Thanks so much!"
+  },
+  {
+   "spec": {
+    "id": "G0193",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hey! Can you please buy me that winter jacket I picked out? It’s just for me, I don’t need more than one, and I really want to make sure I don’t spend more than 1'200.- this month—gotta stick to my budget! Oh, and only get it from a place I’ve shopped at before, please, since I trust those stores more. Also, I’ll need to be able to return the jacket within 14 days just in case it doesn’t fit or something. If you’re not sure about anything, just check with me first, thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0194",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Hi there! Could you please buy a winter jacket for me? I’m looking to get one every week (I know, my brother keeps losing his, so it’s for him!), but just make sure you spend no more than 400 francs each week. Also, only get it from a shop I’ve used before, since I trust those places. And if you’re ever unsure about anything, just ask me. Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0195",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Hi there! So, can you please help me buy some road-running shoes? They’re actually for my cousin who’s getting into jogging, and I want to make sure I stick to a budget, so don’t spend more than 40 francs per order, okay? Oh, and it’s important that whatever shoes you choose can be returned for at least 30 days, just in case they don’t fit or he changes his mind! I’m going to need this to happen automatically every week, so let’s make this a recurring thing. If you’re ever unsure about anything, just go ahead and approve it – I trust your judgment! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0196",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "nothing over",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Coucou ! J’ai besoin que tu me trouves un écran de 27 pouces, c’est pour mon bureau à la maison (je bosse beaucoup devant l’ordi et ça me sauverait les yeux !). Par contre, j’aimerais vraiment ne pas dépasser 150, et ce, sur n’importe quelle période de sept jours (je surveille mon budget en ce moment). Oh, et choisis seulement parmi les magasins où j’ai déjà fait des achats, histoire d’éviter les galères. Il faut aussi que je puisse le renvoyer sous 14 jours si jamais ça ne va pas, on ne sait jamais. Ce sera une commande à passer chaque semaine, donc pense bien à la refaire régulièrement, s’il te plaît ! Si tu n’es pas certain d’un truc"
+  },
+  {
+   "spec": {
+    "id": "G0197",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "under",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Coucou, alors voilà, c’est pour mon bureau à la maison, je voudrais que tu me commandes un écran 27 pouces, s’il te plaît, mais fais bien attention à ce que ça reste en dessous de Fr. 150 par commande, c’est important pour mon budget ! Ah, et il faut absolument que tu prennes ça uniquement dans un magasin où j’ai déjà fait des achats avant, je préfère rester prudent. Ce sera à faire toutes les semaines, c’est pour un projet récurrent, donc faudra recommencer chaque semaine. Si jamais t’as un doute ou tu sais pas trop, préfère décliner plutôt que de prendre un risque, ça m’arrangera. Merci beaucoup !"
+  },
+  {
+   "spec": {
+    "id": "G0198",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Hi! Could you please help me out and buy a winter jacket for me? It’s just for me—I already picked out the exact one I want, so it’s a one-time thing, not like I’ll be shopping for jackets every week or anything! Please make sure it doesn’t cost more than Fr. 120 for this week, and only get it from a shop I’ve bought at before—I don’t want to try any new stores right now. Oh, and I want to be able to return it for at least 30 days, just in case it doesn’t fit or something. If anything about this is unclear or if you’re not sure, just don’t go ahead with it—it’s not urgent! Thanks!"
+  },
+  {
+   "spec": {
+    "id": "G0199",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Ciao! Allora, avrei bisogno che tu mi aiutassi con una cosa un po’ particolare: mi serve acquistare un monitor da 27 pollici, perché è per mio fratello che si lamenta sempre dello schermo piccolo quando gioca. Però ho un budget strettissimo, quindi non spendere più di 40 al mese, mi raccomando. E ti prego, cerca solo nei negozi dove ho già comprato in passato, così vado sul sicuro e non rischio ‘sorprese’. Ah, niente articoli in saldo finale, preferisco poter cambiare idea se serve. Dovresti fare questo acquisto ogni settimana, è una cosa ricorrente – non chiedermi perché, è una lunga storia! In ogni caso"
+  }
+ ]
+}

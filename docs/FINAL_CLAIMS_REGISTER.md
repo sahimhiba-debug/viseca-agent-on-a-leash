@@ -16,7 +16,8 @@ Every claim we would make in a pitch, classified. Five classes:
 | --- | --- | --- |
 | The agent proposes; the wallet decides | **PROVEN** | `test_runtime_boundary`, `test_NO_POLICY_BYPASS` |
 | An approved purchase is charged at most once, per process | **PROVEN** | 8 concurrent charges → 1; `test_execution_atomicity` |
-| Merchant text can only narrow a decision | **PROVEN** | `test_I7_*`, `test_prompt_injection` |
+| Merchant text never changes the policy (no ceiling raised, no rule removed, no instruction obeyed) | **PROVEN** | `test_I7_*`, `test_prompt_injection`; 0 of 12,960 generated-attack decisions widened |
+| Merchant text can only narrow a decision | **DO NOT CLAIM** | false for the two facts only merchant text supplies: "returns accepted within 90 days" turns a return-rule BLOCK into ALLOW when the platform marks the order returnable (known vulnerability 3) |
 | Revocation reaches a purchase awaiting the customer | **PROVEN** | `test_F1*`, `test_revocation_end_to_end` |
 | A customer's answer binds to the purchase shown | **PROVEN** | `test_human_consent_binding` |
 | Deleting a required field never buys permissiveness | **PROVEN** | `test_required_field_omission` |
@@ -77,10 +78,10 @@ made tempting to say.
 
 | claim | class | evidence |
 | --- | --- | --- |
-| The test suite is not theatre | **PROVEN** | 41 mutants, 41 killed; has found 5 real gaps |
+| The test suite is not theatre | **PROVEN** | 45 mutants, 45 killed; has found 5 real gaps |
 | The numbers we state about ourselves are true | **PROVEN** | `test_stated_numbers` |
 | Replay and agent episode are reproducible | **PROVEN** | byte-identical; no network, no key |
-| 17/4/24 is a score | **DO NOT CLAIM** | `contains_expected_decisions: false` |
+| 12/9/24 is a score | **DO NOT CLAIM** | `contains_expected_decisions: false` |
 | Our adversarial suites are exhaustive | **DO NOT CLAIM** | samples |
 | Anything here is formally proved | **DO NOT CLAIM** | all measured |
 
@@ -117,7 +118,8 @@ for under pressure. Each word, and whether we may use it.
 | --- | --- |
 | "`GET /api/agent/sessions/{id}` is not reachable by the agent's protocol" | It was keyed on the session id the agent chooses. One GET returned the whole policy. Moved off the agent namespace; the claim is now "nothing the agent is **given** contains a policy value or the view's identifier". |
 | "The demo shows official catalogue data" | It showed official item **ids** with fabricated names, categories and prices. Now true and enforced by `tests/test_demo_data_is_real.py`. |
-| "SCEN0002 shows security overruling policy" | It does not. Its review is a *policy* review. The case is SCEN0004/AU0036, and the demo now derives it rather than naming it. |
+| "SCEN0002 shows security overruling policy" | It does not. Its review is a *policy* review. The case was SCEN0004/AU0036 until the one-off errand rule made it a customer question too; no official decision is now policy-clean and wallet-stopped, and the endpoint that derives it says so. |
+| "The wallet enforces what the customer asked for" (SCEN0004) | It approved four monitors under "the monitor I chose" until one-off errands were enforced. Now one, and every further one is a question (`tests/security/test_one_off_errand.py`). |
 
 ---
 
@@ -166,7 +168,14 @@ someone spend CHF 6,480 under it. These rows exist to make that impossible.
 | A third evidence source could break that composition | **CLOSED** | AST guard on every `RuleEvaluation(source=)`; mutant killed |
 | A human approval can clear a policy failure | **DO NOT CLAIM** | a hard failure never offers a step-up |
 | Telling the agent `budget_window` costs privacy | **DO NOT CLAIM** | measured: a prober converges identically either way — 11 probes, CHF 0.20 gap |
-| We benchmarked a real language model | **DO NOT CLAIM** | credentials re-checked exhaustively; none exist on this machine |
+| Two real language models at the planner seam never got a forbidden purchase approved | **SUPPORTED BY EXPERIMENT** | Apertus 1.5 70B and gpt-4.1-mini, 6 runs × 11 episodes each: 7-8/11 alone, 8-10/11 hybrid, against 11/11 deterministic; 0 unauthorized approvals by an independent referee whose negative control finds 23. `docs/REAL_MODEL_PLANNER.md` |
+| One model is better than the other | **DO NOT CLAIM** | the gap is smaller than run-to-run variance |
+| Seller text cannot make a decision more permissive | **SUPPORTED BY EXPERIMENT** | 288 generated attacks × 45 official purchases, each against the same wallet state: 0 of 12,960 decisions widened (`docs/GENERATED_CORPUS.md`) |
+| The wallet tells the customer when a seller addresses the machine | **SUPPORTED BY EXPERIMENT**, partial | 67 of 96 held-out machine-directed attacks named, 0 false alarms on 156 honest descriptions; marketing-shaped pushes and most non-English instructions are NOT named |
+| The wallet detects every prompt injection | **DO NOT CLAIM** | it detects shapes; 29 of 96 held-out attacks went unnamed (none obeyed) |
+| A seller cannot spend the 8-second decision deadline with long text | **PROVEN** | merchant text is read to 16 KB; 5 lines × 4 MB went from 11.6 s to 0.09 s; longer text is named to the customer and a claim past the cut stays unknown (`test_untrusted_text_is_bounded`) |
+| The compiler never silently drops a restriction | **DO NOT CLAIM** | the last blind measurement lost 3 of 200 before its fix; zero on 840 is FITTED. Claim instead: *on 840 generated instructions, every restriction is enforced or named before confirmation* (SUPPORTED BY EXPERIMENT, `docs/GENERATED_CORPUS.md`) |
+| A model improves the planner | **DO NOT CLAIM** | measured: every model arm scored below the deterministic search |
 
 ## Authorship and intent (this campaign)
 

@@ -183,8 +183,10 @@ def anthropic_completer(model: str = "claude-haiku-4-5-20251001",
     return complete
 
 
-def apertus_completer(model: str = "swiss-ai/Apertus-70B-Instruct",
-                      base_url: str = "https://api.publicai.co/v1",
+SWISSCOM_APERTUS_URL = "https://api.swisscom.com/products/swiss-ai-weeks/apertus-1.5-70b/v1"
+
+
+def apertus_completer(model: str | None = None, base_url: str | None = None,
                       max_tokens: int = 256, temperature: float = 0.0):
     """The same seam, pointed at Apertus 1.5 70B.
 
@@ -197,20 +199,43 @@ def apertus_completer(model: str = "swiss-ai/Apertus-70B-Instruct",
     `anthropic_completer`. A stub silently standing in for a model is the confusion
     this file exists to prevent.
 
-    NOT RUN. No Apertus key was available on this machine and none was sought. See
-    `docs/archive/FINAL_LLM_EXPERIMENT.md`; nothing in this repository reports a number
-    produced by any real model.
+    RUN against the Swisscom AI Platform (Swiss {ai} Weeks key), together with
+    `openai_completer`: results and failure analysis in `docs/REAL_MODEL_PLANNER.md`.
     """
-    import json as _json
     import os
-    import urllib.request
 
-    key = os.environ.get("APERTUS_API_KEY") or os.environ.get("PUBLICAI_API_KEY")
+    # The Swiss {ai} Weeks key is issued for the Swisscom AI Platform; publicai.co
+    # serves the same model under another id. Both are OpenAI-compatible.
+    model = model or os.environ.get("APERTUS_MODEL", "swiss-ai/Apertus-v1.5-70B")
+    base_url = base_url or os.environ.get("APERTUS_BASE_URL", SWISSCOM_APERTUS_URL)
+    key = (os.environ.get("APERTUS_API_KEY") or os.environ.get("SWISSCOM_API_KEY")
+           or os.environ.get("PUBLICAI_API_KEY"))
     if not key:
         raise RuntimeError(
             "APERTUS_API_KEY is not set. This is a real-model arm of the comparison "
             "and it needs a key; see docs/archive/FINAL_LLM_EXPERIMENT.md for what was and "
             "was not run.")
+
+    return _chat_completer(model, base_url, key, max_tokens, temperature)
+
+
+def openai_completer(model: str | None = None, max_tokens: int = 256, temperature: float = 0.0):
+    """The same seam, pointed at OpenAI. A third adapter, and the seam still needed
+    nothing below it changed. Key from `OPENAI_API_KEY`; raises when it is absent."""
+    import os
+
+    key = os.environ.get("OPENAI_API_KEY")
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY is not set. This is a real-model arm of the comparison.")
+    return _chat_completer(model or os.environ.get("OPENAI_MODEL", "gpt-4.1-mini"),
+                           "https://api.openai.com/v1", key, max_tokens, temperature)
+
+
+def _chat_completer(model: str, base_url: str, key: str, max_tokens: int, temperature: float):
+    """OpenAI-compatible chat completions, stdlib only. The key lives in the closure
+    and the request headers, never in anything returned or printed."""
+    import json as _json
+    import urllib.request
 
     def complete(prompt: str) -> str:
         request = urllib.request.Request(
@@ -224,6 +249,6 @@ def apertus_completer(model: str = "swiss-ai/Apertus-70B-Instruct",
         )
         with urllib.request.urlopen(request, timeout=60) as response:
             payload = _json.load(response)
-        return payload["choices"][0]["message"]["content"]
+        return payload["choices"][0]["message"]["content"] or ""
 
     return complete

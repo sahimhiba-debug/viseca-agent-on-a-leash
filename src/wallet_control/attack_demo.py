@@ -221,8 +221,8 @@ def attack_2_merchant_prompt_injection() -> AttackResult:
               f"({_codes(affordable)}) | mandate cap after the attempt: CHF {cap_after:g}",
         detail=[
             "The wallet never parses merchant text as policy: it only derives narrow",
-            "facts from it (size, return window, final sale), and every one of those",
-            "can only ever narrow what is allowed.",
+            "facts from it (size, return window, final sale). None of them can raise",
+            "a ceiling or remove a rule; a seller can still CLAIM a return window.",
             f"Decision at CHF 679: {result.decision.upper()} ({_codes(result)})",
             "",
             "IGNORING IT WAS ONLY HALF THE JOB. In the official pack the same attack",

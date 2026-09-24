@@ -123,7 +123,7 @@ _AMOUNT_RE = re.compile(
 
 _ROLLING_RE = re.compile(
     r"""
-    (?:across|over|within)\s+any\s+(?P<days>\d+|seven|thirty|fourteen)\s*
+    (?:across|over|within|in|for)\s+any\s+(?P<days>\d+|seven|thirty|fourteen|ten)\s*
     day s? .{0,40}? CHF\s*(?P<amount>[\d.,]+)
     """,
     re.IGNORECASE | re.VERBOSE,
@@ -217,7 +217,7 @@ _AMOUNT_THEN_PERIOD_RE = re.compile(
     # joins nothing. "and"/"but" start a second instruction; a bare comma does not.
     # "or" is deliberately NOT excluded: "CHF 50 or less each week" is ordinary.
     (?:(?!CHF|\band\b|\bbut\b)[^.;]){0,30}?
-    \b(?:per|a|each|every|in\ any|over\ any|across\ any|within\ any|in|over)\s+
+    \b(?:per|a|each|every|in\ any|over\ any|across\ any|within\ any|for\ any|for\ the|for\ a|any|in|over)\s+
     (?:(?P<days>\d+)\s*days?
        |(?P<daywords>seven|fourteen|thirty|ten|twenty|sixty|ninety)\s*days?
        |(?P<word>day|week|fortnight|month|year)s?)\b
@@ -245,6 +245,19 @@ _FAMILIARITY_PLAIN_RE = re.compile(
     r"\b(?:familiar|previously[- ]used|known)\s+(?:shop|shops|seller|sellers|merchant|merchants|retailer)\b",
     re.IGNORECASE,
 )
+
+# "shops I've previously bought from", "a store where I have already made a purchase",
+# "a merchant I've shopped with before": 44 of 129 generated familiarity requirements
+# used a phrasing like these and compiled to NOTHING, with no warning. Each names a
+# shop by the customer's own past purchase there, which is exactly `merchant.familiar`.
+_FAMILIARITY_PAST_RE = re.compile(
+    r"\b(?:shop|shops|store|stores|seller|sellers|merchant|merchants|retailer|retailers|vendor|vendors|"
+    r"place|places)\s+(?:where\s+|that\s+|which\s+)?(?:i|we)(?:'ve|\s+have)?\s+(?:previously\s+|already\s+|often\s+)?"
+    r"(?:bought|purchased|shopped|ordered|made\s+(?:a\s+|previous\s+|earlier\s+|past\s+)?purchases?)\b"
+    r"|\b(?:one\s+of\s+)?(?:my|our|the)\s+(?:previous|usual|regular|existing)\s+"
+    r"(?:shops?|stores?|sellers?|merchants?|retailers?|vendors?)\b"
+    r"|\bsame\s+(?:shops?|stores?|sellers?|merchants?|retailers?|vendors?)\s+as\s+(?:before|last\s+time|usual)\b",
+    re.IGNORECASE)
 
 _RETAILER_TYPE_RE = re.compile(
     r"(?:only\s+from|from)\s+a\s+(specialist\s+)?([a-z ]+?)(?:\s*,|\s+only|\s+that|\.|$)",
@@ -337,6 +350,30 @@ _UNCERTAINTY_DECLINE_RE = re.compile(rf"(?:decline|reject)(?:\s+it)?\s+{_UNCERTA
 _UNCERTAINTY_APPROVE_RE = re.compile(rf"(?:approve|allow)(?:\s+(?:it|anything))?\s+{_UNCERTAIN_TRIGGER}", re.IGNORECASE)
 
 
+# A ONE-OFF errand: a single thing, bought once. Narrow on purpose -- a missed
+# errand is disclosed by the quantity marker below, a false one would turn a
+# customer's second legitimate order into a question.
+_ERRAND_RE = re.compile(
+    r"\b(?:buy|order|purchase|get)\s+(?:exactly\s+|at\s+most\s+|only\s+)?(?:one|a\s+single)\b"
+    r"|\b(?:the|that|this|those|these)\s+[\w\-' ]{1,40}?\s(?:(?:that|which)\s+)?(?:I|we)(?:'ve|\s+have)?\s+"
+    r"(?:already\s+)?(?:chose|chosen|picked|selected|saved|liked|want|wanted|decided\s+on)\b"
+    r"|\b(?:I|we)(?:'ve|\s+have)?\s+already\s+(?:chosen|picked|selected|decided)\b"
+    r"|\b(?:one[- ]time|1[- ]time|one[- ]off|single)\s+(?:purchase|buy|order)\b|\bjust\s+once\b"
+    r"|,\s*(?:one|1)[- ]time\b|\b(?:one|1)[- ]time\s+thing\b|\bjust\s+(?:this\s+)?once\b"
+    r"|\b(?:just|only)\s+(?:one|1)\b(?!\s+(?:of|shop|store|seller|merchant))|\b1x\b"
+    r"|\b(?:no|don't\s+need|do\s+not\s+need)\s+more\s+than\s+one\b"
+    r"|\breplace\s+(?:my|our)\b",
+    re.IGNORECASE)
+_EXPLICIT_ONCE_RE = re.compile(r"\b(?:one[- ]time|1[- ]time|one[- ]off|just\s+(?:this\s+)?once|only\s+once|"
+                               r"single\s+(?:purchase|buy|order)|1x|(?:just|only)\s+(?:one|1)\b(?!\s+(?:of|shop|store)))",
+                               re.IGNORECASE)
+_EXPLICIT_REPEAT_RE = re.compile(r"\b(?:every|recurring|subscription|repeat(?:ed|ing)?|regular(?:ly)?)\b", re.IGNORECASE)
+_RECURRING_RE = re.compile(
+    r"\b(?:every|each\s+(?:day|week|month|time)|weekly|daily|monthly|whenever|recurring|"
+    r"subscription|regular\s+(?:order|delivery|deliveries)|(?:per|a|an)\s+(?:day|week|month|year))\b",
+    re.IGNORECASE)
+
+
 # --- intent coverage: what the customer wrote that no rule represents ---------------
 #
 # This module's docstring has always claimed that it "never treats absence of a
@@ -367,18 +404,24 @@ _COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
         # general enough not to need a noun vocabulary.
         re.compile(r"\b(?:buy|order|purchase|get)\s+"
                    r"(?:exactly\s+|at\ most\s+|up\ to\s+|a\ single\s+|no\ more\ than\s+)?"
-                   r"(?:one|two|three|four|five|ten|twenty|a\ single|\d+)\b",
+                   r"(?:one|two|three|four|five|ten|twenty|a\ single|\d+)\b(?![\"”″]|-?\s*inch)"
+                   # "..., 1 item", "just one pair": a count stated without the verb
+                   r"|\b(?:1|one|a\ single|just\ one|only\ one)\ (?:item|unit|piece|pair)\b",
                    re.IGNORECASE | re.VERBOSE),
-        "",                       # no rule field can express it -- see the message
-        "You asked for a specific number of items. The rule format has no way to express a quantity "
-        "or a total number of purchases -- it can only limit the amount of each order and the amount "
-        "across a rolling window -- so this part of your instruction is NOT enforced. Revoke the "
-        "mandate once you have what you asked for.",
+        # ONE is expressible (see _ERRAND_RE below); any other count is not.
+        "order.errand_already_fulfilled",
+        "You asked for a specific number of items. This wallet enforces a one-off errand (one "
+        "unit, then it asks you before buying again) but not larger counts, so this part of your "
+        "instruction is NOT enforced. Revoke the mandate once you have what you asked for.",
     ),
     (
         "familiarity",
         re.compile(r"\b(?:familiar|used\ before|use\ regularly|bought\ from\ before|"
-                   r"previously[- ]used|known\ (?:shop|seller|merchant))\b", re.IGNORECASE | re.VERBOSE),
+                   r"previously[- ]used|known\ (?:shop|seller|merchant|store)|"
+                   r"(?:previously|already|before)\ (?:bought|purchased|shopped|ordered)|"
+                   r"same\ (?:shop|store|seller|merchant)s?\ as|(?:usual|regular)\ (?:shop|store|seller|merchant)s?|"
+                   r"(?:bought|purchased|shopped|ordered)\ (?:\w+\ )?(?:(?:from|at|with)\ )?before)\b",
+                   re.IGNORECASE | re.VERBOSE),
         "merchant.familiar",
         "You appear to require a shop you have used before, but that was not recognised as a rule. "
         "It is NOT enforced. Please rephrase it, for example \"from a shop I have used before\".",
@@ -393,7 +436,13 @@ _COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
     ),
     (
         "per-order ceiling",
-        re.compile(r"CHF\s*[\d.,]+", re.IGNORECASE),
+        # A currency amount, OR a limit word followed by a bare number ("spend no more
+        # than 400"): the customer stated a ceiling even without naming the currency.
+        re.compile(r"CHF\s*[\d.,]+|\b(?:more\ than|max(?:imum)?|at\ most|up\ to|"
+                   r"under|below|less\ than|budget|limit(?:ed\ to)?|cap(?:ped)?(?:\ at)?|exceed(?:ing|s)?|"
+                   r"go(?:es)?\ over|over|within|spend(?:ing)?|cost(?:s|ing)?|total(?:\ of)?)"
+                   r"\s+(?:\w+\s+){0,2}?\d+(?![\d.,]*\s*(?:-?\s*days?|-?\s*inch|%|\s*x\b|\s*items?|"
+                   r"\s*pairs?|\s*units?|\s*pieces?|\s*times))", re.IGNORECASE | re.VERBOSE),
         "authorization.billing_amount_chf",
         "You named an amount, but no spending ceiling was recognised from the way it is "
         "worded, so purchases are NOT limited by amount. Rephrase it, for example "
@@ -420,7 +469,10 @@ _COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
     ),
     (
         "return window",
-        re.compile(r"\breturn(?:ed|able|s)?\b", re.IGNORECASE),
+        # "refundable", "no final-sale items" and "non-returnable" are return terms too;
+        # the generated corpus found them compiling to nothing, unmentioned.
+        re.compile(r"\b(?:return(?:ed|able|s)?|refund(?:ed|able|s)?|final[- ]sale|non[- ]?returnable|"
+                   r"exchange(?:able)?)\b", re.IGNORECASE),
         "order.return_window_days",
         "You mention returns, but no return-window rule was created, so returnability is NOT checked. "
         "Please state a number of days, for example \"returnable within 14 days or more\".",
@@ -452,8 +504,162 @@ def _coverage_questions(text: str, rules: list[HardRule]) -> list[str]:
         # not expressible in this vocabulary at all -- so the question always fires.
         if required_field and required_field in present:
             continue
+        # "CHF 40 in total for any seven-day period": the total qualifies a window the
+        # compiler DID read, so warning that a total is unenforceable was false.
+        if _kind == "overall total" and any(r.scope == "period" for r in rules
+                                            if r.field == "authorization.billing_amount_chf"):
+            continue
         out.append(message)
+    amount_rules = [r for r in rules if r.field == "authorization.billing_amount_chf"]
+    has_period_rule = any(r.scope == "period" for r in amount_rules)
+    if not has_period_rule and _PERIOD_SPEND_RE.search(text):
+        out.append(_PERIOD_MESSAGE)
+    if (not has_period_rule and any(r.scope == "purchase" for r in amount_rules)
+            and "order.errand_already_fulfilled" not in present
+            and _TOTAL_WORD_RE.search(text) and not _PER_ORDER_TOTAL_RE.search(text)):
+        out.append(_TOTAL_MESSAGE)
+    if _looks_non_english(text):
+        out.append(_NON_ENGLISH_MESSAGE)
     return out
+
+
+# A limit tied to a stretch of time, in either order, inside one clause: "no more than
+# CHF 400 each month", "every month's total stays within CHF 150", "CHF 300 over the
+# week". When no rolling rule came out of it, the amount became a per-order ceiling
+# (or nothing), and the customer must hear that. The ordering-only reading ("order
+# groceries every week, each order under CHF 120") is excluded by requiring the period
+# word to sit next to a SPEND word or directly on the amount.
+_PERIOD_WORD = (r"(?:day|days|week|weeks|month|months|year|years|fortnight|weekly|monthly|daily|yearly|"
+                r"fortnightly)")
+_PERIOD_SPEND_RE = re.compile(
+    rf"CHF\s*\d[\d.,]*[^.;]{{0,25}}?\b(?:per|a|each|every|this|that|any|in\s+(?:a|any|the)|over\s+(?:a|the|any)|"
+    rf"within\s+(?:a|the|any)|for\s+(?:a|the|any))\s+(?:\d+\s+|seven\s+|given\s+|single\s+|calendar\s+)?{_PERIOD_WORD}\b"
+    rf"|\b(?:{_PERIOD_WORD}|(?:each|every|per|this|any)\s+{_PERIOD_WORD}'?s?)\s+"
+    rf"(?:total|spend|spending|budget|limit|allowance|outlay)\b[^.;]{{0,60}}?(?:CHF\s*)?\d"
+    rf"|CHF\s*\d[\d.,]*[^.;]{{0,60}}?\b(?:{_PERIOD_WORD})\s+(?:spending\s+|shopping\s+)?"
+    rf"(?:total|spend|budget|limit|allowance|cap)\b",
+    re.IGNORECASE)
+_PERIOD_MESSAGE = (
+    "You appear to set a spending limit over a period of time (a day, week or month), but no "
+    "rolling limit was recognised from the way it is worded. It is NOT enforced over time: at "
+    "most, the amount limits each single order. Rephrase it, for example \"no more than CHF 300 "
+    "across any 7 days\".")
+
+# "the total ... does not exceed CHF 400" with a per-order rule and nothing else: for a
+# single errand the order IS the total, but for repeated shopping the customer may mean
+# all purchases together, which this rule format cannot hold.
+_TOTAL_WORD_RE = re.compile(r"\b(?:total|overall|altogether|in\s+all|combined)\b", re.IGNORECASE)
+_PER_ORDER_TOTAL_RE = re.compile(r"\b(?:order|basket|purchase)\s+total\b|\btotal\s+(?:per|of\s+each|for\s+each)\s+"
+                                 r"(?:order|purchase|basket)\b|\b(?:each|every|per|single)\s+(?:order|purchase)\b",
+                                 re.IGNORECASE)
+_TOTAL_MESSAGE = (
+    "You wrote a TOTAL. The wallet enforces that amount on each order separately; it cannot "
+    "cap several purchases together. If you meant everything combined, that total is NOT "
+    "enforced: add a rolling limit (\"no more than CHF X across any 30 days\") and revoke the "
+    "mandate when the job is done.")
+
+
+# Every pattern in this file is English, and every marker above is English, so an
+# instruction in French, German or Italian -- this is a Swiss card -- loses whatever
+# the patterns cannot read and the markers cannot see. Measured: "chez un vendeur où
+# j'ai déjà acheté ... N'ajoute rien que je n'ai pas demandé" compiled to a ceiling
+# alone, with the familiarity and no-add-ons requirements gone and NOTHING said;
+# "CHF 80 max chaque semaine" became CHF 80 per order with the weekly cap gone.
+#
+# Translating is out of scope for a deterministic compiler, and a list of foreign
+# restriction phrases would be the paraphrase chase again, in three more languages.
+# Detection is enough: function words that do not occur in English instructions, two
+# DISTINCT ones so a single borrowed word ("chez", "café") does not trip it. It never
+# creates a rule; it turns a silent loss into a question before confirmation.
+_NON_ENGLISH_WORDS = frozenset("""
+    je j tu que qui pas rien seulement chez où déjà achète acheter achat demande moi
+    les des une sur chaque semaine mois jour ne suis sûr sûre vendeur magasin connu
+    ich nicht nur und bei wenn du den der das mit für höchstens maximal kauf kaufe kaufen frag
+    woche monat geschäft geschäften schon habe mich mir unsicher eingekauft
+    jeden jede jedes bestellen bestellung muss sein einfach unsicherheit oder bitte zurück zurückgeben
+    rückgabe rückgabefähig freigeben ablehnen wochen nichts keine kein
+    che compra comprare massimo ho il della chiedi settimana negozio già sono
+    casa totale rimborsabili rimborsabile dubbio approva rifiuta sicuro giacca invernale scarpe
+    ogni negozi franchi restituibile
+    achète achat commande commander chaque remboursable rembourser veste chaussures
+    semaine hebdomadaire mensuel refuser approuve doute
+""".split())
+
+
+# The word list above is a vocabulary, and a vocabulary misses: a formal Italian email
+# ("Gentile assistente, vorrei acquistare...") contained none of its words and was read
+# as English, its restrictions dropped unmentioned. The second signal needs no foreign
+# vocabulary at all: ordinary English is roughly one word in three a function word from
+# this short list, and French, German and Italian are close to none.
+_ENGLISH_FUNCTION_WORDS = frozenset("""
+    the a an to of for from in on at by with and or but not no if when my our me i you it is
+    be are this that any only than more less each every per as so do don't please
+""".split())
+
+
+def _looks_non_english(text: str) -> bool:
+    tokens = re.findall(r"[^\W\d_]+(?:'[^\W\d_]+)?", text.lower())
+    words = set(tokens)
+    if len(words & _NON_ENGLISH_WORDS) >= 2:
+        return True
+    return len(tokens) >= 8 and sum(t in _ENGLISH_FUNCTION_WORDS for t in tokens) / len(tokens) < 0.12
+
+
+_NON_ENGLISH_MESSAGE = (
+    "Part of your instruction does not appear to be in English. This wallet reads English only, "
+    "so anything written in another language was NOT read and is NOT enforced. Please write the "
+    "whole instruction in English and check the rules listed before you confirm."
+)
+
+
+# Every amount pattern above is written "CHF 400", and a Swiss customer writes
+# "400 CHF", "400 francs", "Fr. 400", "SFr 400", "400.-" and "1'000" at least as
+# often. None of those produced a ceiling, and the coverage marker below only looked
+# for "CHF 400", so "Buy the monitor I chose, max 400 francs" compiled with no amount
+# rule and NOTHING told the customer: the most basic limit a person can state, lost
+# silently. Same remedy as the whitespace collapse: normalise the spelling of an
+# amount once, for matching only, rather than teaching every pattern every spelling.
+_SWISS_THOUSANDS_RE = re.compile(r"(?<=\d)[’'](?=\d{3}\b)")
+_AMOUNT_TOKEN = r"\d[\d.,]*\d|\d"
+_CURRENCY_AFTER_RE = re.compile(
+    rf"(?<![\w.])(?:CHF\s*)?(?P<n>{_AMOUNT_TOKEN})(?:\.[-–])?\s*"
+    r"(?:CHF\b|Swiss\s+francs?\b|francs?\b|Franken\b|franchi\b|SFr\.?|Fr\.)", re.IGNORECASE)
+_CURRENCY_BEFORE_RE = re.compile(rf"(?<!\w)(?:SFr\.?|Fr\.)\s*(?P<n>{_AMOUNT_TOKEN})(?:\.[-–])?", re.IGNORECASE)
+_SWISS_DASH_RE = re.compile(rf"(?<![\w.])(?:CHF\s*)?(?P<n>{_AMOUNT_TOKEN})\.[-–]")
+
+
+# The same for PERIODS. A generated corpus (research/generated_corpus.py) wrote the
+# rolling cap as "within any seven-day period" and "40 CHF weekly", and both compiled
+# to a PER-ORDER ceiling with nothing said: the weekly budget this file already
+# documents as its worst inversion, back through two new spellings. Rewritten into
+# the spelling the period patterns already read ("any 7 days", "CHF 40 per week").
+_N_DAY_PERIOD_RE = re.compile(
+    r"\b(?P<n>\d+|seven|ten|fourteen|thirty)[- ]day\s+(?:period|window|stretch|span)\b", re.IGNORECASE)
+_AMOUNT_ADJECTIVE_PERIOD_RE = re.compile(
+    r"(?P<amount>CHF\s*\d[\d.,]*)\s+(?P<adj>weekly|monthly|daily|yearly|fortnightly)\b", re.IGNORECASE)
+# "max 120 CHF/month", "Fr. 1200/wk": a note-style period that compiled to a PER-ORDER
+# ceiling in the held-out generated corpus -- the inversion once more.
+_SLASH_PERIOD_RE = re.compile(
+    r"(?P<amount>CHF\s*\d[\d.,]*)\s*/\s*(?P<p>d|day|wk|week|mo|mth|month|yr|year)\b", re.IGNORECASE)
+_SLASH_NOUN = {"d": "day", "day": "day", "wk": "week", "week": "week", "mo": "month", "mth": "month",
+               "month": "month", "yr": "year", "year": "year"}
+_ADJECTIVE_NOUN = {"weekly": "week", "monthly": "month", "daily": "day", "yearly": "year",
+                   "fortnightly": "fortnight"}
+
+
+def _normalise_currency(text: str) -> str:
+    # Typographic apostrophes ("I’ve") defeated every pattern written with "'", and
+    # phones and word processors insert them by default.
+    text = text.replace("\u2019", "'").replace("\u2018", "'")
+    text = _SWISS_THOUSANDS_RE.sub("", text)
+    for pattern in (_CURRENCY_AFTER_RE, _CURRENCY_BEFORE_RE, _SWISS_DASH_RE):
+        text = pattern.sub(lambda m: f"CHF {m.group('n')}", text)
+    text = _N_DAY_PERIOD_RE.sub(lambda m: f"{m.group('n')} days", text)
+    text = _SLASH_PERIOD_RE.sub(
+        lambda m: f"{m.group('amount')} per {_SLASH_NOUN[m.group('p').lower()]}", text)
+    text = _AMOUNT_ADJECTIVE_PERIOD_RE.sub(
+        lambda m: f"{m.group('amount')} per {_ADJECTIVE_NOUN[m.group('adj').lower()]}", text)
+    return text
 
 
 def _parse_amount(raw: str) -> float:
@@ -511,6 +717,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
     # touching a dozen patterns individually, and it cannot change meaning. Only the
     # matching text is normalised; nothing the customer wrote is rewritten for them.
     text = re.sub(r"\s+", " ", instruction).strip()
+    text = _normalise_currency(text)
     rules: list[HardRule] = []
     # Intent that was RECOGNISED but cannot be turned into an enforceable rule, as
     # opposed to intent `_coverage_questions` failed to recognise at all. Merged into
@@ -651,7 +858,7 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
         )
 
     # --- merchant familiarity -------------------------------------------------------
-    if _FAMILIARITY_RE.search(text) or _FAMILIARITY_PLAIN_RE.search(text):
+    if _FAMILIARITY_RE.search(text) or _FAMILIARITY_PLAIN_RE.search(text) or _FAMILIARITY_PAST_RE.search(text):
         rules.append(HardRule(field="merchant.familiar", operator="=", value="true"))
         guidance.append(
             "The seller must be one this card has purchased from before "
@@ -744,6 +951,32 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
                 "never says WHAT you requested -- so there is nothing to compare a "
                 "basket against, and this part is NOT enforced. Name the kind of thing "
                 "you are buying (for example \"groceries\") and it becomes a rule.")
+
+    # --- a one-off errand ------------------------------------------------------------
+    # "Buy the monitor I chose", "Replace my worn shoes", "Buy one grocery item" name
+    # ONE thing to buy once. Nothing represented that, so the official manipulated-
+    # agent run approved four monitors (CHF 1,430.40) and the running-shoes run three
+    # pairs. The rule format lets a solution name its own facts ("a nonempty string
+    # naming the fact to check"; only extra rule KEYS are forbidden), so this one is
+    # the wallet's own ledger: more than one unit in the order is refused, and a
+    # further order after one was approved is put to the customer, because whether
+    # the first was delivered, cancelled or returned is not something it can see.
+    # A recurring phrasing ("every week", "weekly") is never read as an errand.
+    # An explicit "one-time purchase" outranks a period word attached to the BUDGET
+    # ("a one-time purchase, at most CHF 150 per month"); only purchase-frequency
+    # words ("every week", "recurring", "subscription") contradict it.
+    explicit_once = _EXPLICIT_ONCE_RE.search(text) and not _EXPLICIT_REPEAT_RE.search(text)
+    if _ERRAND_RE.search(text) and (explicit_once or not _RECURRING_RE.search(text)):
+        rules.append(HardRule(field="order.errand_already_fulfilled", operator="=", value="false"))
+        guidance.append("This is a one-off errand: one unit, and after one approved purchase the "
+                        "wallet asks you before any further purchase.")
+    elif _ERRAND_RE.search(text) or _EXPLICIT_ONCE_RE.search(text):
+        # One-off wording AND repeat wording ("a one-time thing, not like I'll shop every
+        # week"). Guessing either way is wrong, so the customer is told which one lost.
+        unenforceable.append(
+            "You describe a one-off purchase, but the instruction also talks about repeating it, "
+            "so the one-off errand rule was NOT set: further purchases will not be put to you. "
+            "If you want one item only, remove the repeat wording.")
 
     # --- session integrity ----------------------------------------------------------
     if _SESSION_INTEGRITY_RE.search(text):

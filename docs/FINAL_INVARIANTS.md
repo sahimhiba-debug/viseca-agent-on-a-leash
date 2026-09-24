@@ -21,7 +21,7 @@ fail.
 | --- | --- | --- | --- |
 | I7 | `fail > unknown > pass`; uncertainty never silently becomes approval | `_decide` | `test_I11_*` |
 | I8 | A missing fact is reported unknown, never invented | `facts.py` | `test_I12_*` |
-| I9 | Merchant text can only narrow; it can never widen policy | `facts.py` extractors | `test_I7_*` (6 payloads) |
+| I9 | Merchant text can never widen POLICY (ceilings, rules, instructions). It is still the only evidence for the return window and size, so a claimed window satisfies a return rule -- a fact claim, not a policy change (known vulnerability 3) | `facts.py` extractors | `test_I7_*` (6 payloads) |
 | I10 | An **inapplicable** requirement escalates rather than passing | `rules.py` return-window | `test_return_window_not_applicable_escalates_*` |
 | I11 | **Basket monotonicity** — adding a line never makes a decision more permissive | `rules.py` size; property | `test_basket_monotonicity_*` (fuzzed) |
 | I12 | Negative evidence is decisive before silence | `rules.py` size ordering | `test_stating_nothing_is_never_better_*` |

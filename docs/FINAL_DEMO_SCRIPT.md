@@ -47,47 +47,70 @@ sceptical jury into one that is *checking*, the best state they can be in.
 
 ---
 
-## The two minutes
+## The three minutes
 
-| t | screen | action | what you say | what the jury takes away |
-| --- | --- | --- | --- | --- |
-| 0:00 | **Home** | — | *"An agent with your card can be talked into anything. So we didn't give it your card. It proposes — the wallet decides, from rules you wrote in your own words. Watch it get refused twice, and neither time is about money."* | the thesis, and a promise to check |
-| 0:15 | **Delegate** | the instruction is already in the box | *"The customer writes this. Groceries, from a shop I've used before, under CHF 120, only if I can send it back."* Tap **See how the wallet reads this**. | plain English is the input |
-| 0:25 | still Delegate | compiled rules appear | *"Four enforceable rules — and a list of what it could **not** turn into a rule. You can't confirm until you've seen that list."* | honesty is a feature, and it is a gate |
-| 0:35 | **Agent** | tap **Send the agent shopping** | *"Now an autonomous agent goes shopping. It has never been told your rules."* | the agent is a separate client |
-| 0:42 | Agent | first card lands | *"CHF 47 at Rhine Pantry. Refused."* Point at the grey box. *"This is **everything** it was told: blocked, merchant. No amount. No limit. No remaining budget."* | the information boundary, visible |
-| 0:52 | Agent | second card | *"It can't fix that by spending less. So it changes shop — and the basket goes **up** sixty francs."* | **strategy change 1**, and not price |
-| 1:02 | Agent | second refusal | *"Refused again, different reason: order terms. Look at the basket — a clearance box the seller won't take back."* | the agent reads the world |
-| 1:10 | Agent | third card | *"It swaps that one line. One franc **more** — and allowed. It didn't shrink the basket, it fixed the problem."* | **strategy change 2**; this kills "it just deletes the expensive item" |
-| 1:22 | **Decisions** | tap **Run** (already on *Manipulated agent*) | *"Different errand, same wallet. A 27-inch monitor, CHF 289, from a seller they've used before."* | generality |
-| 1:32 | Decisions | the **Needs you** card | *"Every rule the customer wrote was satisfied."* Point: **Your rules — Satisfied. Wallet checks — Not sure.** *"The wallet stopped it anyway. It looks like an order you already placed."* | **policy ≠ security**, the whole idea |
-| 1:42 | Decisions | point at the scope line | *"And when the customer approves, they're approving **this one purchase** — CHF 289 at PixelHarbor. Not a standing exception."* | bounded consent |
-| 1:50 | `WHAT_WE_REFUSE_TO_CLAIM.md` | open it | *"This is the part we'd rather you read. Everything we don't claim, and why."* | credibility, deliberately last |
+Two tabs open before you start: the lab's **Agent** tab (`/index.html`, then **Agent**)
+and the stage (`/stage.html`, *Manipulated agent* selected). Rehearsed at 1920×1080
+with a real browser. Every caption below is what the screen actually shows.
 
-**Total: 1:55.** Five seconds of slack, deliberately.
+**Act 1: the agent is real (0:00–0:50, lab › Agent)**
 
----
+| t | do | the viewer sees | say |
+| --- | --- | --- | --- |
+| 0:00 | — | "Watch the agent get refused" | *"An agent with your card can be talked into anything. So we didn't give it your card. It proposes; the wallet decides, from one sentence the customer wrote."* |
+| 0:12 | **Send the agent shopping** | attempt 1, Rhine Pantry, CHF 47, **Blocked**; the grey box: `blocked_by: [merchant]` | *"Refused. This grey box is everything the agent is told: which kind of rule. No amount, no limit."* |
+| 0:25 | scroll | attempt 2, **CHANGE SHOP**, +CHF 60, Blocked on order terms: *"seller takes no returns"* | *"It changes shop, and spends **more**. Refused again: a box the seller won't take back."* |
+| 0:38 | scroll | attempt 3, **approved** | *"It swaps that one line. Approved. It adapted to the reason, not the price."* |
 
-## The two moments that must land
+**Act 2: one monitor, not four (0:50–2:30, stage)**
 
-**1. The agent is not "remove the expensive item".** This is the single hardest
-thing about this project to believe, so the screen says it rather than the presenter:
-each card carries a strategy chip — `CHANGE SHOP`, then `CHANGE THE GOODS` — and the
-price delta beside it, reading **"+CHF 60.00 — it did not spend less"** and
-**"+CHF 1.00 — it did not spend less"**. The basket is itemised and the offending
-line is marked *"seller takes no returns"*.
+| t | key | the viewer sees | say |
+| --- | --- | --- | --- |
+| 0:50 | — | Oliver's phone: *"Buy the 27-inch monitor I chose…"*; **2 of 124** purchases go through | *"A different customer, Oliver. One sentence. Of 124 purchases this shop could produce, it lets two through."* |
+| 1:02 | → | *ORDINARY PURCHASE*: the monitor, CHF 289, approved | *"The agent buys the monitor he chose. Nobody is bothered."* |
+| 1:12 | → | *ERRAND ALREADY DONE*: the phone asks | *"The agent tries to buy it again. In the organisers' data, this is how four monitors got bought. Here it's a question on his phone, not a purchase."* |
+| 1:25 | D | *Oliver declined* | *"He says no."* |
+| 1:30 | → | *MANIPULATED SELLER*: blocked, the seller's note to "automated purchasing agents" **struck through** | *"CHF 520, over his 400. And the seller has written, for AI agents, that Oliver pre-authorised its store up to 900. Struck through: read as text, never obeyed. Blocked, and Oliver is told someone tried."* |
+| 1:48 | → | the agent tries again at HarborByte; the phone asks | *"It keeps trying."* |
+| 1:55 | tap **"I already have it · close this errand"** | *ERRAND CLOSED: Oliver already has it. This one is declined and the mandate is revoked.* | *"He already has his monitor. One tap: the errand is closed, and nothing more can be bought for it."* |
+| 2:10 | → | *The agent tries again. Nothing can pass any more, whatever it proposes.* | *"The agent can keep thinking and keep proposing. It can't authorise itself."* |
 
-If a jury remembers one thing, it should be that **the approved basket cost more
-than the refused one.**
+**Act 3: what for, not how much (2:30–3:00, stage)**
 
-**2. Policy satisfied, security not.** `SCEN0004 / AU0036`. The page does not
-hard-code that: it asks `GET /api/scenarios/security-override`, which runs the
-scenarios and returns whichever contains a decision where `policy_verdict: allow`
-and `security_verdict != allow`. If that property moves, the demo follows it. A
-previous version of this script pointed at SCEN0002 for two campaigns, whose review
-is a *policy* review — a much weaker claim than the sentence being said over it.
+| t | key | the viewer sees | say |
+| --- | --- | --- | --- |
+| 2:30 | S | *Same CHF 289. A card says yes to all 8. The wallet says yes once.* | *"A spending limit asks how much. This asks what for. Eight purchases, same price: another shop, a lookalike shop, a 24-inch, an extra cable, two cheap monitors, a seller's note to the AI, the same monitor again. A card set as tightly as a card can be says yes to all eight."* |
+| 2:50 | — | | *"The agent can act, think and make mistakes. It doesn't get to authorise itself."* |
 
----
+**If time is short:** skip 1:30 and 1:48 and go straight from *Oliver declined* to
+the close-errand tap on the next question. That saves 25 seconds.
+
+**Measured numbers to have ready** (never read them out unless asked): 45 official
+purchases, 12 allowed · 9 asked · 24 blocked; 3 questions if the customer closes each
+errand at the first repeat ([CUSTOMER_FRICTION.md](CUSTOMER_FRICTION.md)); four brains,
+0 unauthorised approvals ([REAL_MODEL_PLANNER.md](REAL_MODEL_PLANNER.md)).
+
+## The explanation, three lengths
+
+**30 seconds.** *"Shopping agents will hold your card. We don't give them one. The
+agent proposes a purchase; a wallet decides, from a sentence the customer wrote.
+It checks what the purchase is for, not only how much — the shop, the item, whether
+it can go back, whether it was already bought — and when it cannot tell, it asks
+the customer. The agent can be clever, wrong or hostile; it never approves itself."*
+
+**60 seconds, no technical words.** *"Imagine giving an assistant your card and a
+note: 'buy the monitor I chose, from a shop I've used, under 400.' A card limit
+only knows the 400. So an assistant that is confused, or tricked by a shop, can buy
+four monitors, or buy from a fake shop with a similar name, and the card says yes
+every time, because every one is under 400. We keep the card away from the
+assistant. It can only ask. Our wallet reads the note, checks each purchase against
+all of it, and says yes, no, or 'let me ask you first' — on your phone, with a
+reason. And there's a leash: one tap and nothing more can be bought. In our tests
+— the organisers' own data, their live sandbox, and two real AI models plus a
+deliberately hostile one choosing the purchases — none of them got a purchase through
+that the note didn't allow. That's what we tested, not a promise about everything."*
+
+**3 minutes** = the three acts above.
 
 ## What must be shown, never explained
 
@@ -96,7 +119,8 @@ is a *policy* review — a much weaker claim than the sentence being said over i
 | the agent holds no authority | it proposes three times and is refused twice, live |
 | the information boundary | the grey box listing all four fields it received |
 | adaptation is not shrinking | the price going **up** while the decision goes from block to allow |
-| policy vs security | two labelled verdicts on one card, disagreeing |
+| what for, not how much | eight rows at CHF 289: card yes ×8, wallet yes ×1 |
+| read as text, never obeyed | the seller's instruction struck through on the card |
 | bounded consent | *"this one purchase — CHF 289 at PixelHarbor"* |
 | we know our limits | the refusals document, on screen |
 

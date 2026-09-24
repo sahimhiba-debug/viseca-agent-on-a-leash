@@ -95,6 +95,12 @@ ABSENCE_CASES: dict[str, tuple[HardRule, object, str]] = {
         lambda e: e["authorization"].update(items=[]),
         "unknown",
     ),
+    "order.errand_already_fulfilled": (
+        # No item lines means nothing to count: not "fewer than two".
+        HardRule(field="order.errand_already_fulfilled", operator="=", value="false"),
+        lambda e: e["authorization"].update(items=[]),
+        "unknown",
+    ),
     "item.size": (
         HardRule(field="item.size", operator="=", value="43"),
         lambda e: e["authorization"].update(items=[]),

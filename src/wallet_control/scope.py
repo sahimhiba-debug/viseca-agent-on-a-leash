@@ -68,6 +68,7 @@ _RULE_IN_WORDS = {
     "item.name_contains": "the item you named",
     "item.size": "the size you asked for",
     "item.unrequested_present": "nothing you did not ask for",
+    "order.errand_already_fulfilled": "a one-off errand already bought once",
     "order.return_window_days": "the return window",
     "session.integrity_risk": "how this session looks",
     "mandate.has_no_rules": "this mandate has no rules to check",

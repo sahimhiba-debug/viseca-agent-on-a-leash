@@ -78,9 +78,11 @@ def test_the_comparison_is_not_vacuous():
                 if any(c.startswith("observed:") for c in d["reason_codes"])]
     assert observed, "no decision carries an observation that did not decide it"
 
-    wallet_stopped = [d for d in fresh.values()
-                      if d["policy_verdict"] == "allow" and d["security_verdict"] != "allow"]
-    assert wallet_stopped, "no decision where the wallet stopped what policy allowed"
+    # A wallet check that fired. (It used to be a policy-allow the wallet stopped; since
+    # the one-off errand rule, every such purchase in SCEN0004 is also a repeat the
+    # customer's own rule asks about, so the shape is "the wallet's half is not allow".)
+    wallet_stopped = [d for d in fresh.values() if d["security_verdict"] != "allow"]
+    assert wallet_stopped, "no decision where a wallet check fired"
 
     window, _ = _both("SCEN0001")
     assert any("billing_amount_chf.period" in c

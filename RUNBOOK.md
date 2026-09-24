@@ -23,8 +23,20 @@ The official synthetic data pack is vendored at `data/official/`.
 source .venv/bin/activate && uvicorn wallet_control.api:app --port 8420
 ```
 
-Then open **http://localhost:8420**. Five tabs: Overview (start here), Delegate,
-Decisions, Attacks, Audit.
+Then open **http://localhost:8420/stage.html** for the demo, and
+**http://localhost:8420** for the lab (every panel and proof).
+
+### Presenting with the stage
+
+- Pick the scenario at the top ("Manipulated agent" shows the most in one run).
+- `→` proposes the next purchase, `Space` plays them automatically. When the wallet
+  asks, the phone shows the question with a 120-second ring; `A` approves once, `D`
+  declines. The next purchase waits for the answer, as on the platform.
+- `L` pulls the leash (with a confirmation on the phone); `R` restarts.
+- **Live sandbox** runs the same scenario on the hosted API. It is enabled only when
+  the server was started with `TEAM_API_KEY` and `LEASH_BASE_URL`. Every live run
+  stays in the team's history (no reset), so rehearse in Replay. If the live start
+  fails, the page falls back to Replay and says so.
 
 ## 3. Check it is healthy before demoing
 
@@ -33,7 +45,7 @@ curl -s localhost:8420/api/health | python3 -m json.tool
 ```
 
 `matches_regression_boundary` must be `true`. It re-runs the official replay and
-compares against 45 events / 17 allow / 4 review / 24 block. If it is `false`,
+compares against 45 events / 12 allow / 9 review / 24 block. If it is `false`,
 something has changed the decision engine — **do not demo**, run the test suite.
 
 ## 4. Run the tests
@@ -56,7 +68,7 @@ python3 -m pytest tests/test_product_surface.py -q # attacks, audit, API
 source .venv/bin/activate && python3 scripts/run_replay.py
 ```
 
-The last line must read `TOTAL events: 45  {'allow': 17, 'review': 4, 'block': 24}`.
+The last line must read `TOTAL events: 45  {'allow': 12, 'review': 9, 'block': 24}`.
 This is a **regression boundary, not a score** — there are no official
 expected-decision labels, and this number must not be "improved".
 

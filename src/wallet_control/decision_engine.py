@@ -696,6 +696,7 @@ def _scoped_verdict(evaluations: list[RuleEvaluation], source: str, uncertainty_
 # UI shows (`RULE_TEXT` / `UNSURE_TEXT` in ui/index.html); the two are kept in step by
 # `test_plain_language_is_consistent_between_the_engine_and_the_ui`.
 _PLAIN_FAIL = {
+    "order.errand_already_fulfilled": "this order is for more than the one thing you asked for",
     "authorization.billing_amount_chf": "the amount is above the limit you set",
     "item.name_contains": "this is not the item you asked for",
     "item.category": "this is a kind of item you did not ask for",
@@ -720,6 +721,7 @@ _PLAIN_FAIL = {
     "authorization.billing_amount_chf.period": "it would take you over the total you allowed across your rolling period",
 }
 _PLAIN_UNKNOWN = {
+    "order.errand_already_fulfilled": "this errand was already bought once, and the wallet cannot tell whether you want another",
     "order.duplicate_suspected": "this looks like an order you already placed, and the wallet cannot tell whether you meant to order it twice",
     "order.return_window_days": "the seller did not say whether this can be returned",
     "item.size": "the seller did not state the size",
@@ -811,6 +813,7 @@ _AGENT_CONSTRAINT_CLASS = {
     "item.matches_the_catalogue": "item",
     "merchant.text_addresses_the_machine": "merchant",
     "session.integrity_risk": "session",
+    "order.errand_already_fulfilled": "duplicate",
     "order.duplicate_suspected": "duplicate",
 }
 
@@ -1292,6 +1295,11 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         state.note_observation(facts.timestamp)
 
         ctx = RuleContext(
+            errand_ledger_complete=not state.resumed_incomplete,
+            errand_prior_approvals=tuple(
+                d.authorization_id for d in state.approved_decisions()
+                if d.authorization_id != authorization_id
+                and (d.mandate_id is None or d.mandate_id == mandate.mandate_id)),
             requested_item_categories=_requested_categories(mandate),
             projected_period_spend_chf=_projected_period_spend(mandate, state, facts.timestamp, facts.billing_amount_chf),
             unobserved_periods=frozenset(
@@ -1522,8 +1530,13 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
 
         evidence = tuple(f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in evaluations)
         retry_at = _window_retry(evaluations, state, facts) if decision == "block" else None
+        # The reasons that DECIDED come first, then what was merely seen -- the order
+        # `_decide` writes the reason codes in, and so the order the ledger re-tells it
+        # in. Evaluation order mixed the two, and a purchase read differently once
+        # stored than when it was decided.
         plain_reasons = tuple(dict.fromkeys(
-            _plain_reason(e) for e in evaluations if e.outcome in ("fail", "unknown")))
+            [_plain_reason(e) for e in evaluations if e.outcome == "fail"]
+            + [_plain_reason(e) for e in evaluations if e.outcome == "unknown"]))
         return EngineDecision(
             authorization_id=authorization_id,
             decision=decision,

@@ -359,6 +359,7 @@ _VOCABULARY = {
     "item.size": HardRule(field="item.size", operator="=", value="43"),
     "order.return_window_days": HardRule(field="order.return_window_days", operator=">=", value=REQUIRED_DAYS),
     "session.integrity_risk": HardRule(field="session.integrity_risk", operator="=", value="false"),
+    "order.errand_already_fulfilled": HardRule(field="order.errand_already_fulfilled", operator="=", value="false"),
 }
 
 

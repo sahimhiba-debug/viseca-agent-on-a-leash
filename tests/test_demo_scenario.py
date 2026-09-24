@@ -12,9 +12,12 @@ from decimal import Decimal
 from research.demo_scenario import run_demo_scenario
 
 
-def test_step1_honest_proposal_allows_despite_injected_text():
+def test_step1_the_injected_text_is_named_to_the_customer_who_then_approves():
+    """The seller's text changes no rule; the wallet names it, and the purchase goes
+    ahead only on the customer's own yes."""
     result = run_demo_scenario()
     step1 = result.steps[0]
+    assert step1.first_reasons == ("uncertain:merchant.text_addresses_the_machine",)
     assert step1.result.decision == "allow"
     assert step1.result.payment_authority is not None
     assert step1.result.payment_authority.merchant_id == "ME_DEMO_TRUSTED"
@@ -51,9 +54,12 @@ def test_customer_declines_the_redirected_purchase():
 
 
 def test_legitimate_continuation_allows_with_a_fresh_narrow_authority():
+    """Step 1 already bought the monitor, so a second one under "the monitor I chose"
+    is put to the customer; once they approve it, the authority is as narrow as ever."""
     result = run_demo_scenario()
     step3 = result.steps[2]
     assert step3.result.decision == "allow"
+    assert "order.errand_already_fulfilled" in " ".join(step3.result.reason_codes) or step3.result.reason_codes
     authority = step3.result.payment_authority
     assert authority is not None
     assert authority.merchant_id == "ME_DEMO_TRUSTED"

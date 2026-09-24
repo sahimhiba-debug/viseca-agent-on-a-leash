@@ -34,7 +34,7 @@ fixtures, or a script.
 | Where is revocation enforced? | `state.py::revoke_outstanding_authorities` + `_revoked_at`, `decision_engine::_run_binding_failures` |
 | Where is step-up handled? | `decision_engine.py::resolve_authorization` |
 | What happens if the agent lies? | `decision_engine` idempotency + `state.check_repeat_fingerprint` (basket fingerprint) |
-| What if merchant text is an injection? | `facts.py` — text produces only three narrow derived facts, each of which can only narrow |
+| What if merchant text is an injection? | `facts.py` — text produces only a few narrow derived facts and is never obeyed; a claimed return window is still believed (known vulnerability 3) |
 | What is NOT guaranteed? | `docs/WHAT_WE_REFUSE_TO_CLAIM.md` |
 
 ## Everything else

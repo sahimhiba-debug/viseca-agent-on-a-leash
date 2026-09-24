@@ -1,0 +1,3209 @@
+{
+ "generator": "gpt-4.1",
+ "prompt_version": 1,
+ "seed": 9001,
+ "style": "Write it as a short, polite, formal email to a personal assistant, with a greeting and a sign-off; facts may appear in any order and may be split across sentences.",
+ "prompt": "You write test data for a payment wallet. Phrase the facts below as ONE instruction a\ncustomer would type to their shopping agent, in {language}. Keep EVERY fact, including the\nexact amount and its notation \"{notation_example}\". Do not add restrictions that are not listed.\n{style}\n\nFacts: {facts}\n\nReply with the instruction only.",
+ "entries": [
+  {
+   "spec": {
+    "id": "G0000",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase household groceries, specifically a single item I have already chosen, as a one-time purchase, ensuring the total does not exceed 150.-. Kindly select only from a shop I have previously bought from, and make sure the purchase is refundable. If you are unsure about any aspect, please go ahead and approve the transaction.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0001",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket for me, ensuring the total spending is under 150. Only buy from a shop where I have shopped before, and avoid any final-sale items. If you are unsure at any point, please go ahead and approve the purchase.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0002",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Weekly Purchase of Road-Running Shoes\n\nDear Assistant,\n\nPlease purchase road-running shoes for me each week as a recurring order, with a spending limit of up to 400 per week. Ensure that the shop you select is one I have previously bought from, and that the shoes can be returned within 14 days. If you are ever unsure about any part of this request, kindly ask me for clarification.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0003",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "nothing over",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Bonjour,\n\nJe vous prie d’acheter une paire de chaussures de course sur route, pour un achat unique d’un seul article que j’ai déjà choisi. Veuillez effectuer cet achat uniquement dans une boutique où j’ai déjà effectué des achats auparavant. Merci de ne pas inclure d’articles en vente finale, et de respecter une limite de dépense : ne rien dépasser 400 francs sur n’importe quelle période de sept jours. Si jamais vous avez un doute, merci d’approuver. \n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0004",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter des produits d'épicerie pour la maison toutes les semaines, en veillant à ce que la commande soit récurrente et que les achats restent dans la limite de 120 Swiss francs par mois. Merci de vous assurer que tous les articles soient remboursables. Si vous avez un doute, merci de valider la commande.  \nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0005",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "below",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Weekly Winter Jacket Purchase\n\nDear [Assistant's Name],\n\nPlease arrange to buy a winter jacket for me every week, ensuring each purchase is from a shop I have bought from before and is returnable for at least 30 days. Kindly keep the spending limit below 40 francs per week. If you are unsure about any detail, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0006",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "capped at",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear Assistant,\n\nPlease assist me with purchasing a winter jacket that I have already chosen. This is a one-time purchase of a single item, and I kindly ask that you ensure the spending is capped at CHF 400 per month. Please do not select final-sale items, and if you are unsure about any part of the process, kindly decline.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0007",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Grocery Order Request\n\nDear [Assistant’s Name],\n\nPlease arrange to buy household groceries for me on a weekly basis, ensuring that each order does not exceed 40. Only purchase from shops where I have previously shopped, and select items that are returnable for at least 30 days. If you are ever unsure, please proceed with my approval.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0008",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Request for Purchase of Winter Jacket\n\nDear Shopping Assistant,\n\nPlease purchase a winter jacket as a one-time transaction for me. I have already chosen the specific item, and I would like it to be bought only from a shop where I have made previous purchases. Kindly ensure the item is not a final-sale product, and do not exceed a spending limit of 120.- per month. If you are unsure about any aspect of this request, please decline to proceed.\n\nThank you very much for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0009",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Shopping Assistant,\n\nI would like to purchase a 27-inch monitor as a one-time purchase; I have already chosen the specific item. Please ensure the item costs at most 120 CHF this week and is not a final-sale item. Kindly purchase only from a shop I have bought from before. If you are unsure about any detail, please approve. Thank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0010",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare un monitor da 27 pollici che ho già scelto, come acquisto singolo e una tantum. Il limite di spesa è di massimo 120 Swiss francs a settimana. In caso di dubbi, la prego di consultarmi.\n\nCordiali saluti."
+  },
+  {
+   "spec": {
+    "id": "G0011",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Bonjour,\n\nMerci de bien vouloir acheter des chaussures de course sur route, uniquement dans une boutique où j’ai déjà effectué un achat auparavant. Veuillez ne pas inclure d’articles en vente finale et limiter les dépenses à 1'200 par semaine. Si vous avez un doute, je vous prie de refuser la transaction.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0012",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "nothing over",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Bonjour,\n\nJe vous prie d’acheter un moniteur de 27 pouces, en veillant à ce que le montant total ne dépasse pas 1'200 francs suisses. Merci de ne sélectionner que des articles qui ne sont pas en vente finale, et uniquement auprès d’un magasin où j’ai déjà effectué un achat auparavant. N’hésitez pas à me consulter en cas de doute.\n\nBien cordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0013",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Request to Purchase Winter Jacket\n\nDear Personal Shopping Assistant,\n\nPlease purchase a winter jacket for me, ensuring that the total spending does not exceed 40 francs. Kindly select a shop I have previously bought from, and make sure the item is refundable. If you are unsure about any of these requirements, please decline the purchase.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0014",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Shopping Assistant,\n\nI would like to purchase a winter jacket as a one-time order for an item I have already chosen. Please ensure the order total does not exceed 1'200 CHF per order and that the purchase is not of a final-sale item. Kindly buy only from a shop I have bought from before. If you are unsure about any aspect, please proceed and approve the purchase.\n\nThank you and best regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0015",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase road-running shoes for me, ensuring that the total cost is limited to 40. Kindly make the purchase only from a shop where I have previously bought items. If you are unsure about any aspect of this request, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0016",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "no higher than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear [Assistant’s Name],\n\nPlease arrange to buy household groceries as a recurring order every week, ensuring the total spent is no higher than Fr. 120 per week. Kindly purchase only from a shop I have previously bought from, and make sure the items are refundable. If you are unsure about any aspect of the order, please proceed with approval.\n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0017",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase road-running shoes for me every week, with each order not exceeding Fr. 1'200. Ensure that the shoes are returnable for at least 30 days. If you are ever unsure, kindly approve the order. Thank you.\n\nBest regards,"
+  },
+  {
+   "spec": {
+    "id": "G0018",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie jede Woche Haushaltsgroceries in einem Geschäft, bei dem ich bereits zuvor eingekauft habe. Der Einkaufswert soll pro Woche auf 400 begrenzt sein. Achten Sie bitte darauf, dass die Waren mindestens 30 Tage lang zurückgegeben werden können. Falls Sie sich unsicher sind, genehmigen Sie bitte die Bestellung. Vielen Dank.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0019",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease place a recurring order every week for household groceries, ensuring that each order does not exceed a maximum of Fr. 40. Kindly purchase only from shops I have previously bought from, and please avoid final-sale items. If you are unsure about any aspect of the order, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0020",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile assistente personale,\n\nLa prego di acquistare delle scarpe da corsa su strada, preferibilmente solo da un negozio presso il quale ho già effettuato acquisti in passato. Si assicuri che il costo per ogni ordine non superi i 120 e che non si tratti di articoli in saldo finale. Se dovesse avere dei dubbi, la prego di consultarmi.\n\nCordiali saluti,  \n[Il Cliente]"
+  },
+  {
+   "spec": {
+    "id": "G0021",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Household Grocery Purchase Request\n\nDear [Assistant’s Name],\n\nPlease assist me by making a one-time purchase of the household grocery item I have already selected, ensuring that the spending does not exceed 120 francs per week and that no final-sale items are included in the order. If you are unsure about any part of this request, kindly consult me before proceeding.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0022",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter une veste d'hiver, que j'ai déjà sélectionnée, dans un magasin où j'ai effectué des achats auparavant. L'achat doit être unique, ne pas concerner un article en solde ou en vente finale, et la dépense ne doit pas dépasser 400 francs sur toute période de sept jours. Si jamais vous avez un doute, merci de décliner la transaction.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0023",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Bonjour,\n\nVeuillez chaque semaine acheter des chaussures de course sur route, en veillant à ce que la dépense reste inférieure à 150 sur n’importe quelle période de sept jours. Merci de vous assurer que l’article est remboursable. Si jamais vous n’êtes pas certain(e) de l’un de ces critères, merci de refuser la commande.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0024",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare una giacca invernale ogni settimana, con una spesa massima di Fr. 40 in qualsiasi periodo di sette giorni, esclusivamente da un negozio presso cui ho già effettuato acquisti. Eviti gli articoli in saldo finale. In caso di dubbi, non esiti a chiedere.\n\nCordiali saluti,  \n[Il Suo Nome]"
+  },
+  {
+   "spec": {
+    "id": "G0025",
+    "amount": 150,
+    "notation": "CHF {n}",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Bonjour,\n\nPlease acheter une veste d’hiver, seulement dans un magasin où j’ai déjà acheté auparavant, s’il vous plaît. Le prix ne doit pas dépasser CHF 150 par commande et l’article doit être remboursable. Si vous avez un doute, veuillez approuver l’achat.\n\nMerci beaucoup,  \nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0026",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease buy a winter jacket, s'il vous plaît, and n'incluez pas d'articles en vente finale. Pour chaque commande, spending limit: max 1'200. If ever unsure, kindly approve. Merci beaucoup.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0027",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "up to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease arrange to buy a 27-inch monitor for me every week as a recurring order, ensuring each purchase is returnable within 14 days. The spending limit is up to 150.- per month. If you are unsure about any detail, please ask me.\n\nKind regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0028",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a 27-inch monitor for me as a recurring order, to be placed every week. Ensure that you do not spend more than 1'200 Swiss francs per order. If you are ever unsure, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0029",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nBitte kaufen Sie eine Winterjacke, die insgesamt nicht mehr als 40 kostet und unbedingt rückerstattbar ist. Sollten Sie unsicher sein, genehmigen Sie bitte dennoch den Kauf.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0030",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease arrange to buy road-running shoes for me every week as a recurring order. Ensure that each purchase is returnable within 14 days, and that I do not spend more than CHF 400 per month. If you are ever unsure about any detail, please go ahead and approve the order.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0031",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare un monitor da 27 pollici, già selezionato da me, come acquisto unico e una tantum, assicurandosi che sia rimborsabile. L’importo totale non dovrà superare Fr. 150 nell’arco di sette giorni, e l’acquisto deve essere effettuato esclusivamente presso un negozio dal quale ho già comprato in precedenza. In caso di incertezza, La prego di approvare l’acquisto.\n\nCordiali saluti,  \n[Il Suo Nome]"
+  },
+  {
+   "spec": {
+    "id": "G0032",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket for me, ensuring the total cost remains under 400 Swiss francs. This is a recurring order to be placed every week. Kindly make sure the item is returnable within 14 days. If you are unsure about any details, please proceed with approval.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0033",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear [Assistant's Name],\n\nPlease purchase a winter jacket for me, ensuring that the item is refundable. Kindly make sure the total spending does not exceed Fr. 400 across any seven days. If you are unsure about any aspect of this request, please ask me for clarification.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0034",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase the road-running shoes I have already chosen as a one-time purchase, ensuring the total cost does not exceed CHF 400. Kindly buy from a shop I have previously bought from and avoid final-sale items. If you are unsure about any aspect of this request, please approve the purchase.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0035",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "nothing over",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Request for Purchase\n\nDear Assistant,\n\nPlease purchase the household groceries I have already selected as a one-time transaction, ensuring the total does not exceed 150 Swiss francs. Kindly make sure the item is refundable. If you are unsure about any detail, please proceed with approval.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0036",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease place a recurring weekly order for a winter jacket, ensuring that each order does not exceed 400.-. If you are ever unsure, kindly ask me for clarification.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0037",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Shopping Assistant,\n\nPlease help me purchase a winter jacket, ensuring that the spending limit is no more than Fr. 400 per month. Kindly select only from a shop I have bought from before, and make sure the item is returnable for at least 30 days. If you are ever unsure, please go ahead and approve.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0038",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Request to Purchase 27-Inch Monitor\n\nDear Assistant,\n\nPlease find and purchase a 27-inch monitor that is returnable for at least 30 days, ensuring that the spending does not exceed 150 francs per month. If you are unsure about any detail, kindly ask me before proceeding.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0039",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "under",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease assist me in purchasing a 27-inch monitor as a one-time purchase of a single item I have already chosen. The spending limit is under 150 CHF per order, and I require that the product be returnable within 14 days. Should you be unsure about any aspect, please ask me for clarification.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0040",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter des chaussures de course sur route, en respectant une limite de dépenses d’au plus 1’200 Swiss francs par semaine. Si vous avez le moindre doute, merci de me consulter.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0041",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile assistente,\n\nVorrei acquistare un monitor da 27 pollici, con la possibilità di restituirlo per almeno 30 giorni. Ti prego inoltre di non superare la spesa di 40 al mese. In caso di dubbi, ti chiedo di chiedere a me prima di procedere.\n\nGrazie mille,  \nCordiali saluti"
+  },
+  {
+   "spec": {
+    "id": "G0042",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Purchase Request for Road-Running Shoes\n\nDear [Assistant's Name],\n\nPlease purchase road-running shoes for me every week, with a spending limit of up to 150 per week. Kindly ensure that you order only from a shop I have previously bought from, and that the shoes are returnable for at least 30 days. If you are unsure about any of these requirements, please decline the order.\n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0043",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Sehr geehrte Damen und Herren\n\nBitte kaufen Sie eine Winterjacke für mich. Der Betrag darf in keinem Zeitraum von sieben Tagen 1'200.- übersteigen. Die Jacke muss rückerstattungsfähig sein. Sollten Sie sich unsicher sein, genehmigen Sie den Kauf bitte trotzdem.\n\nFreundliche Grüsse  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0044",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear [Assistant’s Name],\n\nPlease purchase household groceries with a spending limit of up to Fr. 400 per order. This should be arranged as a recurring order to be placed every week. If you are ever unsure, kindly proceed with approval.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0045",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie für mich ein Paar Laufschuhe für den Straßenlauf, ausschließlich in einem Geschäft, bei dem ich bereits zuvor eingekauft habe. Der monatliche Ausgabenrahmen darf dabei 150.- nicht überschreiten. Achten Sie bitte darauf, dass die Schuhe innerhalb von 14 Tagen zurückgegeben werden können. Sollten Sie unsicher sein, lehnen Sie den Kauf bitte ab.\n\nVielen Dank und freundliche Grüße  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0046",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Grocery Purchase Request\n\nDear Assistant,\n\nPlease arrange to buy household groceries for me as a recurring order every week. Ensure the total spending remains below 1'200.- across any seven days and complete the purchase only from a shop I have previously bought from. Kindly confirm that all items are returnable for at least 30 days. If you are unsure about any aspect of the request, please decline the order.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0047",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "max",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Request to Purchase Winter Jacket\n\nDear Personal Shopping Assistant,\n\nPlease assist me with purchasing a winter jacket that I have already selected, as a one-time purchase. The item should be bought only from a shop where I have previously shopped, and the total spending should not exceed 120 Swiss francs within any seven-day period. Kindly ensure that the jacket is refundable. If you are ever unsure about any aspect of this request, please decline the purchase.\n\nThank you very much for your help.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0048",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease place a recurring order every week for road-running shoes, ensuring that the spending limit is capped at 150 per order. If you are ever unsure about any detail, kindly proceed with approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0049",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease place a recurring order every week to buy household groceries, ensuring that the total spending is limited to Fr. 400 across any seven days. Kindly make sure the groceries are returnable for at least 30 days. If you are ever unsure, please go ahead and approve the order.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0050",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear [Assistant’s Name],\n\nPlease purchase a winter jacket for me, ensuring that the cost does not exceed 150 CHF per week. Kindly make the purchase only from a shop where I have bought items before, and ensure that the jacket can be returned within 14 days. Should you be unsure about any aspect of this request, please proceed with my approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0051",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease acheter des chaussures de course sur route, en veillant à ce que la limite de dépense par commande soit inférieure à 150.-. Il s'agit d'un achat unique d’un seul article que j’ai déjà choisi. If you are unsure, please ask me.\n\nKind regards,"
+  },
+  {
+   "spec": {
+    "id": "G0052",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Road-Running Shoes Purchase Request\n\nDear Personal Assistant,\n\nPlease assist me with a one-time purchase of the road-running shoes I have already chosen. Kindly ensure that the item is not a final-sale product, and that the cost does not exceed 1'200 Swiss francs per month. If you are ever unsure during this process, please proceed with approval.\n\nThank you very much for your help.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0053",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter un moniteur de 27 pouces, en veillant à ce que chaque commande ne dépasse pas 400 francs suisses. Merci de choisir uniquement un magasin auprès duquel j’ai déjà effectué des achats. Si vous avez le moindre doute, n’hésitez pas à me consulter.\n\nCordialement."
+  },
+  {
+   "spec": {
+    "id": "G0054",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Gentile Assistente,\n\nLe chiedo cortesemente di acquistare una giacca invernale che ho già scelto, come acquisto unico e per una sola volta. L’importo della spesa non deve superare Fr. 1'200 al mese e l’articolo deve essere rimborsabile. La prego di rifiutare l’acquisto qualora avesse dei dubbi.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0055",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare un monitor da 27 pollici che ho già scelto, come acquisto unico di un singolo articolo. Il costo non deve superare 1'200 a settimana e l’articolo deve essere rimborsabile. La invito a declinare la transazione se ha dei dubbi.\n\nCordiali saluti,  \n[Il cliente]"
+  },
+  {
+   "spec": {
+    "id": "G0056",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Weekly Purchase Request\n\nDear Assistant,\n\nPlease purchase road-running shoes for me, ensuring that the total spend is limited to Fr. 150. Kindly make this purchase only from a shop I have previously bought from. This is a recurring order that should be placed every week. If you are ever unsure about any detail, please ask me.\n\nThank you and best regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0057",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile assistente,\n\nLa prego di acquistare le scarpe da corsa su strada che ho già scelto, come acquisto unico e singolo, esclusivamente presso un negozio dal quale ho già effettuato acquisti in precedenza. Il costo non dovrà superare il limite di 40 al mese e l’articolo dovrà essere rimborsabile. In caso di dubbi, la prego di chiedermi chiarimenti.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0058",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Shopping Assistant,\n\nPlease purchase a winter jacket for me every week, ensuring that the total spending remains under 40.-. The item must be refundable. If you are unsure about any aspect of the order, please proceed and approve it. \n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0059",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Personal Shopping Assistant,\n\nPlease buy household groceries, ensuring that the total spending is no higher than 40 CHF. Kindly make sure the items are returnable for at least 30 days. If you are unsure about any aspect, please proceed with your best judgment and approve the purchase.\n\nThank you and best regards,"
+  },
+  {
+   "spec": {
+    "id": "G0060",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease acheter household groceries chaque semaine, with a spending limit de 1'200 Swiss francs par semaine au maximum. Ceci est une commande récurrente, à renouveler every week. N'hésitez pas à me demander si vous avez un doute.\n\nKind regards,"
+  },
+  {
+   "spec": {
+    "id": "G0061",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nCould you please acheter des chaussures de course sur route pour moi, avec une limite de dépense de max 1'200.- par semaine? Merci d’assurer qu’elles soient retournables dans les 14 jours. If you are unsure about anything, please approve quand même.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0062",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease could you acheter une veste d’hiver chaque semaine, toujours dans une boutique où j’ai déjà acheté, et s’assurer que c’est remboursable? Le montant par commande ne doit pas dépasser 400 CHF. Si jamais vous n’êtes pas sûr(e), merci d’approuver quand même.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0063",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Purchase Request\n\nDear Shopping Assistant,\n\nI would like you to buy a winter jacket for me as a one-time purchase of a single item I have already chosen. Please ensure that the jacket is refundable and that the spending limit does not exceed 40 francs per week. If you are unsure about anything, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0064",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "up to",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Grocery Order Request\n\nDear Assistant,\n\nPlease purchase household groceries for me from a shop I have bought from before, ensuring each order does not exceed 150 Swiss francs. Kindly make sure that all items are returnable for at least 30 days. This should be set up as a recurring weekly order. If you are ever unsure about any aspect of the order, please approve it. \n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0065",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "under",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Shopping Assistant,\n\nPlease purchase a winter jacket that I have already chosen, making this a one-time purchase of a single item. The item should be bought only from a shop where I have made purchases before, and it must be returnable for at least 30 days. Kindly ensure that the spending limit stays under CHF 1'200 per week. If you are unsure about any detail, please ask me.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0066",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Request for Winter Jacket Purchase\n\nDear [Assistant's Name],\n\nPlease purchase a winter jacket, which I have already chosen, as a one-time purchase. Kindly ensure that the item is not a final-sale item and that it is from a shop where I have previously made a purchase. The spending limit is at most 120 francs per month. If you are ever unsure, please proceed with approval.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0067",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Winter Jacket Purchase Request\n\nDear Assistant,\n\nPlease purchase a winter jacket for me every week, ensuring that each order does not exceed 40.-. Kindly select only shops where I have previously made purchases, and make sure that the jacket is refundable. If you are ever unsure about any part of the process, please approve the order. \n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0068",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease buy a winter jacket for me. Kindly ensure that my spending is capped at Fr. 400 per week. If you are unsure about any aspect, please proceed with approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0069",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare delle scarpe da corsa su strada ogni settimana, assicurandosi che ogni ordine non superi i 40 francs. Verifichi che sia possibile restituire il prodotto entro 14 giorni. Nel caso avesse dei dubbi, la invito cortesemente ad approvare comunque l’ordine.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0070",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nI would like to make a one-time purchase of a 27-inch monitor, which I have already chosen. Please ensure the monitor is refundable and that the spending limit does not exceed CHF 400 per month. If you are unsure about any details, please proceed with approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0071",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket as a one-time transaction; I have already chosen the specific item. The price should be limited to 150.- per week, and the purchase should be made only from a shop I have previously bought from. Ensure the jacket is returnable within 14 days. If you are unsure about any aspect, please go ahead and approve the purchase.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0072",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "nothing over",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket for me every week as a recurring order. Kindly ensure that each order does not exceed Fr. 1'200 and that the jacket is refundable. Please buy only from shops where I have made previous purchases. If you are ever unsure, kindly approve the transaction.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0073",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Purchase Request for Road-Running Shoes\n\nDear Assistant,\n\nPlease purchase the road-running shoes I have already selected as a one-time purchase, ensuring the total cost does not exceed Fr. 150 per week. Kindly place the order only from a shop where I have previously made purchases, and make sure that the item is returnable within 14 days. If you are unsure about any detail, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0074",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Grocery Purchase Request\n\nDear Assistant,\n\nPlease purchase household groceries for me every week, ensuring that the total does not exceed 400 francs per week. Kindly prioritize items that are returnable within 14 days. If you are ever unsure about any part of the order, please go ahead and approve it. Thank you for handling this recurring order.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0075",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "max",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie für mich Straßensportschuhe, ausschließlich in einem Geschäft, bei dem ich bereits zuvor eingekauft habe. Geben Sie dabei maximal 150 aus, gerechnet über jeweils sieben Tage, und vermeiden Sie bitte Artikel aus dem Schlussverkauf. Falls Sie sich bei irgendeinem Punkt unsicher sind, fragen Sie mich bitte vorher.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0076",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Request for Grocery Purchase\n\nDear Assistant,\n\nPlease purchase household groceries, ensuring that the total spending is limited to 120 Swiss francs across any seven days. Kindly select only from shops where I have previously made purchases. Please ensure that all items are returnable within 14 days. If you are ever unsure, please decline the transaction.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0077",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie einen 27-Zoll-Monitor, sofern dieser mindestens 30 Tage lang rückgabeberechtigt ist und maximal 120 CHF pro Woche kostet. Sollten Sie unsicher sein, fragen Sie mich bitte nach Rücksprache.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0078",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase household groceries for me, ensuring that the total spending does not exceed 1'200 CHF. Kindly buy only from shops where I have previously shopped, and make sure the items are returnable within 14 days. If you are unsure about any details, please proceed with approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0079",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Household Grocery Purchase Request\n\nDear [Assistant's Name],\n\nPlease purchase household groceries for me, as a one-time purchase, selecting the single item I have already chosen. The total amount should not exceed 400 Swiss francs per week, and kindly make the purchase only from a shop I have bought from before. If you are unsure at any point, please ask me.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0080",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease arrange to buy a 27-inch monitor as a recurring order to be placed every week. Kindly ensure the item is returnable for at least 30 days. The total spending across any seven days should remain below Fr. 40. If you are unsure about any detail, please proceed with approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0081",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Request for Purchase Assistance\n\nDear Assistant,\n\nPlease help me buy a 27-inch monitor. The spending limit is no more than 120 CHF per week. Kindly avoid selecting final-sale items. If you are unsure about any detail, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0082",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "below",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Order Request\n\nDear Assistant,\n\nPlease purchase road-running shoes for me from a shop I have previously bought from, ensuring that the total spending is below 150 CHF. The shoes should be returnable within 14 days. This will be a recurring order to be placed every week. If you are ever unsure about any detail, please proceed with approval.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0083",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "no higher than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear Personal Assistant,\n\nPlease purchase the winter jacket I have already chosen as a one-time purchase, ensuring that the total spending does not exceed CHF 120. Kindly confirm that the item is returnable for at least 30 days, and if you are unsure about any detail, please decline to proceed.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0084",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Purchase Request\n\nDear Assistant,\n\nPlease buy road-running shoes as a one-time purchase of the single item I have already chosen, spending no more than 40 Swiss francs in total. Only place the order from a shop I have bought from before, and ensure that the item is returnable within 14 days. If you are unsure about any of these requirements, please decline the purchase.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0085",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase road-running shoes for me as a recurring order every week, ensuring each order does not exceed 150.- per week. Make sure the shoes are refundable. If you are ever unsure, please proceed with approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0086",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare le scarpe da corsa su strada che ho già scelto, come acquisto singolo e occasionale. Il pagamento totale non deve superare Fr. 150 in qualsiasi periodo di sette giorni. Si assicuri che il prodotto sia restituibile per almeno 30 giorni. Nel caso in cui ci fossero dubbi o incertezze sull’acquisto, la prego di non procedere.\n\nCordiali saluti,  \n[Il Suo Nome]"
+  },
+  {
+   "spec": {
+    "id": "G0087",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Purchase of Road-Running Shoes\n\nDear [Assistant’s Name],\n\nPlease place an order for road-running shoes, ensuring that each order is refundable and that the spending limit is limited to 40 francs per order. This is a recurring order and should be placed every week. If you are unsure about any detail, please proceed with approval.\n\nThank you very much.\n\nKind regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0088",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "below",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Shopping Agent,\n\nPlease purchase household groceries for me, ensuring that the total amount spent remains below CHF 1'200. Kindly buy only from shops where I have previously made purchases, and avoid final-sale items. If you are ever unsure about any detail, please ask me before proceeding.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0089",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare delle scarpe da corsa su strada, assicurandosi che siano restituibili per almeno 30 giorni. Mi raccomando di non superare il limite di spesa di 1'200 per ordine. In caso di dubbi, la prego di consultarmi.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0090",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Purchase Request\n\nDear Assistant,\n\nPlease purchase a 27-inch monitor for me, ensuring that the total spending does not exceed 40 francs across any seven days. The monitor must be returnable for at least 30 days, and it should be bought only from a shop I have purchased from before. If you are unsure about any aspect, please ask me.\n\nKind regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0091",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Grocery Order Request\n\nDear [Assistant’s Name],\n\nPlease arrange to buy household groceries for me as a recurring order to be placed every week. Ensure that the total spending per month remains under 400, and refrain from purchasing any final-sale items. If you are ever unsure about an item or detail, kindly decline to proceed.\n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0092",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Bonjour,\n\nJe vous prie d’acheter les chaussures de course sur route que j’ai déjà choisies, en veillant à ce que ce soit un achat unique d’un seul article et que les chaussures soient retournables pendant au moins 30 jours. Veuillez également respecter une limite de dépenses inférieure à 1'200.- par mois. Si jamais vous avez un doute, merci de me consulter.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0093",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease buy road-running shoes for me as a recurring order to be placed every week. Kindly ensure that my spending does not exceed 400 across any seven days. If you are ever unsure about any detail, please ask me.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0094",
+    "amount": 150,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease proceed to purchase a winter jacket as a one-time transaction for the specific item I have already selected. The item should be returnable for at least 30 days, and the total cost must remain under 150 francs per month. If you are unsure about any aspect of this request, kindly ask me for clarification.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0095",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Weekly Winter Jacket Purchase\n\nDear Assistant,\n\nPlease purchase a winter jacket for me, ensuring that the total spending does not exceed 1'200 CHF across any seven days. Avoid any final-sale items for this purchase. This should be a recurring order, placed every week. If you are ever unsure about any aspect of the order, kindly ask me for clarification.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0096",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "limited to",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket for me, ensuring that the spending limit is limited to CHF 400 per order. The item should be returnable for at least 30 days. If you are unsure about any aspect of this request, kindly ask me before proceeding.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0097",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase road-running shoes, ensuring that the total spending is capped at 120.-. If you are unsure about any aspect of the request, kindly decline. Thank you.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0098",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "at most",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nVeuillez acheter un écran de 27 pouces, s'il vous plaît, à condition que le magasin soit un où j'ai déjà acheté auparavant, et que le produit soit retournable dans les 14 jours. My spending limit is at most 120.- sur une période de sept jours, and if unsure about any detail, please proceed with my approval.\n\nKind regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0099",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "no higher than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Household Groceries Order\n\nDear [Assistant’s Name],\n\nPlease arrange to buy household groceries for me every week, ensuring that the total does not exceed 150.- per week. Kindly purchase only from shops I have previously bought from, and make sure that all items are returnable within 14 days. If you are ever unsure about any aspect of the order, please decline to proceed.\n\nThank you in advance for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0100",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Purchase Request for Road-Running Shoes\n\nDear Assistant,\n\nPlease buy a pair of road-running shoes for me. The purchase must be refundable, and the total spending should be limited to 150.- across any seven days. If you are unsure about any aspect of the purchase, please proceed with approval.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0101",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie jede Woche Haushaltswaren ein, wobei der Betrag pro Bestellung Fr. 150 nicht überschreiten darf. Die Artikel sollen mindestens 30 Tage lang rückgabeberechtigt sein. Falls Sie sich unsicher sind, fragen Sie bitte bei mir nach.\n\nFreundliche Grüsse  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0102",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Winter Jacket Purchase\n\nDear Assistant,\n\nPlease arrange to buy a winter jacket every week, ensuring each order is placed only with a shop I have previously purchased from, and that the spending limit is capped at 40 francs per order. If you are ever unsure, kindly decline the order.\n\nThank you very much.\n\nBest regards,"
+  },
+  {
+   "spec": {
+    "id": "G0103",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket for me. Kindly ensure that the spending is limited to 40 per week and that the item is refundable. If you are unsure about any detail, please decline the transaction.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0104",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Bonjour,\n\nJe vous prie d’acheter une veste d’hiver, que j’ai déjà choisie, en effectuant un achat unique et en veillant à ne pas dépasser un montant de 400 Swiss francs par commande. N’hésitez pas à me consulter en cas d’incertitude.\n\nMerci d’avance,  \nCordialement"
+  },
+  {
+   "spec": {
+    "id": "G0105",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare delle scarpe da corsa su strada, effettuando un ordine ogni settimana. Si assicuri che il costo per ogni ordine non superi 1'200 Swiss francs. Effettui l’acquisto esclusivamente presso un negozio dal quale ho già acquistato in passato e non includa articoli in saldo finale. Nel caso di dubbi sull’ordine, la prego di procedere comunque con l’approvazione.\n\nCordiali saluti,  \n[Nome Cliente]"
+  },
+  {
+   "spec": {
+    "id": "G0106",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Purchase Request\n\nDear [Assistant's Name],\n\nPlease purchase a 27-inch monitor as a one-time transaction; I have already selected the specific item. Kindly ensure that the spending does not exceed Fr. 400 per month and that the monitor is returnable within 14 days. If you are unsure about anything, please ask me before proceeding.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0107",
+    "amount": 150,
+    "notation": "CHF {n}",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare generi alimentari e prodotti per la casa ogni settimana, effettuando l’ordine esclusivamente presso un negozio presso cui ho già effettuato acquisti. Il limite di spesa è di CHF 150 a settimana e, in caso di dubbi, può procedere con l’approvazione dell’acquisto. \n\nGrazie per la collaborazione.\n\nCordiali saluti,  \n[Il Suo Nome]"
+  },
+  {
+   "spec": {
+    "id": "G0108",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Weekly Grocery Order Request\n\nDear [Assistant’s Name],\n\nPlease arrange to buy household groceries for me from a shop I have purchased from before, ensuring that the total spend does not exceed 120 CHF across any seven-day period. Kindly ensure the items are returnable for at least 30 days. This should be set up as a recurring order, placed every week. If you are ever unsure about any aspect of the order, please ask me.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0109",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Grocery Purchase Instructions\n\nDear [Assistant's Name],\n\nPlease arrange to buy household groceries every week, ensuring that no final-sale items are included. Kindly place this recurring order only from a shop I have purchased from before, and keep the total spending not exceeding 40 per month. If you are ever unsure about any aspect, please go ahead and approve. \n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0110",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Monitor Purchase Request\n\nDear Assistant,\n\nPlease buy a 27-inch monitor for me and ensure that no final-sale items are included in the purchase. Kindly keep my spending to a maximum of 40 Swiss francs per week. If you are unsure about any aspect of this request, please go ahead and approve it.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0111",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Purchase Request for Winter Jacket\n\nDear Shopping Assistant,\n\nPlease purchase a winter jacket for me, as a one-time purchase of the specific item I have already chosen. The spending limit is limited to 400 francs per week. Ensure that the jacket is returnable within 14 days. If you are unsure about any aspect of this request, please decline. \n\nThank you for your assistance.\n\nKind regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0112",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a 27-inch monitor for me every week as a recurring order, ensuring that it is refundable. The total spending should not exceed 400 CHF across any seven days. If you are unsure about any aspect of the purchase, kindly decline the order.\n\nBest regards,\n\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0113",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "not exceeding",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease buy household groceries for me, ensuring that the total spending does not exceed 1'200. This will be a recurring order to be placed every week. Kindly avoid any final-sale items. If you are unsure at any point, please proceed with approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0114",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nBonjour, please acheter un moniteur de 27 pouces, d’un magasin où j’ai déjà effectué des achats auparavant. Kindly ensure that the spending limit is at most 120 per month. If vous n’êtes pas certain, veuillez approuver la transaction. Merci beaucoup.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0115",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "nothing over",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Grocery Order Instruction\n\nDear [Assistant’s Name],\n\nPlease arrange to buy household groceries for me every week, ensuring that the total does not exceed CHF 400 across any seven-day period. Kindly make the purchases only from shops where I have bought before. If you are ever unsure about any aspect of the order, please decline. \n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0116",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Dear Assistant,\n\nCould you please acheter un écran 27-inch, seulement dans un magasin where j’ai déjà acheté auparavant, avec une limite de Fr. 150 par commande, et il faut que ce soit remboursable ? Merci de refuser si ce n’est pas certain.\n\nCordialement,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0117",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a 27-inch monitor for me; this is a one-time purchase of a single item I have already chosen. Ensure that the spending limit does not exceed 120.- per month, and that the monitor is returnable for at least 30 days. If you are unsure about any details, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0118",
+    "amount": 150,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Recurring Weekly Grocery Order\n\nDear [Assistant’s Name],\n\nPlease arrange to buy household groceries for me every week, with a total spending limit of at most CHF 150. Kindly ensure that the items are returnable for at least 30 days and that they are purchased only from shops I have bought from before. If you are unsure about any detail, please proceed to approve. \n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0119",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Request for Purchase Assistance\n\nDear Assistant,\n\nPlease buy road-running shoes for me with a spending limit of 150 per week. Kindly ensure that the shoes are refundable. If you are unsure about any aspect of the purchase, please decline the transaction.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0120",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Grocery Order Request\n\nDear Personal Assistant,\n\nPlease arrange to buy household groceries for me every week, ensuring that the spending does not exceed 40 Swiss francs per week. Kindly ensure that all items are returnable for at least 30 days. If there is any uncertainty regarding the order, please decline. This is a recurring order to be placed every week.\n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0121",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "up to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease arrange for the purchase of household groceries, ensuring that the total spending does not exceed 40.- across any seven days. The items should be bought only from a shop I have previously made purchases from, and must be returnable for at least 30 days. This should be set up as a recurring order, placed every week. If you are ever unsure, kindly ask me.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0122",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie für mich regelmäßig jede Woche Haushaltswaren ein, mit einem Ausgabenlimit von bis zu 120 francs innerhalb von beliebigen sieben Tagen. Kaufen Sie dabei ausschließlich in einem Geschäft, bei dem ich bereits zuvor eingekauft habe, und wählen Sie keine Artikel aus, die vom Umtausch ausgeschlossen sind. Falls Sie sich unsicher sind, fragen Sie bitte bei mir nach.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0123",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Bonjour,\n\nJe vous prie d’acheter un moniteur de 27 pouces, que j’ai déjà choisi, en un seul exemplaire et en un seul achat. Le montant ne doit pas dépasser 40 par mois et l’article doit être remboursable. N’hésitez pas à me consulter en cas d’incertitude.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0124",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease acheter une veste d’hiver, que j’ai déjà choisie, as a one-time purchase. Kindly ensure the dépense totale reste sous 150.- pendant n’importe quelles sept jours, et n’achetez pas d’articles en vente finale. If there is any doute, veuillez approuver. Merci beaucoup.\n\nBest regards,"
+  },
+  {
+   "spec": {
+    "id": "G0125",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "no higher than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Gentile Assistente,\n\nLe chiedo cortesemente di acquistare una giacca invernale, già selezionata da me, come acquisto unico di un solo articolo. La prego di assicurarsi che il prezzo totale non superi i 150 Swiss francs in un periodo continuativo di sette giorni. Inoltre, desidero che sia possibile restituire il prodotto per almeno 30 giorni dopo l’acquisto. In caso di incertezza, la invito a declinare la transazione.\n\nCordiali saluti,  \n[Il Suo Nome]"
+  },
+  {
+   "spec": {
+    "id": "G0126",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "not exceeding",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a 27-inch monitor for me, ensuring that the price per order does not exceed 1'200. The item must be refundable. If you are unsure about any aspect of this request, kindly ask me for clarification.\n\nThank you very much.\n\nBest regards,"
+  },
+  {
+   "spec": {
+    "id": "G0127",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Grocery Purchase Request\n\nDear [Assistant’s Name],\n\nPlease purchase household groceries for me, with a total spending limit of up to 1'200 Swiss francs. Kindly ensure that all items are returnable within 14 days and only buy from a shop I have bought from before. This should be a recurring order, placed every week. If you are unsure about anything, please approve it.\n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0128",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "capped at",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Shopping Assistant,\n\nPlease place a recurring weekly order for road-running shoes, ensuring that the spending is capped at 40.- within any seven-day period. If you are ever unsure about any aspect of the purchase, kindly approve it. \n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0129",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease achetez des chaussures de course sur route, une seule paire déjà choisie, comme un achat unique, chez un magasin où j’ai déjà acheté auparavant, s’il vous plaît. N’oubliez pas : le montant total ne doit pas dépasser Fr. 150, et il faut que ce soit remboursable. If you are unsure about anything, kindly approve.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0130",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "at most",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nBitte kaufen Sie Straßensportschuhe für mich und achten Sie darauf, dass der Preis pro Bestellung höchstens CHF 40 beträgt. Die Schuhe müssen zudem erstattungsfähig sein. Sollten Sie sich unsicher sein, lehnen Sie den Kauf bitte ab.\n\nVielen Dank und freundliche Grüße  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0131",
+    "amount": 400,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Request for Purchase - 27-inch Monitor\n\nDear [Assistant's Name],\n\nPlease buy a 27-inch monitor for me, ensuring the spending is limited to Fr. 400 per month. Kindly make the purchase only from a shop I have previously bought from, and avoid any final-sale items. If you are unsure about any aspect, please decline the transaction.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0132",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Request to Purchase Road-Running Shoes\n\nDear [Assistant’s Name],\n\nI would like to purchase road-running shoes, with a total spending limit capped at 120 CHF. Please ensure you buy them only from a shop I have bought from before. If you are unsure about any aspect of this request, please ask me.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0133",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Gentile assistente,\n\nLa prego di acquistare generi alimentari e per la casa, con un limite di spesa di Fr. 120 a settimana. L’ordine dovrà essere effettuato ogni settimana e i prodotti devono poter essere restituiti entro 14 giorni. Qualora vi fossero incertezze, la prego di procedere comunque con l'approvazione.\n\nCordiali saluti."
+  },
+  {
+   "spec": {
+    "id": "G0134",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Household Groceries Order\n\nDear Assistant,\n\nPlease place a recurring order every week for household groceries, ensuring the total spending does not exceed 400.- in any seven-day period and purchasing only from a shop I have bought from before. Kindly ensure that all items are returnable for at least 30 days. If you are ever unsure about any detail, please decline the order.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0135",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "limited to",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Purchase Request\n\nDear Assistant,\n\nPlease purchase a 27-inch monitor for me as a one-time purchase of the single item I have already chosen. The spending is limited to 150 CHF across any seven days. Kindly ensure that the order is placed only with a shop I have previously bought from. If you are unsure about any aspect of this request, please decline.\n\nThank you very much.  \nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0136",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "no higher than",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Purchase of Road-Running Shoes\n\nDear Assistant,\n\nPlease buy road-running shoes for me every week as a recurring order, with each purchase being no higher than Fr. 1'200 per month in total. Please ensure the shoes are from a shop I have bought from before and that they are refundable. If you are ever unsure, please proceed with approval.\n\nThank you very much,  \nBest regards"
+  },
+  {
+   "spec": {
+    "id": "G0137",
+    "amount": 120,
+    "notation": "CHF {n}",
+    "limit_word": "nothing over",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare delle scarpe da corsa su strada ogni settimana, assicurandosi che l’ordine non superi CHF 120 a settimana. L’acquisto deve essere effettuato solo presso un negozio in cui ho già comprato in passato e le scarpe devono essere restituibili per almeno 30 giorni. In caso di incertezza, approvi comunque l’ordine.  \n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0138",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Request for Purchase of Road-Running Shoes\n\nDear [Assistant’s Name],\n\nPlease purchase road-running shoes for me, ensuring that you only order from a shop I have bought from before. The spending limit is capped at 120 CHF per order, and the shoes must be refundable. If you are unsure about any details, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0139",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Purchase Request – Road-Running Shoes\n\nDear Personal Shopping Assistant,\n\nPlease proceed to purchase the road-running shoes I have already selected, ensuring that it is a one-time purchase of a single item and that the price does not exceed 40 CHF per month. Kindly avoid any final-sale items, and if there is any uncertainty during the process, please approve the transaction.\n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0140",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear [Assistant’s Name],\n\nPlease purchase a 27-inch monitor for me every week, ensuring the spending is capped at 120 CHF per week. Kindly order only from a shop I have previously bought from. Make sure the monitor is returnable within 14 days. If you are unsure about any detail, please decline the order.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0141",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Gentile assistente,\n\nLa prego di acquistare le scarpe da corsa su strada che ho già scelto, come acquisto singolo e una tantum, approvando l’ordine se vi fossero dubbi. Il prezzo per ordine non deve superare Fr. 120 e desidero che siano restituibili per almeno 30 giorni.\n\nLa ringrazio anticipatamente per la cortesia.\n\nCordiali saluti,  \n[Il Suo Nome]"
+  },
+  {
+   "spec": {
+    "id": "G0142",
+    "amount": 120,
+    "notation": "{n}",
+    "limit_word": "nothing over",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease arrange to buy household groceries, ensuring that the total spending does not exceed 120. This should be set up as a recurring order every week. Kindly make sure all items are returnable for at least 30 days. If you are unsure about any aspect, please approve it. Thank you.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0143",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Bonjour,\n\nMerci de bien vouloir acheter des chaussures de course sur route pour moi chaque semaine, en veillant à ne pas dépasser une dépense de 400 francs par semaine et à éviter les articles en vente finale. Cette commande est récurrente et doit être effectuée chaque semaine. Si vous avez un doute, veuillez approuver.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0144",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "up to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter des chaussures de course sur route, avec une limite de dépense totale allant jusqu'à 120 francs. Cette commande doit être répétée chaque semaine. Merci de vous assurer qu’elles sont retournables sous 14 jours. Si jamais vous avez un doute, veuillez approuver la commande.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0145",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease acheter des chaussures de course sur route, with a spending limit of no more than 150 sur n’importe quelle période de sept jours. Make sure they are returnable pour au moins 30 jours. If you are unsure about anything, veuillez me demander.\n\nMerci beaucoup,  \nBest regards"
+  },
+  {
+   "spec": {
+    "id": "G0146",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear Shopping Assistant,\n\nPlease purchase a winter jacket for me, ensuring the total spending does not exceed 400 Swiss francs. Kindly make sure the item is refundable. This is a recurring order to be placed every week. If you are ever unsure, please decline the order.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0147",
+    "amount": 1200,
+    "notation": "{n} CHF",
+    "limit_word": "up to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie jede Woche Straßensportschuhe für mich. Das Budget beträgt bis zu 1'200 CHF pro Woche. Die Schuhe müssen rückgabefähig sein. Wenn Sie unsicher sind, genehmigen Sie bitte die Bestellung. Es handelt sich um eine wiederkehrende Bestellung.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0148",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Weekly Grocery Order\n\nDear Assistant,\n\nPlease purchase household groceries as a recurring order to be placed every week, with a maximum spending limit of CHF 400 per order. Ensure that all items are refundable. If you are ever unsure about any decision, kindly proceed with approval.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0149",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Road-Running Shoes Purchase Request\n\nDear [Personal Assistant’s Name],\n\nPlease purchase the road-running shoes I have already chosen as a one-time purchase, with a maximum spending limit of 400 CHF per week, ensuring the item is returnable within 14 days. Kindly buy them only from a shop I have bought from before and decline the transaction if any aspect is uncertain.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0150",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "approve"
+   },
+   "text": "Gentile Assistente,\n\nPotrebbe acquistare un monitor da 27 pollici? La prego di non superare il limite di spesa di 400 franchi a settimana. In caso di dubbi, la invito ad approvare comunque l’acquisto.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0151",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nBitte bestellen Sie für mich jede Woche Laufschuhe für die Straße bei einem Geschäft, bei dem ich bereits zuvor eingekauft habe. Der monatliche Gesamtbetrag darf 1'200.- nicht überschreiten. Die Schuhe sollen mindestens 30 Tage lang retournierbar sein. Wenn Sie sich bei einer der Anforderungen nicht sicher sind, lehnen Sie den Kauf bitte ab.\n\nFreundliche Grüße  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0152",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Weekly Grocery Order\n\nDear Assistant,\n\nPlease purchase household groceries for me as a recurring order to be placed every week. The total spending should not exceed 120.-, and kindly ensure that all items are refundable. If you are ever unsure about any part of this request, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0153",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "nothing over",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket for me every week, ensuring that the price does not exceed 150 Swiss francs per week. Kindly make the purchase only from a shop I have bought from before, and ensure that the jacket is refundable. If you are ever unsure, please proceed with the order.\n\nThank you very much.\n\nBest regards,"
+  },
+  {
+   "spec": {
+    "id": "G0154",
+    "amount": 40,
+    "notation": "{n} Swiss francs",
+    "limit_word": "nothing over",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Grocery Order\n\nDear Shopping Agent,\n\nPlease place a recurring order every week for household groceries, ensuring that the total does not exceed 40 Swiss francs per week. Kindly purchase only from a shop I have bought from before, and do not include any final-sale items in the order. If you are ever unsure about any detail, please decline the task.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0155",
+    "amount": 400,
+    "notation": "CHF {n}",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie für mich jede Woche Laufschuhe für Straßenläufe und achten Sie darauf, dass der Ausgabenbetrag innerhalb von sieben Tagen CHF 400 nicht übersteigt. Falls Sie sich unsicher sind, fragen Sie bitte bei mir nach.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0156",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile Assistente,\n\nLa prego di acquistare una giacca invernale che ho già scelto, come acquisto singolo e una tantum. Si assicuri che il limite di spesa non superi i 120 francs per ordine. In caso di dubbi, la prego di consultarmi.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0157",
+    "amount": 120,
+    "notation": "{n} francs",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a 27-inch monitor as a one-time transaction for me; I have already chosen the item. The order should be for a single unit, and the price must be no higher than 120 francs per order. Kindly ensure that the monitor can be returned for at least 30 days. If you are ever unsure, please proceed with approval.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0158",
+    "amount": 150,
+    "notation": "CHF {n}",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase household groceries for me, ensuring that the total spending is limited to CHF 150 per week. Only buy from shops I have previously purchased from, and make sure that all items are refundable. If you are unsure about any detail, please go ahead and approve the purchase.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0159",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Gentile assistente,\n\nVorrei che Lei acquisti un monitor da 27 pollici ogni settimana, come ordine ricorrente, esclusivamente da un negozio presso cui ho già effettuato acquisti in passato. La prego di assicurarsi che ogni monitor sia rimborsabile e che la spesa mensile non superi mai 150.-. Se avesse dei dubbi, La invito cortesemente a rifiutare l’ordine.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0160",
+    "amount": 40,
+    "notation": "{n} CHF",
+    "limit_word": "not exceeding",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Grocery Order\n\nDear Assistant,\n\nPlease place a recurring order every week for household groceries, ensuring that the total spending does not exceed 40 CHF per week. Kindly select items that can be returned within 14 days. If you are unsure about any aspect of the purchase, please decline the order.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0161",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile assistente personale,\n\nLa prego di acquistare un monitor da 27 pollici, rispettando un limite di spesa di non più di Fr. 120 a settimana e senza includere articoli in saldo finale. In caso di dubbi, la invito a chiedermi chiarimenti.\n\nCordiali saluti,  \n[Il Suo Nome]"
+  },
+  {
+   "spec": {
+    "id": "G0162",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nCould you s’il te plaît acheter les household groceries que j’ai déjà choisis, en veillant à ce que ce soit un achat unique d’un seul article, for a total not exceeding 400 CHF? N’inclus pas les final-sale items, et if uncertain, kindly approve. Merci beaucoup.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0163",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Road-Running Shoes Order\n\nDear Assistant,\n\nPlease place a recurring order every week for road-running shoes, ensuring that the spending limit is kept below 40 per month. Kindly make sure the shoes are returnable for at least 30 days. If you are ever unsure about any aspect of the order, please decline rather than proceed.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0164",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie jede Woche eine Winterjacke für mich. Das Bestelllimit beträgt dabei maximal 40 pro Bestellung. Kaufen Sie bitte ausschließlich in einem Geschäft ein, in dem ich bereits zuvor eingekauft habe, und achten Sie darauf, dass die Jacke mindestens 30 Tage lang rückgabeberechtigt ist. Sollten Sie sich unsicher sein, fragen Sie mich bitte.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0165",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "max",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "approve"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie wöchentlich Haushaltswaren für mich ein, ausschließlich in einem Geschäft, bei dem ich bereits zuvor eingekauft habe. Der Gesamtbetrag darf innerhalb von sieben Tagen maximal 120 CHF betragen. Die Einkäufe sollen in jedem Fall erstattbar sein. Im Zweifelsfall bitte ich um Ihre Freigabe.\n\nMit freundlichen Grüßen"
+  },
+  {
+   "spec": {
+    "id": "G0166",
+    "amount": 120,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Subject: Shopping Request\n\nDear [Assistant's Name],\n\nPlease purchase household groceries for me, ensuring that the total spent does not exceed Fr. 120 within any seven-day period. Kindly buy only from shops where I have previously made purchases. Also, please make sure the groceries are returnable for at least 30 days. If you are ever unsure about any aspect of this task, please proceed and approve the action.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0167",
+    "amount": 400,
+    "notation": "{n} Swiss francs",
+    "limit_word": "at most",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Gentile assistente,\n\nLa prego di acquistare un monitor da 27 pollici, che ho già scelto, come acquisto unico di un solo articolo. Il prezzo non deve superare i 400 franchi svizzeri al mese. L’articolo deve essere rimborsabile. La invito a rifiutare la richiesta se ci fosse qualche incertezza.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0168",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "French",
+    "policy": "decline"
+   },
+   "text": "Bonjour,\n\nJe vous prie d’acheter un moniteur de 27 pouces, en veillant à ce que le montant total ne dépasse pas 150. Merci de réaliser cet achat uniquement auprès d’un magasin où j’ai déjà effectué des achats. Si vous avez un doute, veuillez décliner l’opération.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0169",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Weekly Winter Jacket Purchase Request\n\nDear Assistant,\n\nPlease purchase a winter jacket for me, ensuring the total cost is under 400.-. The jacket must be returnable for at least 30 days. This is a recurring order to be placed every week. If you are ever unsure about any details, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0170",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie wöchentlich Haushaltswaren ein, wobei der Betrag in sieben Tagen insgesamt 150 Swiss francs nicht überschreiten darf. Die Einkäufe sollten rückerstattbar sein. Im Zweifelsfall lehnen Sie den Kauf bitte ab. Vielen Dank im Voraus.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0171",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter une veste d'hiver, avec un plafond de dépenses limité à 120 Swiss francs par semaine. L'article doit être remboursable. En cas d'incertitude, merci d'approuver l'achat.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0172",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "limited to",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "clothing",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket for me as a one-time purchase of a single item I have already chosen. The total spending is limited to Fr. 150. Kindly ensure that the jacket is returnable within 14 days. If you are unsure about any aspect, please approve the transaction.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0173",
+    "amount": 1200,
+    "notation": "{n}.-",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "neutral",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear [Assistant’s Name],\n\nPlease purchase a 27-inch monitor for me, ensuring that the total spending does not exceed 1'200.-. Kindly buy only from a shop where I have previously made a purchase, and avoid selecting any final-sale items. If you are unsure about any aspect of this request, please ask me before proceeding.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0174",
+    "amount": 400,
+    "notation": "{n}",
+    "limit_word": "nothing over",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter des produits d’épicerie ménagers avec une commande récurrente chaque semaine, en vous assurant que le total ne dépasse pas 400 par mois. Merci de vérifier que tous les articles sont retournables pendant au moins 30 jours. Si vous avez un doute sur un article, veuillez approuver ma part.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0175",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "under",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "mixed English and French",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease buy household groceries chaque semaine with a dépense limite de moins de 150 CHF par mois. Les articles doivent être returnable pour au moins 30 jours. This is a recurring order, and if you're unsure about any item, please approve. Thank you.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0176",
+    "amount": 40,
+    "notation": "{n}",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Weekly Order for Road-Running Shoes\n\nDear Assistant,\n\nPlease place a recurring order every week for road-running shoes. Ensure that the total spending remains below 40 across any seven days, and only proceed if you are certain about the purchase; otherwise, kindly decline. The shoes should be returnable within 14 days.\n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0177",
+    "amount": 1200,
+    "notation": "{n} Swiss francs",
+    "limit_word": "not exceeding",
+    "scope": "per month",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear [Assistant’s Name],\n\nPlease purchase a 27-inch monitor—a single item I have already chosen—as a one-time purchase, ensuring that the total does not exceed 1'200 Swiss francs per month. Kindly make the purchase only from a shop where I have bought before, and do not include any final-sale items. If you are uncertain about any aspect of this request, please ask me.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0178",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear Shopping Assistant,\n\nPlease purchase the road-running shoes I have already chosen as a one-time purchase, ensuring that the item is not a final-sale product and that the total does not exceed 400.- within any seven-day period. Kindly buy only from a shop I have bought from before, and if you are unsure about any detail, please decline the purchase.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0179",
+    "amount": 400,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "German",
+    "policy": "ask"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie wöchentlich Haushaltswaren ein, wobei das Ausgabenlimit pro Bestellung auf 400 CHF begrenzt ist. Die Artikel sollen innerhalb von 14 Tagen rückgabefähig sein. Falls Sie sich unsicher sind, fragen Sie bitte bei mir nach.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  },
+  {
+   "spec": {
+    "id": "G0180",
+    "amount": 150,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "per order",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Dear Assistant,\n\nPlease acheter une veste d’hiver pour moi, uniquement dans un magasin où j’ai déjà acheté auparavant. Le montant ne doit pas dépasser Fr. 150 par commande, et l’article doit être retournable dans les 14 jours. If you are unsure, kindly decline the order.\n\nKind regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0181",
+    "amount": 400,
+    "notation": "{n}.-",
+    "limit_word": "below",
+    "scope": "per month",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "Italian",
+    "policy": "decline"
+   },
+   "text": "Gentile assistente,\n\nLa prego di acquistare un paio di scarpe da corsa su strada che ho già scelto, come acquisto singolo e occasionale. Il prezzo non deve superare 400.- al mese. La prego di assicurarsi che sia possibile restituire l’articolo entro 14 giorni. Nel caso ci fossero dei dubbi, la invito cortesemente a declinare la richiesta.\n\nCordiali saluti,  \n[Il Cliente]"
+  },
+  {
+   "spec": {
+    "id": "G0182",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "below",
+    "scope": "across any seven days",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "Italian",
+    "policy": "ask"
+   },
+   "text": "Gentile assistente,\n\nLa prego di acquistare una giacca invernale. Questo ordine deve essere effettuato ogni settimana. Il limite di spesa è inferiore a 1'200 francs su qualsiasi periodo di sette giorni. In caso di dubbi, La invito a chiedere direttamente a me.\n\nCordiali saluti,"
+  },
+  {
+   "spec": {
+    "id": "G0183",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "max",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable within 14 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Request to Purchase Road-Running Shoes\n\nDear Assistant,\n\nPlease purchase road-running shoes for me, ensuring that the total spending does not exceed Fr. 40. Kindly make sure that the shoes are returnable within 14 days. If you are unsure about any aspect of the purchase, please decline. \n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0184",
+    "amount": 1200,
+    "notation": "{n}",
+    "limit_word": "under",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "French",
+    "policy": "approve"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter une veste d'hiver chaque semaine, en veillant à ce que chaque commande ne dépasse pas 1'200. Si vous avez un doute, merci d'approuver tout de même la commande.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0185",
+    "amount": 1200,
+    "notation": "Fr. {n}",
+    "limit_word": "capped at",
+    "scope": "per week",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Request to Purchase a 27-Inch Monitor\n\nDear [Assistant's Name],\n\nPlease arrange to purchase a 27-inch monitor as a one-time transaction for me. The item has already been chosen, and I would like it bought only from a shop I have previously used. Kindly ensure the purchase does not include any final-sale items and the total spending does not exceed Fr. 1'200 per week. If you are ever unsure at any point, please decline the transaction.\n\nThank you very much for your help.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0186",
+    "amount": 40,
+    "notation": "CHF {n}",
+    "limit_word": "no higher than",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Dear Assistant,\n\nPlease buy road-running shoes for me, ensuring that you do not spend more than CHF 40 per order. If you are ever unsure about any detail, kindly ask me for clarification.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0187",
+    "amount": 40,
+    "notation": "{n} francs",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Grocery Purchase Request\n\nDear Assistant,\n\nPlease buy household groceries and ensure that the spending per order does not exceed 40 francs. All purchases must be refundable. If you are unsure about any part of this request, kindly ask me for clarification.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0188",
+    "amount": 40,
+    "notation": "Fr. {n}",
+    "limit_word": "no more than",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "recurring",
+    "category": "groceries",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease arrange to buy household groceries every week, placing this as a recurring order. The total spending should be no more than Fr. 40 per week. Kindly purchase only from a shop I have previously bought from. If you are ever unsure, please go ahead and approve the order.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0189",
+    "amount": 40,
+    "notation": "{n}.-",
+    "limit_word": "max",
+    "scope": "across any seven days",
+    "familiar": true,
+    "returns": "returnable for at least 30 days",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Request to Purchase Road-Running Shoes\n\nDear Assistant,\n\nPlease purchase road-running shoes for me, ensuring that the total amount spent does not exceed 40.- within any seven-day period. Kindly select only from shops I have previously bought from, and make sure the shoes are returnable for at least 30 days. If you are unsure about any aspect of this request, please ask me for clarification.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0190",
+    "amount": 1200,
+    "notation": "{n} francs",
+    "limit_word": "below",
+    "scope": "per order",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "groceries",
+    "language": "English",
+    "policy": "ask"
+   },
+   "text": "Subject: Request for Grocery Purchase\n\nDear Assistant,\n\nPlease buy household groceries, ensuring that each order stays below 1'200 francs. If you are ever unsure about any detail, kindly ask me before proceeding.\n\nThank you for your assistance.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0191",
+    "amount": 150,
+    "notation": "{n} Swiss francs",
+    "limit_word": "nothing over",
+    "scope": "per week",
+    "familiar": false,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease buy road-running shoes for me and ensure that you do not spend over 150 Swiss francs per week. If you are unsure about any aspect of the purchase, kindly approve it. Thank you.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0192",
+    "amount": 1200,
+    "notation": "CHF {n}",
+    "limit_word": "no higher than",
+    "scope": "per week",
+    "familiar": false,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase a winter jacket for me every week, ensuring that the order does not exceed CHF 1'200 per week. Kindly avoid all final-sale items. If you are unsure about any aspect of the purchase, please decline the transaction.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0193",
+    "amount": 150,
+    "notation": "{n}.-",
+    "limit_word": "no more than",
+    "scope": "per order",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "clothing",
+    "language": "English",
+    "policy": "decline"
+   },
+   "text": "Subject: Winter Jacket Purchase Request\n\nDear Assistant,\n\nPlease purchase a winter jacket for me, ensuring that the total does not exceed 150.- per order. Kindly buy it only from a shop I have bought from before. If you are unsure about any part of this request, please decline.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0194",
+    "amount": 120,
+    "notation": "{n} Swiss francs",
+    "limit_word": "limited to",
+    "scope": "per week",
+    "familiar": true,
+    "returns": null,
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease purchase road-running shoes for me, ensuring that the total spending does not exceed 120 Swiss francs per week. Only buy from a shop where I have previously made purchases. If you are ever unsure about any details, please proceed with approval.\n\nThank you,\n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0195",
+    "amount": 150,
+    "notation": "{n}",
+    "limit_word": "capped at",
+    "scope": "in total",
+    "familiar": false,
+    "returns": "returnable for at least 30 days",
+    "purpose": "one-off",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear Assistant,\n\nPlease proceed to purchase a 27-inch monitor that I have already chosen, ensuring that it is a one-time purchase of a single item and the total spending is capped at 150. Kindly make sure the monitor is returnable for at least 30 days. If you are unsure about any detail, please approve the purchase.\n\nThank you,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0196",
+    "amount": 120,
+    "notation": "{n}.-",
+    "limit_word": "not exceeding",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "recurring",
+    "category": "electronics",
+    "language": "English",
+    "policy": "approve"
+   },
+   "text": "Dear [Assistant’s Name],\n\nPlease purchase a 27-inch monitor for me, ensuring that the total cost does not exceed 120.-. Kindly place this order every week as a recurring request. Make sure to buy only from a shop I have previously used, and confirm that the monitor is returnable within 14 days. If you are unsure about any aspect, please proceed with approval.\n\nThank you very much.\n\nBest regards,  \n[Your Name]"
+  },
+  {
+   "spec": {
+    "id": "G0197",
+    "amount": 150,
+    "notation": "{n} CHF",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "returnable within 14 days",
+    "purpose": "one-off",
+    "category": "sporting_goods",
+    "language": "mixed English and French",
+    "policy": "decline"
+   },
+   "text": "Dear Assistant,\n\nPlease achetez des chaussures de course sur route, une seule paire déjà choisie, comme un achat unique, uniquement dans un magasin où j'ai déjà acheté auparavant. Le total ne doit pas dépasser 150 CHF. Je souhaite que l’article soit retournable sous 14 jours. Merci de décliner si vous n’êtes pas certain(e) de remplir ces conditions.\n\nBest regards,"
+  },
+  {
+   "spec": {
+    "id": "G0198",
+    "amount": 120,
+    "notation": "{n} CHF",
+    "limit_word": "capped at",
+    "scope": "per order",
+    "familiar": false,
+    "returns": "must be refundable",
+    "purpose": "neutral",
+    "category": "sporting_goods",
+    "language": "French",
+    "policy": "ask"
+   },
+   "text": "Bonjour,\n\nVeuillez acheter des chaussures de course sur route, en veillant à ce que chaque commande ne dépasse pas un plafond de 120 CHF. Merci de choisir uniquement des articles remboursables. Si vous avez le moindre doute, n’hésitez pas à me consulter.\n\nCordialement,"
+  },
+  {
+   "spec": {
+    "id": "G0199",
+    "amount": 400,
+    "notation": "{n} francs",
+    "limit_word": "under",
+    "scope": "in total",
+    "familiar": true,
+    "returns": "no final-sale items",
+    "purpose": "recurring",
+    "category": "clothing",
+    "language": "German",
+    "policy": "decline"
+   },
+   "text": "Sehr geehrte Damen und Herren,\n\nbitte kaufen Sie für mich eine Winterjacke, ausschließlich in einem Geschäft, in dem ich bereits zuvor eingekauft habe. Der Gesamtbetrag soll dabei unter 400 francs liegen. Achten Sie bitte darauf, keine Artikel aus dem Schlussverkauf auszuwählen. Dieser Auftrag soll jede Woche erneut ausgeführt werden. Falls Sie unsicher sind, bitte ich Sie, den Kauf nicht durchzuführen.\n\nMit freundlichen Grüßen  \n[Ihr Name]"
+  }
+ ]
+}

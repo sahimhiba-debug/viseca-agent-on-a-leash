@@ -175,6 +175,13 @@ class HistoryIndex:
             return None
         return False
 
+    def known_merchants(self, card_id: str) -> frozenset[str]:
+        """The shops the customer has paid with this card or the cards it replaced.
+        For explanations only (naming the shop a lookalike imitates); decisions go
+        through `is_familiar`."""
+        own, _ = self._lineage(card_id)
+        return own or frozenset()
+
     def familiarity_basis(self, card_id: str, merchant_id: str) -> str:
         """Whose history answered, for the evidence line and the customer's message."""
         if not self.available:

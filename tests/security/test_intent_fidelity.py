@@ -38,10 +38,12 @@ TWO DIFFERENT REPAIRS, deliberately:
     changes no decision -- it converts a silent loss into a visible question, which is
     the weakest honest response and the only one that does not require guessing.
 
-Quantity is disclosed rather than enforced because the vocabulary genuinely cannot
-express it: `scope` is `purchase` or `period` and technical_details.md closes the set
-("No extra rule fields are allowed"). There is no "this many items" and no "this many
-orders". Pretending otherwise would be the inventing this project refuses to do.
+Quantity USED TO BE disclosed rather than enforced, on the reading that the format
+closes the set ("No extra rule fields are allowed"). That sentence forbids extra rule
+KEYS; the `field` itself is "a nonempty string naming the fact to check" whose
+interpretation "belongs to your solution". ONE is now enforced as a one-off errand
+(`order.errand_already_fulfilled`); larger counts are still disclosed, because this
+wallet does not count them.
 """
 
 from __future__ import annotations
@@ -107,10 +109,9 @@ def test_both_scopes_survive_when_the_customer_states_both():
 # --------------------------------------------------------------------------- (1)
 @pytest.mark.parametrize(
     "instruction",
-    ["Buy one ordinary grocery item for CHF 20 or less. Ask me when uncertain.",
-     "Buy exactly one monitor for CHF 400 or less. Ask me when uncertain.",
-     "Buy at most one monitor for CHF 400 or less. Ask me when uncertain.",
-     "Buy up to three monitors for CHF 400 or less. Ask me when uncertain.",
+    ["Buy up to three monitors for CHF 400 or less. Ask me when uncertain.",
+     "Buy two ordinary grocery items for CHF 20 or less. Ask me when uncertain.",
+     # "a week" makes it recurring, so it is not a one-off errand; the count is not enforced.
      "Buy one groceries for up to CHF 250 a week. Ask me when uncertain."],
 )
 def test_a_quantity_the_vocabulary_cannot_express_is_named_back_to_the_customer(instruction):
@@ -202,9 +203,10 @@ def test_strict_and_inclusive_limits_are_distinguished(phrase, operator):
 
 
 def test_the_coverage_check_creates_no_rules():
-    """It is disclosure. If it ever produced a rule it could change a decision."""
-    with_marker = compile_instruction("Buy one monitor for CHF 400 or less. Ask me when uncertain.")
-    without = compile_instruction("Buy a monitor for CHF 400 or less. Ask me when uncertain.")
+    """It is disclosure. If it ever produced a rule it could change a decision. (A
+    count of ONE does produce a rule, but from the errand pattern, not from here.)"""
+    with_marker = compile_instruction("Buy three monitors for CHF 400 or less. Ask me when uncertain.")
+    without = compile_instruction("Buy monitors for CHF 400 or less. Ask me when uncertain.")
     assert [r.field for r in with_marker.hard_rules] == [r.field for r in without.hard_rules]
     assert len(with_marker.open_questions) > len(without.open_questions)
 
@@ -298,3 +300,36 @@ def test_compiling_never_crashes_on_a_currency_token_without_digits(instruction)
     mandate-creation path, reachable by a customer who ends a sentence with the
     currency."""
     compile_instruction(instruction)   # must not raise
+
+
+# --------------------------------------------------------------------------- (1) again
+@pytest.mark.parametrize(
+    "instruction",
+    ["Buy one ordinary grocery item for CHF 20 or less. Ask me when uncertain.",
+     "Buy exactly one monitor for CHF 400 or less. Ask me when uncertain.",
+     "Buy at most one monitor for CHF 400 or less. Ask me when uncertain.",
+     "Buy the 27-inch monitor I chose, for CHF 400 or less. Ask me when uncertain.",
+     "Replace my worn road-running shoes in size 43. Ask me when uncertain."],
+)
+def test_a_one_off_errand_is_enforced_not_just_disclosed(instruction):
+    """ONE was never outside the vocabulary. The rule format names its own facts ("a
+    nonempty string naming the fact to check"); what it forbids is extra rule KEYS.
+    The earlier reading conflated the two and disclosed a restriction it could have
+    kept. The official manipulated-agent run approved four monitors under "the monitor
+    I chose" because of it."""
+    compiled = compile_instruction(instruction)
+    assert any(r.field == "order.errand_already_fulfilled" for r in compiled.hard_rules), instruction
+    assert QUANTITY_NOTICE not in _questions(instruction)
+
+
+@pytest.mark.parametrize(
+    "instruction",
+    ["Order our household groceries for delivery. Keep each order at or below CHF 120. Ask me when uncertain.",
+     "The agent may buy clothing for me, up to CHF 250 per order. Ask me when uncertain.",
+     "Buy one coffee every day for CHF 5 or less.",
+     "Order the groceries I usually get, every week, up to CHF 120."],
+)
+def test_a_standing_or_recurring_mandate_is_not_read_as_an_errand(instruction):
+    """A false errand would turn a customer's second legitimate order into a question."""
+    assert not any(r.field == "order.errand_already_fulfilled"
+                   for r in compile_instruction(instruction).hard_rules), instruction
