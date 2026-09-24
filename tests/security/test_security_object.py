@@ -19,7 +19,6 @@ every number quoted here.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 

@@ -971,7 +971,6 @@ def _stored_decision_summary(event: dict[str, Any], stored, *, revoked: bool = F
                 "customer_message": "", "wallet_decision": "pending",
                 "purchase_description": auth.get("purchase_description", ""),
                 "payment_authority": None, "resolved_by_customer": False}
-    authority = run_authority = None
     return {
         "authorization_id": stored.authorization_id,
         "merchant_name": auth["merchant"]["merchant_name"],

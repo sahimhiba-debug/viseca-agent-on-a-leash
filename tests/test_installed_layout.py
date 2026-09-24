@@ -13,7 +13,6 @@ needing a Docker daemon, which is not available in every environment this runs i
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest

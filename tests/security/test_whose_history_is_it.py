@@ -40,7 +40,6 @@ from __future__ import annotations
 import csv
 from collections import defaultdict
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 

@@ -34,7 +34,7 @@ import re
 from dataclasses import dataclass, replace
 from typing import Any, Callable
 
-from .mandate import HardRule, UncertaintyPolicy
+from .mandate import HardRule
 from .policy_compiler import compile_instruction
 from .disagreement import diverge_from_readings
 from .witness import Purchase, judge

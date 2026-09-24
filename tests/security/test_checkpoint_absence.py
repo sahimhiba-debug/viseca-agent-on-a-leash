@@ -34,7 +34,6 @@ an authority while omitting whether it was spent is not a fact; it is a hole.
 
 from __future__ import annotations
 
-import copy
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal

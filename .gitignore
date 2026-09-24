@@ -12,3 +12,4 @@ reference/
 .coverage
 .coverage.*
 build/
+.checkpoints/

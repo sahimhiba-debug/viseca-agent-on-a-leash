@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
 
 from tests.helpers import make_event, make_mandate
 from wallet_control.decision_engine import evaluate_authorization

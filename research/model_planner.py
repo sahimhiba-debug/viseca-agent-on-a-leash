@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Callable
 
 from research.shopping_agent import (
     Beliefs, Line, Mission, Offer, Shop, best_basket, replan,

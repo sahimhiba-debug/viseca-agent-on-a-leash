@@ -9,10 +9,8 @@ identically-shaped rules whose values differ in a way no purchase can observe.
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 
 from tests.helpers import make_event, make_mandate
 from wallet_control.decision_engine import evaluate_authorization

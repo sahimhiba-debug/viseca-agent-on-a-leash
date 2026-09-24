@@ -12,7 +12,7 @@ real security property, not a stylistic preference:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest

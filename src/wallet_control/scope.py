@@ -50,7 +50,7 @@ from .csv_data import history_csv_path, load_items, load_merchants
 from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy
 from .policy_compiler import compile_instruction
 from .state import HistoryIndex
-from .witness import CARD, judge_event, judge_event_with_reason, snapshot
+from .witness import judge_event, judge_event_with_reason, snapshot
 
 MAX_LINES = 5
 

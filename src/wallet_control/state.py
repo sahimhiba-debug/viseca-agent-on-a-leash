@@ -1000,9 +1000,9 @@ class RunState:
         The lock makes this atomic within one process. It does NOT make it atomic
         across processes: two workers restoring the same checkpoint hold separate
         `RunState` objects and separate locks, and each will consume once. Closing
-        that needs a single shared store with an atomic compare-and-set; see
-        docs/DISTRIBUTED_PAYMENT_BOUNDARY.md for the exact boundary and the minimum
-        primitive it would take.
+        that needs a single shared store with an atomic compare-and-set; the
+        limitation is stated in docs/WHAT_WE_REFUSE_TO_CLAIM.md ("Exactly-once
+        payment").
         """
         with self._consume_lock:
             existing = self._decisions.get(authorization_id)

@@ -105,9 +105,27 @@ uvicorn wallet_control.api:app --port 8420 --log-level debug
 ## 10. The live Viseca integration (not needed for the demo)
 
 ```bash
-export LEASH_BASE_URL=... TEAM_API_KEY=...
-python3 scripts/run_live_worker.py SCEN0000
+export LEASH_BASE_URL=https://saw26api.ashyground-364e1d07.switzerlandnorth.azurecontainerapps.io
+export TEAM_API_KEY=...        # never commit it, never paste it into a log
+python3 scripts/run_live_worker.py SCEN0001 --checkpoint-dir .checkpoints
 ```
+
+- **Runs cannot be reset** on the hosted API (`features.reset` is false): every run
+  stays in the team's history. Start each scenario once, on purpose.
+- **Step-ups are asked at the terminal** while the worker keeps polling: `a` approves,
+  `d` declines, Enter leaves it to the platform's 120 s timeout. Nothing answers on
+  the customer's behalf.
+- **If the worker dies**, restart it on the same run; with the same
+  `--checkpoint-dir` it continues exactly where it stopped:
+  `python3 scripts/run_live_worker.py SCEN0001 --resume run_... --checkpoint-dir .checkpoints`.
+  Without the checkpoint it cannot know what was already spent, so rolling limits
+  read as unknown and the customer is asked rather than the limit restarted.
+- SCEN0000's "one grocery item" cannot be expressed as a rule; the script stops and
+  asks for `--acknowledge-unsupported`.
+
+Verified against the sandbox on 24 September 2026: all 45 purchases of the five
+scenarios, 41 automated decisions identical to the offline replay and the four
+step-ups answered through `/resolve`.
 
 This is the real integration path (`live_worker.py` / `viseca_client.py`). It shares
 the exact decision engine with the demo, so the demo is not a separate code path.
