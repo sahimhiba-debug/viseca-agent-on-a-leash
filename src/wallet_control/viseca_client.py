@@ -42,6 +42,17 @@ class VisecaApiError(Exception):
         self.body = body
 
 
+def _check_evidence(evidence: list[Any] | None) -> None:
+    """Refuse locally what the hosted API refuses with 422: evidence elements must
+    be JSON objects. Failing here is immediate and names the caller's bug, instead
+    of spending the 8-second decision deadline on retries the server will reject."""
+    if evidence is None:
+        return
+    bad = [i for i, element in enumerate(evidence) if not isinstance(element, dict)]
+    if bad:
+        raise TypeError(f"evidence elements must be dicts; positions {bad} are not")
+
+
 def _json_or_empty(response: httpx.Response) -> dict[str, Any]:
     """Parse a response body as JSON, or return `{}` for an empty/204 body.
 
@@ -183,6 +194,7 @@ class VisecaClient:
         evidence: list[Any] | None = None,
         engine_version: str | None = None,
     ) -> dict[str, Any]:
+        _check_evidence(evidence)
         payload: dict[str, Any] = {"authorization_id": authorization_id, "decision": decision}
         if reason_codes is not None:
             payload["reason_codes"] = reason_codes
@@ -202,6 +214,7 @@ class VisecaClient:
         customer_message: str | None = None,
         evidence: list[Any] | None = None,
     ) -> dict[str, Any]:
+        _check_evidence(evidence)
         payload: dict[str, Any] = {"decision": decision}
         if customer_message is not None:
             payload["customer_message"] = customer_message

@@ -9,6 +9,11 @@ Usage:
 Creates and confirms a mandate compiled from the scenario's own
 cardholder_instruction, starts the run, and drives the poll/decide/submit loop
 until the run has no more pending work. Never prints TEAM_API_KEY.
+
+A step_up is put to whoever is at this terminal, while the worker keeps polling:
+approve, decline, or leave it unanswered. Nothing answers on the customer's behalf,
+so with no one at the terminal (stdin closed) a step_up waits out its window and
+the platform records the timeout.
 """
 
 from __future__ import annotations
@@ -16,7 +21,11 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import queue
+import select
 import sys
+import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -35,6 +44,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("scenario_id")
     parser.add_argument("--wait", type=int, default=25, help="long-poll wait seconds")
+    parser.add_argument("--max-idle-polls", type=int, default=6,
+                        help="stop after this many empty polls in a row if the run never reports completed")
     parser.add_argument(
         "--acknowledge-unsupported",
         action="store_true",
@@ -108,6 +119,7 @@ def main() -> None:
         logger.info("run started: %s", run_id)
 
         history = HistoryIndex.from_csv(history_csv_path())
+        questions: "queue.Queue[tuple]" = queue.Queue()
         worker = LiveWorker(
             client,
             history,
@@ -117,27 +129,79 @@ def main() -> None:
             # at an unknown seller from BLOCK into ALLOW for the whole run.
             confirmed_rules=compiled.hard_rules,
             confirmed_uncertainty_policy=compiled.uncertainty_policy,
+            on_step_up=lambda run, result, event: questions.put((time.monotonic(), run, result, event)),
         )
         # The worker auto-registers the run from the first event's own `mandate`
         # block (see live_worker.py) since customer_id/card_id/profile_id are only
         # known once the platform assigns them here.
 
-        processed = 0
-        idle_polls = 0
-        while True:
-            n = worker.run_forever(wait_seconds=args.wait, max_polls=1)
-            processed += n
-            if n == 0:
+        step_up_seconds = float((bootstrap.get("limits") or {}).get("step_up_timeout_seconds") or 120)
+
+        def poll() -> None:
+            processed = 0
+            idle_polls = 0
+            while True:
+                n = worker.run_forever(wait_seconds=args.wait, max_polls=1)
+                processed += n
+                if n:
+                    idle_polls = 0
+                    continue
                 idle_polls += 1
-                # Exact progress/event-counter field names aren't pinned down in
-                # technical_details.md beyond "reads the run's progress and event
-                # counters" -- logged defensively rather than parsed.
-                logger.info("no work this poll; run status: %s", client.get_run(run_id))
-                if idle_polls >= 3:
+                status = client.get_run(run_id)
+                logger.info("no work this poll; run status: %s", status)
+                if status.get("status") == "completed":
+                    logger.info("run %s completed. processed=%d", run_id, processed)
+                    return
+                if idle_polls >= args.max_idle_polls:
                     logger.info("no work after %d consecutive polls; stopping. processed=%d", idle_polls, processed)
-                    break
-            else:
-                idle_polls = 0
+                    return
+
+        poller = threading.Thread(target=poll, name="poll", daemon=True)
+        poller.start()
+        while poller.is_alive() or not questions.empty():
+            try:
+                asked_at, run, result, event = questions.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            # The window runs from when the platform took the step_up, not from when
+            # the previous question at this terminal was answered.
+            _ask_customer(worker, run, result, event, asked_at + step_up_seconds)
+
+
+def _ask_customer(worker: LiveWorker, run_id: str, result, event: dict, deadline: float) -> None:
+    """Put one step_up to the person at the terminal. Silence is not an answer."""
+    auth = event["authorization"]
+    lines = "\n".join(f"      - {i.get('quantity')} x {i.get('item_name')} ({i.get('unit_price')} {i.get('currency')})"
+                      for i in auth.get("items") or [])
+    reasons = "\n".join(f"      - {r}" for r in result.plain_reasons) or f"      - {result.customer_message}"
+    print(f"""
+=== The wallet is asking you: {result.authorization_id} ===
+    {auth['merchant']['merchant_name']}, {auth['billing_amount_chf']} CHF
+{lines}
+    Why it is asking:
+{reasons}
+Approve? [a]pprove / [d]ecline / Enter = no answer  ({max(0, int(deadline - time.monotonic()))} s left)""", flush=True)
+    answer = ""
+    while time.monotonic() < deadline:
+        ready, _, _ = select.select([sys.stdin], [], [], max(0.0, deadline - time.monotonic()))
+        if not ready:
+            break
+        line = sys.stdin.readline()
+        if not line:  # stdin closed: no one is there to answer
+            break
+        answer = line.strip().lower()[:1]
+        if answer in ("a", "d", ""):
+            break
+        print("    a, d, or Enter", flush=True)
+    if answer not in ("a", "d"):
+        logger.warning("%s: no answer from the customer; left to the platform's step_up timeout", result.authorization_id)
+        return
+    decision = "allow" if answer == "a" else "block"
+    try:
+        worker.resolve(run_id, result.authorization_id, decision)
+        logger.info("%s: the customer answered %s", result.authorization_id, "approve" if answer == "a" else "decline")
+    except Exception as exc:  # noqa: BLE001 -- a failed resolve is reported, never retried as a different answer
+        logger.error("%s: could not record the customer's answer: %s", result.authorization_id, exc)
 
 
 if __name__ == "__main__":

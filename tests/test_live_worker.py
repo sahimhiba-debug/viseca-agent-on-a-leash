@@ -18,8 +18,11 @@ from wallet_control.viseca_client import VisecaApiError
 class FakeVisecaClient:
     """Implements just the subset of VisecaClient's interface LiveWorker uses."""
 
-    def __init__(self, envelopes: list[dict | None], fail_polls: int = 0, fail_status: int = 503, authorizations_listing=None, submit_fail_status: int | None = None):
+    def __init__(self, envelopes: list[dict | None], fail_polls: int = 0, fail_status: int = 503, authorizations_listing=None, submit_fail_status: int | None = None, submit_fail_times: int | None = None):
         self._envelopes = list(envelopes)
+        # None: `submit_fail_status` applies to every call; N: only to the first N.
+        self._submit_fail_times = submit_fail_times
+        self.submit_attempts = 0
         self._fail_polls = fail_polls
         self._fail_status = fail_status
         self._submit_fail_status = submit_fail_status
@@ -36,7 +39,13 @@ class FakeVisecaClient:
         return self._envelopes.pop(0)
 
     def submit_decision(self, authorization_id, decision, **kwargs):
-        if self._submit_fail_status is not None:
+        self.submit_attempts += 1
+        # What the hosted sandbox does with a non-object evidence element.
+        if any(not isinstance(e, dict) for e in kwargs.get("evidence") or []):
+            raise VisecaApiError(422, {"error": {"code": "validation_error"}})
+        if self._submit_fail_status is not None and (self._submit_fail_times is None or self._submit_fail_times > 0):
+            if self._submit_fail_times is not None:
+                self._submit_fail_times -= 1
             raise VisecaApiError(self._submit_fail_status, {"error": "rejected"})
         self.submitted.append({"authorization_id": authorization_id, "decision": decision, **kwargs})
         return {"authorization_id": authorization_id, "decision": decision}
@@ -256,3 +265,94 @@ def test_a_401_on_submit_does_not_retry_and_is_logged_not_swallowed(caplog):
         worker.run_forever(wait_seconds=1, max_events=1)
     assert client.submitted == []  # never recorded as successfully submitted
     assert any("fatal auth error" in r.message for r in caplog.records)
+
+
+# --- the first sandbox run --------------------------------------------------------
+#
+# SCEN0000 on the hosted sandbox: the engine decided ALLOW, the platform refused the
+# submission with 422 because `evidence` held strings, the worker retried the same
+# body until the 8-second deadline had nearly gone, and then answered the platform's
+# fifteen redeliveries with "already decided" without sending anything. The platform
+# recorded a timeout, which it counts as a decline.
+
+def _ceiling_mandate():
+    return make_mandate(hard_rules=[HardRule(field="authorization.billing_amount_chf", operator="<=", value=1000, currency="CHF", scope="purchase")])
+
+
+def test_evidence_is_sent_as_one_object_per_check():
+    mandate = _ceiling_mandate()
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    client = FakeVisecaClient([_envelope(event), None])
+    worker = _worker_with_run(client, mandate)
+    worker.run_forever(wait_seconds=1, max_events=1)
+    evidence = client.submitted[0]["evidence"]
+    assert evidence and all(isinstance(e, dict) for e in evidence)
+    assert {"field": "authorization.billing_amount_chf", "outcome": "pass"}.items() <= evidence[0].items()
+
+
+def test_a_decision_the_platform_never_accepted_is_sent_again_on_redelivery():
+    mandate = _ceiling_mandate()
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    client = FakeVisecaClient([_envelope(event), _envelope(event), None], submit_fail_status=503, submit_fail_times=4)
+    worker = _worker_with_run(client, mandate)
+    worker.run_forever(wait_seconds=1, max_events=2)
+    assert [s["decision"] for s in client.submitted] == ["approve"]
+    # The resent decision is the original one, reasons included, not the replay's.
+    assert client.submitted[0]["reason_codes"] == ["all_hard_rules_satisfied"]
+
+
+def test_an_accepted_decision_is_not_sent_again():
+    mandate = _ceiling_mandate()
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    client = FakeVisecaClient([_envelope(event), _envelope(event), _envelope(event), None])
+    worker = _worker_with_run(client, mandate)
+    worker.run_forever(wait_seconds=1, max_events=3)
+    assert client.submit_attempts == 1
+
+
+def test_a_rejected_explanation_does_not_cost_the_decision():
+    mandate = _ceiling_mandate()
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    client = FakeVisecaClient([_envelope(event), None], submit_fail_status=422, submit_fail_times=1)
+    worker = _worker_with_run(client, mandate)
+    worker.run_forever(wait_seconds=1, max_events=1)
+    assert client.submitted == [{"authorization_id": "AU1", "decision": "approve"}]
+
+
+def test_a_client_error_is_not_retried_into_the_deadline():
+    mandate = _ceiling_mandate()
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    client = FakeVisecaClient([_envelope(event), None], submit_fail_status=400)
+    worker = _worker_with_run(client, mandate)
+    worker.run_forever(wait_seconds=1, max_events=1)
+    assert client.submit_attempts == 1
+
+
+def test_409_means_the_platform_already_has_a_final_answer():
+    mandate = _ceiling_mandate()
+    event = make_event(mandate=mandate, authorization_id="AU1", amount=50.0)
+    client = FakeVisecaClient([_envelope(event), _envelope(event), None], submit_fail_status=409)
+    worker = _worker_with_run(client, mandate)
+    worker.run_forever(wait_seconds=1, max_events=2)
+    assert client.submit_attempts == 1
+
+
+def test_on_step_up_is_told_about_a_step_up_and_nothing_else():
+    familiar = make_mandate(hard_rules=[HardRule(field="merchant.familiar", operator="=", value="true")])
+    step_up_event = make_event(mandate=familiar, authorization_id="AU1", amount=50.0)
+    asked = []
+    client = FakeVisecaClient([_envelope(step_up_event), None])
+    worker = LiveWorker(client, HistoryIndex.empty(), trust_echoed_policy=True,
+                        on_step_up=lambda run_id, result, event: asked.append((run_id, result.authorization_id)))
+    worker.register_run("RUN1", familiar)
+    worker.run_forever(wait_seconds=1, max_events=1)
+    assert asked == [("RUN1", "AU1")]
+    assert client.resolved == []  # asking is not answering
+
+    mandate = _ceiling_mandate()
+    approved = []
+    client = FakeVisecaClient([_envelope(make_event(mandate=mandate, authorization_id="AU2", amount=50.0)), None])
+    worker = _worker_with_run(client, mandate)
+    worker._on_step_up = lambda *a: approved.append(a)
+    worker.run_forever(wait_seconds=1, max_events=1)
+    assert approved == []

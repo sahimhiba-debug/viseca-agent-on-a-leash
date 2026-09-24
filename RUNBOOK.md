@@ -105,8 +105,8 @@ uvicorn wallet_control.api:app --port 8420 --log-level debug
 ## 10. The live Viseca integration (not needed for the demo)
 
 ```bash
-export VISECA_API_BASE_URL=... VISECA_API_KEY=...
-python3 scripts/run_live_worker.py
+export LEASH_BASE_URL=... TEAM_API_KEY=...
+python3 scripts/run_live_worker.py SCEN0000
 ```
 
 This is the real integration path (`live_worker.py` / `viseca_client.py`). It shares

@@ -50,13 +50,13 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from .decision_engine import EngineDecision, evaluate_authorization, resolve_authorization
 from .mandate import HardRule, MandateSnapshot, UncertaintyPolicy
 from .state import HistoryIndex, RunState
 from .viseca_client import VisecaApiError, VisecaClient
-from .viseca_mapping import to_viseca_decision
+from .viseca_mapping import to_viseca_decision, to_wire_evidence
 
 logger = logging.getLogger("wallet_control.live_worker")
 
@@ -72,6 +72,10 @@ _SUBMIT_RETRY_DELAYS = (0.5, 1.5, 3.0)  # seconds; bounded retry for transient s
 # degrade to waiting" contract. 404/400/409 on a specific call are handled by that
 # call's own caller, not here, since they are request-specific, not connection-wide.
 _FATAL_POLL_STATUS_CODES = frozenset({401, 403})
+# A 4xx on submit is an answer about THIS request, and sending it again unchanged
+# gets the same answer -- while the 8-second deadline runs out. Only these are worth
+# repeating.
+_RETRYABLE_CLIENT_STATUS_CODES = frozenset({408, 425, 429})
 
 
 class EchoedMandateMismatch(RuntimeError):
@@ -105,6 +109,10 @@ class RunHandle:
     mandate: MandateSnapshot
     state: RunState
     decisions: dict[str, EngineDecision] = field(default_factory=dict)
+    # Authorization ids whose decision the platform has ACCEPTED (or already holds a
+    # final answer for). Deciding is not the same as delivering: a redelivery of an
+    # id missing from here means our answer never landed, and it is sent again.
+    acknowledged: set[str] = field(default_factory=set)
 
 
 class LiveWorker:
@@ -125,8 +133,13 @@ class LiveWorker:
         confirmed_rules: "Sequence[HardRule] | None" = None,
         confirmed_uncertainty_policy: "UncertaintyPolicy | None" = None,
         trust_echoed_policy: bool = False,
+        on_step_up: "Callable[[str, EngineDecision, dict[str, Any]], None] | None" = None,
     ) -> None:
         self._client = client
+        # Called after the platform accepts a step_up, with (run_id, decision, event),
+        # so a customer interface can ask the question. Never called for anything else,
+        # and nothing here answers on the customer's behalf.
+        self._on_step_up = on_step_up
         self._history = history
         self._runs: dict[str, RunHandle] = {}
         self._stop = threading.Event()
@@ -429,48 +442,81 @@ class LiveWorker:
 
         deadline = event.get("deadline_at")
         result = evaluate_authorization(event, handle.mandate, handle.state)
-        handle.decisions[authorization_id] = result
+        # A replay's result carries "repeated_delivery" instead of the original
+        # reasons, so it must not overwrite the decision it repeats.
+        handle.decisions.setdefault(authorization_id, result)
         self._save_checkpoint(handle)
 
-        if result.idempotent_replay or result.authorization_id_conflict:
-            # The platform already has our decision for this ID (a true repeated
-            # delivery), or this delivery's facts don't match what we already
-            # decided (see decision_engine.py) -- either way, nothing new to submit.
-            if result.authorization_id_conflict:
-                logger.error("authorization_id=%s: %s", authorization_id, result.customer_message)
-            else:
-                logger.info("authorization_id=%s already decided (%s); reconciling without re-evaluating", authorization_id, result.decision)
+        if result.authorization_id_conflict:
+            # This delivery's facts don't match what we already decided (see
+            # decision_engine.py): never resubmitted, whatever else is true.
+            logger.error("authorization_id=%s: %s", authorization_id, result.customer_message)
             return
+        if result.idempotent_replay:
+            if authorization_id in handle.acknowledged:
+                logger.info("authorization_id=%s already decided (%s) and accepted; reconciling without re-evaluating", authorization_id, result.decision)
+                return
+            # Decided, but the platform never took our answer -- which is why it is
+            # asking again. The stored decision is sent, never a fresh one. In the
+            # first sandbox run this branch returned instead, and the platform
+            # redelivered fifteen times before timing an ALLOW out into a decline.
+            logger.warning("authorization_id=%s redelivered and our decision (%s) was never accepted; sending it again", authorization_id, result.decision)
+            result = handle.decisions[authorization_id]
 
         if deadline:
             deadline_dt = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
             if datetime.now(timezone.utc) > deadline_dt:
                 logger.warning("authorization_id=%s: submitting after deadline_at=%s", authorization_id, deadline)
 
-        self._submit_with_retry(result)
+        if self._submit_with_retry(result):
+            handle.acknowledged.add(authorization_id)
+            if result.decision == "review" and self._on_step_up is not None:
+                self._on_step_up(run_id, result, event)
 
-    def _submit_with_retry(self, result: EngineDecision) -> None:
+    def _submit_with_retry(self, result: EngineDecision) -> bool:
+        """Deliver one decision. Returns True once the platform holds an answer for
+        this id -- ours, or (409) a final one it already had."""
+        wire_decision = to_viseca_decision(result.decision)
+        explained: dict[str, Any] = {
+            "reason_codes": list(result.reason_codes),
+            "customer_message": result.customer_message,
+            "evidence": to_wire_evidence(result.rule_evaluations),
+            "engine_version": ENGINE_VERSION,
+        }
         last_exc: Exception | None = None
         for delay in (0.0, *_SUBMIT_RETRY_DELAYS):
             if delay:
                 time.sleep(delay)
             try:
-                self._client.submit_decision(
-                    result.authorization_id,
-                    to_viseca_decision(result.decision),
-                    reason_codes=list(result.reason_codes),
-                    customer_message=result.customer_message,
-                    evidence=list(result.evidence),
-                    engine_version=ENGINE_VERSION,
-                )
-                return
+                self._client.submit_decision(result.authorization_id, wire_decision, **explained)
+                return True
             except VisecaApiError as exc:
                 last_exc = exc
                 if exc.status_code in _FATAL_POLL_STATUS_CODES:
                     logger.error("submit_decision failed for %s with a fatal auth error (%s); not retrying", result.authorization_id, exc)
                     break
+                if exc.status_code == 409:
+                    logger.warning("submit_decision for %s: the platform already holds a final answer (%s)", result.authorization_id, exc)
+                    return True
+                if exc.status_code == 422 and explained:
+                    # The explanation is optional; the decision is not. Only
+                    # `authorization_id` and `decision` are required, so a rejected
+                    # explanation must not cost the customer their answer.
+                    logger.error("submit_decision for %s: explanation rejected (%s); sending the bare decision", result.authorization_id, exc)
+                    explained = {}
+                    try:
+                        self._client.submit_decision(result.authorization_id, wire_decision)
+                        return True
+                    except VisecaApiError as bare_exc:
+                        last_exc = exc = bare_exc
+                        if exc.status_code == 409:
+                            return True
+                if 400 <= exc.status_code < 500 and exc.status_code not in _RETRYABLE_CLIENT_STATUS_CODES:
+                    logger.error("submit_decision failed for %s with %s; not retrying an answer the server will repeat", result.authorization_id, exc)
+                    break
                 logger.warning("submit_decision failed for %s (%s); retrying", result.authorization_id, exc)
         logger.error("submit_decision permanently failed for %s: %s", result.authorization_id, last_exc)
+        return False
 
     def resolve(self, run_id: str, authorization_id: str, human_decision: str, *, customer_message: str | None = None) -> EngineDecision:
         """Apply a real customer's approve/decline to a stepped-up authorization and
