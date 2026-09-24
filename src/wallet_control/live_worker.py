@@ -167,12 +167,16 @@ class LiveWorker:
         confirmed_uncertainty_policy: "UncertaintyPolicy | None" = None,
         trust_echoed_policy: bool = False,
         on_step_up: "Callable[[str, EngineDecision, dict[str, Any]], None] | None" = None,
+        on_decision: "Callable[[str, EngineDecision, dict[str, Any], RunState], None] | None" = None,
     ) -> None:
         self._client = client
         # Called after the platform accepts a step_up, with (run_id, decision, event),
         # so a customer interface can ask the question. Never called for anything else,
         # and nothing here answers on the customer's behalf.
         self._on_step_up = on_step_up
+        # Called after the platform accepts ANY decision, with the run's state, so a
+        # display can show what was decided. Display only: it runs after delivery.
+        self._on_decision = on_decision
         self._history = history
         self._runs: dict[str, RunHandle] = {}
         self._stop = threading.Event()
@@ -502,6 +506,8 @@ class LiveWorker:
         if self._submit_with_retry(result):
             handle.acknowledged.add(authorization_id)
             handle.undelivered.discard(authorization_id)
+            if self._on_decision is not None:
+                self._on_decision(run_id, result, event, handle.state)
             if result.decision == "review" and self._on_step_up is not None:
                 self._on_step_up(run_id, result, event)
         else:
@@ -565,6 +571,15 @@ class LiveWorker:
                 logger.warning("submit_decision failed for %s (%s); retrying", result.authorization_id, exc)
         logger.error("submit_decision permanently failed for %s: %s", result.authorization_id, last_exc)
         return False
+
+    def revoke_run(self, run_id: str) -> tuple[str, ...]:
+        """The customer pulled the leash: every authority this run issued and has not
+        spent dies, and every later purchase in the run is blocked (`state.is_revoked`).
+        Revoking the mandate on the platform is the caller's separate call."""
+        handle = self._runs[run_id]
+        revoked = handle.state.revoke_outstanding_authorities()
+        self._save_checkpoint(handle)
+        return revoked
 
     def resolve(self, run_id: str, authorization_id: str, human_decision: str, *, customer_message: str | None = None) -> EngineDecision:
         """Apply a real customer's approve/decline to a stepped-up authorization and

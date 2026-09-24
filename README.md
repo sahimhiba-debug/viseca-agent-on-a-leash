@@ -165,6 +165,8 @@ src/wallet_control/        THE RUNTIME -- only code that runs in production
   viseca_client.py         HTTP client for the hosted API (only the endpoints we call)
   live_worker.py           The poll/decide/submit worker; one RunState per run_id
   api.py                   Demo backend + static UI (same engine, no separate path)
+  stage.py                 The stage: one purchase at a time, replayed or live, with
+                           display-only explanations (never a decision)
 
 research/                  APPARATUS -- never imported by the runtime (asserted by a test)
   shopping_agent.py        The autonomous agent: plans, proposes, is refused, adapts
@@ -175,9 +177,10 @@ research/                  APPARATUS -- never imported by the runtime (asserted 
   demo_scenario.py         The R&D walkthrough
 
 data/official/             Read-only copy of the official synthetic data pack
-ui/index.html              The whole customer experience: mobile-first, one file,
+ui/stage.html              The demo: the customer's phone and the purchase stream
+ui/index.html              The lab: every panel and proof, mobile-first, one file,
                            no framework, no build step
-tests/                     1844 tests
+tests/                     1864 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      The system as it is now: thesis, architecture, security
                            model, claims, demo script
@@ -207,8 +210,22 @@ Start the demo backend + UI:
 
 ```bash
 uvicorn wallet_control.api:app --port 8420
-# open http://localhost:8420
+# the stage (demo):  http://localhost:8420/stage.html
+# the lab (evidence): http://localhost:8420
 ```
+
+**The stage** is the demo: the customer's phone beside the stream of purchases the
+agent proposes, each judged by the same engine. The customer's rules, the questions
+the wallet asks (with the platform's 120-second window), and a button that revokes
+everything. Explanations the engine already had are shown rather than summarised:
+the seller's sentence written for the AI, struck through; the shop whose name
+imitates one the customer knows; the rolling limit against the customer's own figure.
+It replays the official scenarios locally, or, with `TEAM_API_KEY` and
+`LEASH_BASE_URL` set on the server, runs them live on the Viseca sandbox and sends the
+customer's answers through `/resolve`. Keys: `→` next purchase, `Space` play, `A`/`D`
+answer, `L` pull the leash, `R` restart. The styling follows Viseca's public sites
+(colours, Roboto, bundled in `ui/fonts/` so it works offline); it is not a Viseca
+product and uses no Viseca logo.
 
 Check it before demoing -- `matches_regression_boundary` must be `true`:
 
@@ -232,7 +249,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1844 tests**, of which 5 are reported skips rather than silent ones — **6 in a
+**1864 tests**, of which 5 are reported skips rather than silent ones — **6 in a
 fresh clone**, because one test validates the organisers' own example fixture and
 that file lives in their repository rather than this one (`reference/` is not
 vendored). Our events are still checked against the official schema everywhere: that

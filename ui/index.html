@@ -291,7 +291,10 @@
       <h1>Agent on a Leash</h1>
       <p class="sub">The agent is autonomous. The authority is not.</p>
     </div>
-    <div class="health" id="health"><span class="dot"></span><span>checking</span></div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <a href="/stage.html" style="font-weight:600;font-size:13px;line-height:1;background:#F69F29;color:#000913;padding:8px 12px;border-radius:6px;text-decoration:none">Open the stage</a>
+      <div class="health" id="health"><span class="dot"></span><span>checking</span></div>
+    </div>
   </div>
 </div>
 
@@ -470,7 +473,7 @@
       to send, and the real rule will answer — the same function the build runs.</p>
     <div class="row2" style="margin-bottom:8px">
       <input id="af-name" placeholder="e.g. max_amount" value="max_amount"
-             style="font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:11px;min-height:var(--tap)">
+             style="flex:1 1 auto;min-width:0;font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:11px;min-height:var(--tap)">
       <select id="af-author" style="flex:0 0 132px">
         <option value="agent">by the agent</option>
         <option value="customer">by the customer</option>

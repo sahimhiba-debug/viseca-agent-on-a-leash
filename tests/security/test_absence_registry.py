@@ -112,6 +112,17 @@ DECLARED: dict[tuple[str, str], tuple[str, str]] = {
                     "what you asked for. It is NOT required by "
                     "`_unreadable_event`, on purpose: an unidentifiable item is "
                     "answered proportionally by the catalogue rather than refused."),
+    ("stage.py", "item_details"): (
+        PROJECTION, "The stage shows a seller's text with the machine-directed sentence "
+                    "struck through. No text means nothing to show and nothing marked; "
+                    "the decision was already taken by the engine, which reads the same "
+                    "field through facts.py."),
+    ("stage.py", "items"): (
+        PROJECTION, "Basket lines for the stage's card, built after the engine decided. An "
+                    "event without items is refused as unreadable by the engine first."),
+    ("stage.py", "source_authorization_id"): (
+        PROJECTION, "The short reference printed on the phone (AU0040). When the platform "
+                    "sends none, the live id is printed instead; nothing is keyed on it."),
     ("live_worker.py", "run_id"): (
         GUARDED, "Same listing, asked whether THIS run decided anything before. A "
                  "record with no run field yields None, and the very next line only "

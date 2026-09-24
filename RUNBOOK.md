@@ -23,8 +23,20 @@ The official synthetic data pack is vendored at `data/official/`.
 source .venv/bin/activate && uvicorn wallet_control.api:app --port 8420
 ```
 
-Then open **http://localhost:8420**. Five tabs: Overview (start here), Delegate,
-Decisions, Attacks, Audit.
+Then open **http://localhost:8420/stage.html** for the demo, and
+**http://localhost:8420** for the lab (every panel and proof).
+
+### Presenting with the stage
+
+- Pick the scenario at the top ("Manipulated agent" shows the most in one run).
+- `→` proposes the next purchase, `Space` plays them automatically. When the wallet
+  asks, the phone shows the question with a 120-second ring; `A` approves once, `D`
+  declines. The next purchase waits for the answer, as on the platform.
+- `L` pulls the leash (with a confirmation on the phone); `R` restarts.
+- **Live sandbox** runs the same scenario on the hosted API. It is enabled only when
+  the server was started with `TEAM_API_KEY` and `LEASH_BASE_URL`. Every live run
+  stays in the team's history (no reset), so rehearse in Replay. If the live start
+  fails, the page falls back to Replay and says so.
 
 ## 3. Check it is healthy before demoing
 

@@ -135,6 +135,15 @@ FIELD_AUTHORS: dict[tuple[str, str], str] = {
     ("ProposedField", "model"): "customer",
     ("ProposedField", "field"): "customer",
     ("ProposedField", "author"): "customer",
+    # The stage (ui/stage.html) is the CUSTOMER's screen: which errand to watch,
+    # whether to watch it on the hosted sandbox, and their own answers.
+    ("StageStart", "scenario_id"): "customer",
+    ("StageStart", "mode"): "customer",
+    ("StageStart", "acknowledge_unsupported"): "customer",
+    ("StageLeash", "instruction"): "customer",
+    ("StageLeash", "scenario_id"): "customer",
+    ("StageResolve", "authorization_id"): "customer",
+    ("StageResolve", "decision"): "customer",
 }
 
 # The RULES live in `authorship.py` so the audit script and the live endpoint check
@@ -1216,6 +1225,114 @@ def _require_run(run_id: str) -> DemoRun:
     if run is None:
         raise HTTPException(404, f"unknown run_id {run_id!r}")
     return run
+
+
+# ================================================================== THE STAGE
+#
+# ui/stage.html: the customer's phone beside the stream of purchases. Same engine;
+# see stage.py for what it adds (pacing and explanation, never a decision).
+
+from . import stage as _stage  # noqa: E402
+
+
+class StageStart(BaseModel):
+    scenario_id: str = "SCEN0004"
+    mode: str = "replay"
+    acknowledge_unsupported: bool = False
+
+
+class StageLeash(BaseModel):
+    instruction: str
+    scenario_id: str | None = None
+
+
+class StageResolve(BaseModel):
+    authorization_id: str
+    decision: str
+
+
+def _require_stage(session_id: str) -> "_stage.StageSession":
+    session = _stage.get(session_id)
+    if session is None:
+        raise HTTPException(404, f"unknown stage session {session_id!r}")
+    return session
+
+
+@app.get("/api/stage/capabilities")
+def stage_capabilities() -> dict[str, Any]:
+    """Whether the live mode can run. Says nothing about the key but its presence."""
+    live = _stage.live_configuration() is not None
+    return {"live": live, "step_up_seconds": _stage.STEP_UP_SECONDS,
+            "scenarios": [{"scenario_id": k, "name": v["scenario_name"],
+                           "instruction": v["cardholder_instruction"]}
+                          for k, v in sorted(load_scenario_catalogue().items())]}
+
+
+@app.post("/api/stage/leash")
+def stage_leash(req: StageLeash) -> dict[str, Any]:
+    """What the sentence hands over, clause by clause, through the real engine."""
+    if not req.instruction.strip() or len(req.instruction) > 600:
+        raise HTTPException(400, "the instruction must be between 1 and 600 characters")
+    familiar = None
+    if req.scenario_id:
+        rows = scenario_rows(req.scenario_id)
+        if not rows:
+            raise HTTPException(404, f"unknown scenario_id {req.scenario_id!r}")
+        familiar = _HISTORY.known_merchants(rows[0]["card_id"])
+    return _stage.leash_field(req.instruction, familiar)
+
+
+@app.post("/api/stage/sessions")
+def stage_start(req: StageStart) -> dict[str, Any]:
+    if req.scenario_id not in load_scenario_catalogue():
+        raise HTTPException(404, f"unknown scenario_id {req.scenario_id!r}")
+    if req.mode == "replay":
+        session = _stage.ReplaySession(req.scenario_id, _HISTORY)
+    elif req.mode == "live":
+        config = _stage.live_configuration()
+        if config is None:
+            raise HTTPException(503, "live mode needs LEASH_BASE_URL and TEAM_API_KEY on the server")
+        try:
+            session = _stage.LiveSession(req.scenario_id, _HISTORY, base_url=config[0], api_key=config[1],
+                                         acknowledge_unsupported=req.acknowledge_unsupported)
+        except PermissionError as exc:
+            raise HTTPException(409, f"this instruction restricts in a way the wallet cannot enforce: {exc}") from exc
+        except Exception as exc:  # noqa: BLE001 -- the platform refused or is unreachable
+            raise HTTPException(502, f"the Viseca sandbox could not start the run ({type(exc).__name__})") from exc
+    else:
+        raise HTTPException(400, "mode must be 'replay' or 'live'")
+    _stage.register(session)
+    return {**session.summary(), "events": session.since(0)}
+
+
+@app.get("/api/stage/sessions/{session_id}")
+def stage_events(session_id: str, since: int = 0) -> dict[str, Any]:
+    session = _require_stage(session_id)
+    return {**session.summary(), "events": session.since(since)}
+
+
+@app.post("/api/stage/sessions/{session_id}/advance")
+def stage_advance(session_id: str) -> dict[str, Any]:
+    session = _require_stage(session_id)
+    if not isinstance(session, _stage.ReplaySession):
+        raise HTTPException(409, "a live run is paced by the platform, not by the page")
+    return session.advance()
+
+
+@app.post("/api/stage/sessions/{session_id}/resolve")
+def stage_resolve(session_id: str, req: StageResolve) -> dict[str, Any]:
+    session = _require_stage(session_id)
+    if req.decision not in ("allow", "block"):
+        raise HTTPException(400, "decision must be 'allow' or 'block'")
+    try:
+        return session.resolve(req.authorization_id, req.decision)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.post("/api/stage/sessions/{session_id}/revoke")
+def stage_revoke(session_id: str) -> dict[str, Any]:
+    return _require_stage(session_id).revoke()
 
 
 # Registered LAST and deliberately: a Mount("/") matches every path prefix, so it

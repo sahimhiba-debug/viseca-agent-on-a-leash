@@ -23,8 +23,11 @@ def _local_imports(module: str) -> set[str]:
         return set()
     found = set()
     for node in ast.walk(ast.parse(path.read_text())):
-        if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module:
-            found.add(node.module)
+        if isinstance(node, ast.ImportFrom) and node.level == 1:
+            if node.module:
+                found.add(node.module)
+            else:  # `from . import stage` names the module itself
+                found.update(alias.name for alias in node.names)
     return found
 
 

@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent on a Leash — Stage</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Visual language taken from Viseca's own public sites (viseca.ch, one-digitalservice.ch):
+   near-black ink #000913 (their wordmark), black primary buttons #1a1a16, warm orange
+   accent #f69f29, interaction blue #437aaf, alert red-orange #e95e31, greys #4c4c4c /
+   #e0e0e0 / #f6f6f6, Roboto. No logo and no claim to be a Viseca product. */
+:root{
+  --bg:#F6F6F6; --surface:#FFFFFF; --raised:#FFFFFF; --sunk:#EFEFEF;
+  --ink:#000913; --text:#4C4C4C; --muted:#8C8C8C; --line:#E0E0E0;
+  --btn:#1A1A16; --btn-text:#FFFFFF;
+  --accent:#F69F29; --accent-text:#A45F07; --accent-soft:#FEF1DE;
+  --link:#437AAF;
+  --allow:#2B7A53; --allow-soft:#E3F1E9;
+  --ask:#A45F07; --ask-soft:#FEF1DE;
+  --block:#C8421C; --block-soft:#FCE6DF; --alert:#E95E31;
+  --phone:#0E1116; --scrim:rgba(0,9,19,.42);
+  --shadow:0 1px 2px rgba(0,9,19,.06), 0 8px 24px -12px rgba(0,9,19,.18);
+  --sans:"Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --cond:"Roboto Condensed", "Arial Narrow", "Roboto", Arial, sans-serif;
+  --r:12px; --tap:44px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0B0E12; --surface:#141920; --raised:#1A2029; --sunk:#10151B;
+    --ink:#F2F4F6; --text:#C4CBD2; --muted:#8994A0; --line:#27303A;
+    --btn:#F2F4F6; --btn-text:#0B0E12;
+    --accent:#F7A94A; --accent-text:#F7B461; --accent-soft:#33260F;
+    --link:#7FAEDB;
+    --allow:#5CC392; --allow-soft:#142A20; --ask:#F7B461; --ask-soft:#33260F;
+    --block:#F2825F; --block-soft:#361A12; --alert:#F2825F;
+    --phone:#000000; --scrim:rgba(0,0,0,.6);
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0B0E12; --surface:#141920; --raised:#1A2029; --sunk:#10151B;
+  --ink:#F2F4F6; --text:#C4CBD2; --muted:#8994A0; --line:#27303A;
+  --btn:#F2F4F6; --btn-text:#0B0E12;
+  --accent:#F7A94A; --accent-text:#F7B461; --accent-soft:#33260F;
+  --link:#7FAEDB;
+  --allow:#5CC392; --allow-soft:#142A20; --ask:#F7B461; --ask-soft:#33260F;
+  --block:#F2825F; --block-soft:#361A12; --alert:#F2825F;
+  --phone:#000000; --scrim:rgba(0,0,0,.6);
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -12px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg); color:var(--text); font:15px/1.5 var(--sans); -webkit-font-smoothing:antialiased}
+button{font:inherit; color:inherit}
+:focus-visible{outline:3px solid var(--link); outline-offset:2px; border-radius:6px}
+.num{font-family:var(--cond); font-variant-numeric:tabular-nums; letter-spacing:.01em}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+
+/* ---------------------------------------------------------------- top bar */
+.top{position:sticky; top:env(safe-area-inset-top,0px); z-index:20; background:var(--surface); border-bottom:1px solid var(--line)}
+.top-row{max-width:1520px; margin:0 auto; padding:10px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.brand{display:flex; flex-direction:column; line-height:1.15; margin-right:auto}
+.brand b{font:700 19px/1.1 var(--sans); color:var(--ink); letter-spacing:-.01em}
+.brand span{font-size:12px; color:var(--muted)}
+.ctl{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+select, .seg button, .tool{height:38px; border-radius:6px; border:1px solid var(--line); background:var(--surface); color:var(--ink); padding:0 12px; font:500 14px var(--sans)}
+select{padding-right:28px}
+.seg{display:inline-flex; border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.seg button{border:0; border-radius:0; height:36px; cursor:pointer; background:transparent; color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--btn); color:var(--btn-text)}
+.seg button:disabled{opacity:.45; cursor:not-allowed}
+.tool{cursor:pointer; display:inline-flex; align-items:center; gap:7px}
+.tool.primary{background:var(--btn); color:var(--btn-text); border-color:var(--btn)}
+.tool:disabled{opacity:.35; cursor:not-allowed}
+.tool[aria-pressed="true"]{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent)}
+.lab{font:500 14px var(--sans); color:var(--link); text-decoration:none; padding:8px 4px}
+.mode{display:inline-flex; align-items:center; gap:7px; font:500 12.5px var(--sans); color:var(--muted); padding:6px 10px; background:var(--sunk); border-radius:999px}
+.mode i{width:8px; height:8px; border-radius:50%; background:var(--muted)}
+.mode.live{color:var(--allow); background:var(--allow-soft)} .mode.live i{background:var(--allow); animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* caption: the one line the jury reads */
+.caption{max-width:1520px; margin:0 auto; padding:18px 20px 4px; display:flex; gap:14px; align-items:baseline; flex-wrap:wrap}
+.caption .act{font:700 12px/1 var(--cond); letter-spacing:.14em; text-transform:uppercase; color:var(--accent-text); white-space:nowrap}
+.caption p{margin:0; font:500 clamp(19px,1.9vw,26px)/1.3 var(--sans); color:var(--ink); max-width:70ch; text-wrap:balance}
+
+/* ---------------------------------------------------------------- stage grid */
+.stage{max-width:1520px; margin:0 auto; padding:14px 20px 40px; display:grid; gap:22px;
+  grid-template-columns:360px minmax(0,1fr) 340px; align-items:start}
+@media (max-width:1260px){ .stage{grid-template-columns:340px minmax(0,1fr)} .field-col{grid-column:1 / -1} }
+@media (max-width:860px){ .stage{grid-template-columns:1fr; padding-inline:16px} .top-row,.caption{padding-inline:16px}
+  .top{position:static} .brand span{display:none} .ctl select{flex:1 1 100%} .mode{display:none} }
+.col-h{display:flex; justify-content:space-between; align-items:baseline; gap:4px 10px; flex-wrap:wrap; margin:0 0 10px}
+.col-h h2{white-space:nowrap; margin:0; font:700 12px/1 var(--cond); letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+.col-h span{font-size:12.5px; color:var(--muted)}
+
+/* ---------------------------------------------------------------- the phone */
+.phone-wrap{position:sticky; top:88px}
+@media (max-width:860px){ .phone-wrap{position:static} }
+.phone{width:100%; max-width:360px; margin:0 auto; background:var(--phone); border-radius:48px; padding:11px; box-shadow:var(--shadow)}
+.screen{position:relative; background:var(--bg); border-radius:38px; overflow:hidden; height:min(720px, calc(100vh - 150px)); min-height:600px; display:flex; flex-direction:column}
+@media (max-width:860px){ .phone{border-radius:28px; padding:6px} .screen{border-radius:22px; height:auto; min-height:0} }
+.status{display:flex; justify-content:space-between; align-items:center; padding:12px 26px 4px; font:600 13px var(--sans); color:var(--ink)}
+.status .isl{width:96px; height:26px; border-radius:14px; background:var(--phone)}
+@media (max-width:860px){ .status{display:none} }
+.app{flex:1; overflow:auto; padding:8px 16px 96px; display:flex; flex-direction:column; gap:12px}
+.hello{display:flex; justify-content:space-between; align-items:center}
+.hello b{font:700 22px/1.2 var(--sans); color:var(--ink)}
+.cardchip{display:inline-flex; align-items:center; gap:6px; font:500 12px var(--sans); color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:5px 10px}
+.cardchip i{width:18px; height:12px; border-radius:2px; background:linear-gradient(135deg,var(--ink),#39424d)}
+.pane{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:14px; display:flex; flex-direction:column; gap:10px}
+.pane h3{margin:0; font:700 12px/1 var(--cond); letter-spacing:.12em; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between; align-items:center}
+.state{font:700 11px/1 var(--cond); letter-spacing:.1em; padding:5px 8px; border-radius:999px; background:var(--allow-soft); color:var(--allow)}
+.state.off{background:var(--block-soft); color:var(--block)}
+.quote{margin:0; font-size:13.5px; line-height:1.45; color:var(--ink); display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden}
+.quote.typing::after{content:"▍"; color:var(--accent); animation:blink 1s infinite}
+.rules{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:7px}
+.rules li{display:grid; grid-template-columns:18px 1fr; gap:8px; font-size:13.5px; color:var(--ink); align-items:start; opacity:0; transform:translateY(4px); transition:opacity .35s, transform .35s}
+.rules li.on{opacity:1; transform:none}
+.rules li::before{content:""; width:16px; height:16px; margin-top:1px; border-radius:50%; background:var(--accent-soft) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4 8.2l2.6 2.6L12 5.4' fill='none' stroke='%23A45F07' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/12px no-repeat}
+.unsure{display:flex; justify-content:space-between; font-size:13px; border-top:1px solid var(--line); padding-top:9px}
+.unsure b{color:var(--ink); font-weight:500}
+.meter{display:flex; flex-direction:column; gap:6px}
+.meter .bar{height:8px; border-radius:6px; background:var(--sunk); overflow:hidden}
+.meter .bar i{display:block; height:100%; width:0; background:var(--ink); border-radius:6px; transition:width .6s ease}
+.meter .bar i.hot{background:var(--alert)}
+.meter .lbl{display:flex; justify-content:space-between; font-size:12.5px}
+.activity{margin:0; padding:0; list-style:none; display:flex; flex-direction:column}
+.activity li{display:grid; grid-template-columns:22px 1fr auto; gap:9px; align-items:center; padding:8px 0; border-top:1px solid var(--line); font-size:13px}
+.activity li:first-child{border-top:0}
+.activity .m{color:var(--ink); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.activity .s{font-size:11.5px; color:var(--muted)}
+.dot{width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font:700 12px/1 var(--sans)}
+.dot.allow{background:var(--allow-soft); color:var(--allow)} .dot.review{background:var(--ask-soft); color:var(--ask)} .dot.block{background:var(--block-soft); color:var(--block)}
+.empty{font-size:13px; color:var(--muted); margin:0}
+.pull{position:absolute; left:16px; right:16px; bottom:18px; height:50px; border-radius:8px; border:1.5px solid var(--alert); background:var(--surface); color:var(--block); font:700 15px var(--sans); cursor:pointer}
+.pull:disabled{cursor:default; background:var(--block-soft); border-color:var(--block-soft); color:var(--block)}
+.foot{position:absolute; left:0; right:0; bottom:0; height:86px; background:linear-gradient(to bottom, transparent, var(--bg) 38%); pointer-events:none}
+@media (max-width:860px){ .foot{display:none} }
+@media (max-width:860px){ .pull{position:static; margin:4px 16px 16px} .app{padding-bottom:12px} }
+
+/* sheets inside the phone */
+.scrim{position:absolute; inset:0; background:var(--scrim); opacity:0; pointer-events:none; transition:opacity .25s; z-index:5}
+.scrim.on{opacity:1; pointer-events:auto}
+.sheet{position:absolute; left:0; right:0; bottom:0; z-index:6; background:var(--surface); border-radius:22px 22px 0 0; padding:10px 18px 22px; transform:translateY(105%); transition:transform .35s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; gap:12px; box-shadow:0 -12px 30px -18px rgba(0,0,0,.5)}
+.sheet{visibility:hidden; transition:transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s linear .35s}
+.sheet.on{transform:none; visibility:visible; transition:transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s}
+@media (max-width:860px){ .sheet{position:fixed; max-width:480px; margin:0 auto} .scrim{position:fixed} }
+.grip{width:38px; height:4px; border-radius:2px; background:var(--line); margin:0 auto 4px}
+.sheet .kicker{font:700 12px/1 var(--cond); letter-spacing:.12em; text-transform:uppercase; color:var(--accent-text); display:flex; justify-content:space-between; align-items:center}
+.sheet h4{margin:0; font:700 20px/1.2 var(--sans); color:var(--ink)}
+.sheet .amt{font:700 34px/1 var(--cond); color:var(--ink)}
+.sheet .item{font-size:13.5px; color:var(--text)}
+.why{background:var(--ask-soft); color:var(--ink); border-radius:10px; padding:10px 12px; font-size:13.5px; line-height:1.45}
+.once{font-size:12px; color:var(--muted); margin:0}
+.btns{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.btn{height:50px; border-radius:8px; font:700 15px var(--sans); cursor:pointer; border:1.5px solid var(--btn)}
+.btn.solid{background:var(--btn); color:var(--btn-text)}
+.btn.ghost{background:transparent; color:var(--ink)}
+.btn.danger{background:var(--alert); border-color:var(--alert); color:#fff}
+.ring{width:46px; height:46px; flex:0 0 auto}
+.ring circle{fill:none; stroke-width:4}
+.ring .bg{stroke:var(--sunk)} .ring .fg{stroke:var(--accent); stroke-linecap:round; transform:rotate(-90deg); transform-origin:50% 50%; transition:stroke-dashoffset 1s linear}
+.ring text{font:700 11px var(--cond); fill:var(--ink)}
+.sheet-head{display:flex; gap:12px; align-items:center}
+
+/* ---------------------------------------------------------------- the stream */
+.stream{display:flex; flex-direction:column; gap:10px}
+.idle{background:var(--surface); border:1px dashed var(--line); border-radius:var(--r); padding:26px; text-align:center; color:var(--muted)}
+.ev{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); overflow:hidden; animation:enter .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes enter{from{opacity:0; transform:translateY(-8px)}}
+.ev-row{display:grid; grid-template-columns:74px minmax(0,1fr) auto; gap:14px; align-items:center; padding:12px 16px}
+.when{font:500 12.5px/1.25 var(--cond); color:var(--muted); letter-spacing:.02em}
+.what b{display:block; font:700 16px/1.25 var(--sans); color:var(--ink)}
+.what span{font-size:13px; color:var(--text)}
+.amount{text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:5px}
+.amount .num{font:700 22px/1 var(--cond); color:var(--ink)}
+.amount small{font:500 11px var(--sans); color:var(--muted)}
+.pill{display:inline-flex; align-items:center; gap:6px; font:700 11px/1 var(--cond); letter-spacing:.1em; text-transform:uppercase; padding:6px 9px; border-radius:999px; white-space:nowrap}
+.pill.allow{background:var(--allow-soft); color:var(--allow)} .pill.review{background:var(--ask-soft); color:var(--ask)} .pill.block{background:var(--block-soft); color:var(--block)}
+.ev.compact .detail{display:none}
+.ev.compact{box-shadow:none}
+.ev.compact .what b{font-size:15px}
+.ev.compact .amount .num{font-size:18px}
+.detail{border-top:1px solid var(--line); padding:14px 16px 16px; display:flex; flex-direction:column; gap:12px}
+.reason{margin:0; font:500 16px/1.4 var(--sans); color:var(--ink)}
+.reason.ok{color:var(--allow)}
+.split{display:flex; gap:8px; flex-wrap:wrap}
+.split span{font-size:12px; padding:5px 9px; border-radius:6px; background:var(--sunk); color:var(--text)}
+.split span b{font-weight:500; color:var(--ink)}
+.xray{border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--bg); display:flex; flex-direction:column; gap:7px}
+.xray .lbl{font:700 11px/1 var(--cond); letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.xray p{margin:0; font-size:14px; line-height:1.5; color:var(--text)}
+.xray mark{background:var(--block-soft); color:var(--block); text-decoration:line-through; text-decoration-thickness:1.5px; padding:1px 2px; border-radius:3px}
+.xray .note{font-size:12.5px; color:var(--block); font-weight:500}
+.look{display:flex; flex-direction:column; gap:6px; border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--bg)}
+.look .names{display:flex; gap:14px; align-items:baseline; flex-wrap:wrap; font:700 22px/1.1 var(--cond); color:var(--ink)}
+.look .names u{color:var(--block); text-decoration-thickness:3px; text-underline-offset:4px}
+.look .names s{color:var(--muted); font-weight:500; font-size:15px; text-decoration:none}
+.look p{margin:0; font-size:13px}
+.gauge{display:flex; flex-direction:column; gap:6px}
+.gauge .bar{position:relative; height:10px; border-radius:6px; background:var(--sunk); overflow:hidden}
+.gauge .bar i{position:absolute; inset:0 auto 0 0; background:var(--ink); border-radius:6px}
+.gauge .bar i.over{background:var(--alert)}
+.gauge .lbl{display:flex; justify-content:space-between; font-size:12.5px}
+.retry{font-size:13px; color:var(--ink); background:var(--sunk); border-radius:8px; padding:8px 10px}
+details.tech summary{cursor:pointer; font:500 12.5px var(--sans); color:var(--link)}
+details.tech ul{margin:8px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:4px}
+details.tech li{display:grid; grid-template-columns:auto 1fr; gap:10px; font:12px/1.4 ui-monospace, Menlo, monospace; color:var(--text)}
+details.tech li b{font-weight:700}
+details.tech li b.pass{color:var(--allow)} details.tech li b.fail{color:var(--block)} details.tech li b.unknown{color:var(--ask)}
+.sys{display:flex; gap:10px; align-items:center; font-size:13px; color:var(--muted); padding:4px 4px}
+.sys b{color:var(--ink); font-weight:500}
+.sys.revoked{color:var(--block)} .sys.revoked b{color:var(--block)}
+@media (max-width:560px){ .ev-row{grid-template-columns:56px minmax(0,1fr)} .amount{grid-column:2; flex-direction:row; justify-content:space-between; align-items:center} }
+
+/* ---------------------------------------------------------------- the field */
+.field{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:16px; display:flex; flex-direction:column; gap:12px}
+.field .big{display:flex; align-items:baseline; gap:8px}
+.field .big .num{font:700 44px/1 var(--cond); color:var(--ink)}
+.field .big span{font-size:13.5px}
+.sentence{margin:0; font-size:14px; line-height:1.5; color:var(--muted)}
+.sentence span.done{color:var(--ink)}
+.sentence span.now{color:var(--ink); background:var(--accent-soft); box-shadow:inset 0 -2px 0 var(--accent); border-radius:2px}
+.dots{display:grid; gap:3px}
+.dots i{aspect-ratio:1; border-radius:50%; background:var(--ink); transition:background .45s ease, transform .45s ease, opacity .45s ease}
+.dots i.q{background:var(--accent)}
+.dots i.r{background:var(--line); transform:scale(.55)}
+.legend{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
+.legend div{display:flex; flex-direction:column; gap:2px; font-size:12px}
+.legend .num{font:700 22px/1 var(--cond); color:var(--ink)}
+.legend .q .num{color:var(--accent-text)} .legend .r .num{color:var(--muted)}
+.tally{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; border-top:1px solid var(--line); padding-top:12px}
+.tally div{display:flex; flex-direction:column; gap:2px; font-size:12px}
+.tally .num{font:700 24px/1 var(--cond); color:var(--ink)}
+.fine{font-size:12px; color:var(--muted); margin:0}
+.keys{display:flex; flex-wrap:wrap; gap:6px 12px; font-size:12px; color:var(--muted)}
+kbd{font:500 11px ui-monospace, Menlo, monospace; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:1px 5px; background:var(--surface); color:var(--ink)}
+.toast{position:fixed; left:50%; bottom:24px; transform:translate(-50%,20px); background:var(--btn); color:var(--btn-text); padding:10px 16px; border-radius:8px; font-size:14px; opacity:0; transition:.3s; z-index:50; max-width:calc(100% - 32px)}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+@media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important} }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <div class="brand"><b>Agent on a Leash</b><span>A wallet control concept for the Viseca “Agent on a Leash” challenge. Not an official Viseca product.</span></div>
+    <div class="ctl">
+      <label class="sr" for="scenario">Scenario</label>
+      <select id="scenario"></select>
+      <div class="seg" role="group" aria-label="Source of purchases">
+        <button type="button" id="m-replay" aria-pressed="true">Replay</button>
+        <button type="button" id="m-live" aria-pressed="false" title="Needs the sandbox key on the server">Live sandbox</button>
+      </div>
+      <button type="button" class="tool" id="restart" title="Start this scenario again (R)">Restart</button>
+      <button type="button" class="tool" id="play" aria-pressed="false" title="Play or pause (Space)">▶ Play</button>
+      <button type="button" class="tool primary" id="next" title="Next purchase (→)">Next purchase →</button>
+      <span class="mode" id="mode"><i></i><span>Replay</span></span>
+      <a class="lab" href="/index.html">The lab ↗</a>
+    </div>
+  </div>
+</header>
+
+<div class="caption" aria-live="polite">
+  <span class="act" id="act">The leash</span>
+  <p id="caption">Loading…</p>
+</div>
+
+<main class="stage">
+
+  <!-- ============================== the customer's phone -->
+  <section class="phone-wrap" aria-label="The customer's phone">
+    <div class="col-h"><h2>The customer</h2><span id="who-card"></span></div>
+    <div class="phone">
+      <div class="screen" id="screen">
+        <div class="status"><span id="clock">9:41</span><span class="isl"></span><span>●●● ▮</span></div>
+        <div class="app">
+          <div class="hello"><b id="hello">Hello</b><span class="cardchip"><i></i><span id="chip">···· </span></span></div>
+
+          <div class="pane">
+            <h3>Your agent <span class="state" id="agent-state">On a leash</span></h3>
+            <p class="quote" id="quote"></p>
+            <ul class="rules" id="rules"></ul>
+            <div class="unsure"><span>When the wallet is unsure</span><b id="unsure"></b></div>
+          </div>
+
+          <div class="pane meter" id="meter" hidden>
+            <h3>Spent with your agent</h3>
+            <div class="lbl"><span id="meter-l"></span><span id="meter-r"></span></div>
+            <div class="bar"><i id="meter-bar"></i></div>
+          </div>
+
+          <div class="pane">
+            <h3>Activity</h3>
+            <ul class="activity" id="activity"></ul>
+            <p class="empty" id="activity-empty">Nothing yet. Your agent has not proposed a purchase.</p>
+          </div>
+        </div>
+        <div class="foot"></div>
+        <button type="button" class="pull" id="pull">Pull the leash</button>
+
+        <div class="scrim" id="scrim"></div>
+
+        <div class="sheet" id="ask" role="dialog" aria-modal="false" aria-labelledby="ask-merchant">
+          <div class="grip"></div>
+          <div class="kicker"><span>Your agent wants to buy</span><span id="ask-ref"></span></div>
+          <div class="sheet-head">
+            <svg class="ring" viewBox="0 0 46 46" aria-hidden="true"><circle class="bg" cx="23" cy="23" r="19"/><circle class="fg" id="ring" cx="23" cy="23" r="19" stroke-dasharray="119.4" stroke-dashoffset="0"/><text x="23" y="27" text-anchor="middle" id="ring-t">2:00</text></svg>
+            <div><h4 id="ask-merchant"></h4><div class="item" id="ask-item"></div></div>
+          </div>
+          <div class="amt num" id="ask-amount"></div>
+          <div class="why" id="ask-why"></div>
+          <p class="once">Only this purchase. Your rules stay exactly as they are.</p>
+          <div class="btns"><button type="button" class="btn ghost" id="decline">Decline</button><button type="button" class="btn solid" id="approve">Approve once</button></div>
+        </div>
+
+        <div class="sheet" id="stop" role="dialog" aria-modal="false" aria-labelledby="stop-h">
+          <div class="grip"></div>
+          <h4 id="stop-h">Pull the leash?</h4>
+          <p class="item">Your agent will not be able to buy anything else. Purchases the wallet approved but that have not been paid yet are cancelled.</p>
+          <div class="btns"><button type="button" class="btn ghost" id="stop-no">Keep going</button><button type="button" class="btn danger" id="stop-yes">Pull the leash</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== what the agent proposes -->
+  <section aria-label="What the agent proposes">
+    <div class="col-h"><h2>What the agent proposes</h2><span id="stream-meta"></span></div>
+    <div class="stream" id="stream">
+      <div class="idle" id="idle">Press <b>Next purchase</b> or <kbd>→</kbd>. The agent proposes, the wallet decides, the customer stays in control.</div>
+    </div>
+  </section>
+
+  <!-- ============================== what the sentence hands over -->
+  <aside class="field-col" aria-label="What the customer handed over">
+    <div class="col-h"><h2>What the sentence allows</h2><span id="field-cat"></span></div>
+    <div class="field">
+      <div class="big"><span class="num" id="f-allow">–</span><span>of <b id="f-universe">–</b> possible purchases go through without asking</span></div>
+      <p class="sentence" id="sentence"></p>
+      <div class="dots" id="dots" aria-hidden="true"></div>
+      <div class="legend">
+        <div><span class="num" id="f-a">–</span>go through</div>
+        <div class="q"><span class="num" id="f-q">–</span>ask the customer</div>
+        <div class="r"><span class="num" id="f-r">–</span>refused</div>
+      </div>
+      <p class="fine">Each dot is a basket this catalogue can produce, judged by the same engine for each part of the sentence. Limits over time do not remove any single basket; they limit how often.</p>
+      <div class="tally">
+        <div><span class="num" id="t-allow">0</span>approved</div>
+        <div><span class="num" id="t-ask">0</span>asked</div>
+        <div><span class="num" id="t-block">0</span>blocked</div>
+      </div>
+      <div class="keys"><span><kbd>→</kbd> next</span><span><kbd>Space</kbd> play</span><span><kbd>A</kbd>/<kbd>D</kbd> answer</span><span><kbd>L</kbd> pull leash</span><span><kbd>R</kbd> restart</span></div>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+const $ = s => document.getElementById(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const chf = n => Number(n).toLocaleString("de-CH", {minimumFractionDigits:2, maximumFractionDigits:2});
+const api = async (path, body, method) => {
+  const r = await fetch(path, {method: method || (body === undefined ? "GET" : "POST"),
+    headers: {"content-type": "application/json"}, body: body === undefined ? undefined : JSON.stringify(body)});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.detail || r.statusText), {status: r.status});
+  return data;
+};
+
+const S = {caps:null, session:null, seq:0, cards:{}, order:[], asking:null, askTimer:null,
+           playing:false, playTimer:null, poll:null, field:null, fieldTimer:null, busy:false,
+           tally:{allow:0, review:0, block:0}, name:"", mode:"replay"};
+
+function toast(t){ const el=$("toast"); el.textContent=t; el.classList.add("on"); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove("on"),2600); }
+function sentence(t){ t = String(t || "").trim(); return t ? t.charAt(0).toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".") : ""; }
+function say(act, text){ $("act").textContent = act; $("caption").textContent = text; }
+function firstName(){ return (S.name || "the customer").split(" ")[0]; }
+
+// ------------------------------------------------------------------ narration
+function narrate(card){
+  const who = firstName(), r = (card.reasons[0] || "").toLowerCase();
+  const machine = card.lines.some(l => l.machine.length);
+  if (S.revoked && card.verdict !== "allow") return ["Leash pulled", `The agent tries again. Nothing can pass any more, whatever it proposes.`];
+  if (card.verdict === "allow") return ["Ordinary purchase", `Every rule ${who} set is met, so it goes through without bothering ${who}.`];
+  if (machine && card.verdict === "review") return ["Manipulated seller", `The seller hid instructions for the AI in its product text. The wallet reads them as text, ignores them, and asks ${who}.`];
+  if (machine) return ["Manipulated seller", `Blocked on the rules alone. The seller also wrote instructions aimed at the AI, and ${who} is told.`];
+  if (card.lookalike) return ["Lookalike seller", `A shop named almost like ${card.lookalike}, which ${who} knows. It is not the same shop, so it is blocked.`];
+  if (card.retry_at) return ["Rolling limit", `This would go past ${who}'s limit over time. The wallet says exactly when it would fit again.`];
+  if (r.includes("already placed")) return ["Possible duplicate", `The same order again. Maybe intended, maybe not, so ${who} decides.`];
+  if (r.includes("device")) return ["Someone else driving?", `The session switched to a device not seen before. Only ${who} can say if it is really them.`];
+  if (r.includes("returned") || r.includes("return")) return ["Missing fact", `The seller says nothing about returns. The wallet does not guess; it asks ${who}.`];
+  if (card.verdict === "review") return ["Needs the customer", `The wallet cannot tell from the facts, so it asks ${who}.`];
+  return ["Blocked", `${card.reasons[0] ? card.reasons[0].charAt(0).toUpperCase() + card.reasons[0].slice(1) : "A rule is broken"}. Nothing moves.`];
+}
+
+// ------------------------------------------------------------------ the phone
+function setLeash(leash){
+  $("hello").textContent = S.name ? `Hello, ${firstName()}` : "Hello";
+  $("chip").textContent = "···· " + (leash.card || "");
+  $("who-card").textContent = S.name ? `${S.name} · card ···· ${leash.card}` : "";
+  $("unsure").textContent = leash.when_unsure;
+  const rules = $("rules"); rules.innerHTML = "";
+  leash.rules.forEach(t => { const li = document.createElement("li"); li.textContent = t; rules.appendChild(li); });
+  typeQuote(leash.instruction);
+}
+function typeQuote(text){
+  const q = $("quote"); q.classList.add("typing"); q.textContent = "“";
+  const words = text.split(" "); let i = 0;
+  clearInterval(typeQuote.t);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce){ q.textContent = `“${text}”`; q.classList.remove("typing"); revealRules(); return; }
+  typeQuote.t = setInterval(() => {
+    q.textContent = "“" + words.slice(0, ++i).join(" ") + (i >= words.length ? "”" : "");
+    if (i >= words.length){ clearInterval(typeQuote.t); q.classList.remove("typing"); revealRules(); }
+  }, 70);
+}
+function revealRules(){
+  [...$("rules").children].forEach((li, k) => setTimeout(() => li.classList.add("on"), 140 * k));
+}
+function pushActivity(card){
+  $("activity-empty").hidden = true;
+  const li = document.createElement("li"); li.id = "act-" + card.authorization_id;
+  li.innerHTML = activityHTML(card);
+  $("activity").prepend(li);
+  while ($("activity").children.length > 4) $("activity").lastChild.remove();
+}
+function activityHTML(card, override){
+  const v = override || card.verdict, glyph = {allow:"✓", review:"?", block:"✕"}[v] || "·";
+  const label = {allow:"Approved", review:"Waiting for you", block:"Blocked"}[v];
+  return `<span class="dot ${v}">${glyph}</span><span><span class="m">${esc(card.merchant)}</span><br><span class="s">${esc(card._status || label)}</span></span><span class="num">${chf(card.amount)}</span>`;
+}
+function updateMeter(card){
+  if (!card.window) return;
+  const w = card.window, pct = Math.min(100, 100 * w.spent / w.limit);
+  $("meter").hidden = false;
+  $("meter-l").textContent = `CHF ${chf(w.spent)} of ${chf(w.limit)}`;
+  $("meter-r").textContent = `any ${w.days} days`;
+  const bar = $("meter-bar"); bar.style.width = pct + "%"; bar.classList.toggle("hot", pct >= 85);
+}
+
+// the step-up sheet
+function openAsk(card){
+  S.asking = {id: card.authorization_id, until: Date.now() + (card.ask_seconds || 120) * 1000, total: card.ask_seconds || 120};
+  $("ask-ref").textContent = card.ref;
+  $("ask-merchant").textContent = card.merchant;
+  $("ask-item").textContent = card.lines.map(l => `${l.qty} × ${l.name}`).join(", ");
+  $("ask-amount").textContent = "CHF " + chf(card.amount);
+  $("ask-why").textContent = sentence(card.reasons.join("; ")) || card.message;
+  $("scrim").classList.add("on"); $("ask").classList.add("on");
+  tickRing(); clearInterval(S.askTimer); S.askTimer = setInterval(tickRing, 1000);
+}
+function tickRing(){
+  if (!S.asking) return;
+  const left = Math.max(0, Math.round((S.asking.until - Date.now()) / 1000));
+  $("ring").setAttribute("stroke-dashoffset", String(119.4 * (1 - left / S.asking.total)));
+  $("ring-t").textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  if (left <= 0) closeSheets();
+}
+function closeSheets(){
+  S.asking = null; clearInterval(S.askTimer);
+  ["ask","stop"].forEach(id => $(id).classList.remove("on")); $("scrim").classList.remove("on");
+}
+async function answer(decision){
+  if (!S.asking || S.busy) return;
+  const id = S.asking.id; S.busy = true;
+  try { await api(`/api/stage/sessions/${S.session}/resolve`, {authorization_id:id, decision}); closeSheets(); await sync(); }
+  catch (e){ toast(e.message); }
+  finally { S.busy = false; }
+}
+
+// ------------------------------------------------------------------ the stream
+function lookalikeHTML(name, known){
+  let p = 0; while (p < name.length && p < known.length && name[p] === known[p]) p++;
+  let s = 0; while (s < name.length - p && s < known.length - p && name[name.length - 1 - s] === known[known.length - 1 - s]) s++;
+  const mid = name.slice(p, name.length - s);
+  return esc(name.slice(0, p)) + (mid ? `<u>${esc(mid)}</u>` : "") + esc(name.slice(name.length - s));
+}
+function xrayHTML(line){
+  let out = "", at = 0;
+  line.machine.forEach(([a, b]) => { out += esc(line.details.slice(at, a)) + `<mark>${esc(line.details.slice(a, b))}</mark>`; at = b; });
+  return out + esc(line.details.slice(at));
+}
+function when(iso){
+  const d = new Date(iso);
+  return `${String(d.getUTCDate()).padStart(2,"0")}.${String(d.getUTCMonth()+1).padStart(2,"0")}<br>${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`;
+}
+const PILL = {allow:"Approved", review:"Asking", block:"Blocked"};
+function cardHTML(card){
+  const who = firstName();
+  const lines = card.lines.map(l => `${l.qty} × ${esc(l.name)}`).join(" · ");
+  const parts = [];
+  if (card.verdict === "allow") parts.push(`<p class="reason ok">Every rule ${esc(who)} set is met.</p>`);
+  else if (card.reasons.length) parts.push(...card.reasons.map(r => `<p class="reason">${esc(sentence(r))}</p>`));
+  else parts.push(`<p class="reason">${esc(card.message)}</p>`);
+  card.lines.filter(l => l.machine.length).forEach(l => parts.push(
+    `<div class="xray"><span class="lbl">What the seller wrote about ${esc(l.name)}</span><p>${xrayHTML(l)}</p><span class="note">Struck through: written for the AI, not for ${esc(who)}. Read as text, never obeyed.</span></div>`));
+  if (card.lookalike) parts.push(
+    `<div class="look"><div class="names"><span>${lookalikeHTML(card.merchant, card.lookalike)}</span><s>is not</s><span>${esc(card.lookalike)}</span></div><p>${esc(who)} has paid ${esc(card.lookalike)} before. This is a different shop whose name is almost the same.</p></div>`);
+  if (card.window){
+    const w = card.window, pct = Math.min(100, 100 * w.spent / w.limit);
+    parts.push(`<div class="gauge"><div class="lbl"><span>CHF ${chf(w.spent)} of ${chf(w.limit)} used</span><span>any ${w.days} days</span></div><div class="bar"><i class="${pct >= 100 ? "over" : ""}" style="width:${pct}%"></i></div></div>`);
+  }
+  if (card.retry_at){
+    const d = new Date(card.retry_at);
+    parts.push(`<div class="retry">It would fit again on <b>${d.toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long", timeZone:"UTC"})} at ${d.toISOString().slice(11,16)}</b>.</div>`);
+  }
+  const vr = {allow:"met", review:"met", block:"broken"}[card.your_rules] || card.your_rules;
+  const vw = {allow:"all clear", review:"unsure", block:"stopped it"}[card.wallet_checks] || card.wallet_checks;
+  if (card.your_rules || card.wallet_checks) parts.push(`<div class="split">${card.your_rules ? `<span>${esc(who)}'s rules: <b>${esc(vr)}</b></span>` : ""}${card.wallet_checks ? `<span>Wallet checks: <b>${esc(vw)}</b></span>` : ""}</div>`);
+  parts.push(`<details class="tech"><summary>Evidence the engine recorded</summary><ul>${card.evidence.map(e =>
+    `<li><b class="${esc(e.outcome)}">${esc(e.outcome)}</b><span>${esc(e.field)} · ${esc(e.detail)}</span></li>`).join("")}</ul></details>`);
+  return `<div class="ev-row"><span class="when">${when(card.at)}</span>
+    <div class="what"><b>${esc(card.merchant)}</b><span>${lines}</span></div>
+    <div class="amount"><span class="num">CHF ${chf(card.amount)}</span><span class="pill ${card.verdict}" data-pill>${card._pill || PILL[card.verdict]}</span></div></div>
+    <div class="detail">${parts.join("")}</div>`;
+}
+function addCard(card){
+  $("idle")?.remove();
+  document.querySelectorAll(".ev").forEach(e => e.classList.add("compact"));
+  const el = document.createElement("article"); el.className = "ev"; el.id = "ev-" + card.authorization_id;
+  el.innerHTML = cardHTML(card);
+  el.addEventListener("click", ev => { if (ev.target.closest("summary")) return; el.classList.toggle("compact"); });
+  $("stream").prepend(el);
+}
+function restyle(id, verdict, pillText, status){
+  const card = S.cards[id]; if (!card) return;
+  card._pill = pillText; card._status = status;
+  const pill = document.querySelector(`#ev-${CSS.escape(id)} [data-pill]`);
+  if (pill){ pill.className = "pill " + verdict; pill.textContent = pillText; }
+  const li = $("act-" + id); if (li) li.innerHTML = activityHTML(card, verdict);
+}
+function sys(text, cls){
+  $("idle")?.remove();
+  const el = document.createElement("div"); el.className = "sys " + (cls || "");
+  el.innerHTML = `<b>●</b><span>${esc(text)}</span>`;
+  $("stream").prepend(el);
+}
+
+// ------------------------------------------------------------------ events
+function handle(e){
+  if (e.seq <= S.seq) return; S.seq = e.seq;
+  if (e.kind === "decision"){
+    const c = e.card; S.cards[c.authorization_id] = c; S.order.push(c.authorization_id);
+    S.tally[c.verdict]++; renderTally();
+    addCard(c); pushActivity(c); updateMeter(c);
+    const [act, text] = narrate(c); say(act, text);
+    if (c.verdict === "review") openAsk(c);
+  } else if (e.kind === "resolved"){
+    const ok = e.decision === "allow";
+    restyle(e.authorization_id, ok ? "allow" : "block", ok ? `Approved by ${firstName()}` : `Declined by ${firstName()}`, ok ? "You approved it" : "You declined it");
+    if (e.card && e.card.window) updateMeter(e.card);
+    say("The customer decided", ok ? `${firstName()} approved this one purchase. The rules did not change.` : `${firstName()} declined. The answer went back through the same path the platform uses.`);
+  } else if (e.kind === "expired"){
+    restyle(e.authorization_id, "block", "No answer", "Expired: declined");
+    closeSheets(); say("No answer", "Nobody answered in time, so the purchase is declined. Silence never approves.");
+  } else if (e.kind === "revoked"){
+    S.revoked = true;
+    $("agent-state").textContent = "Leash pulled"; $("agent-state").classList.add("off"); $("pull").disabled = true; $("pull").textContent = "Leash pulled · your agent is stopped";
+    (e.cancelled || []).forEach(id => restyle(id, "block", "Cancelled", "Cancelled: leash pulled"));
+    sys(e.text + (e.cancelled?.length ? ` Cancelled: ${e.cancelled.length}.` : ""), "revoked");
+    say("Leash pulled", `${firstName()} pulled the leash. Anything approved but unpaid is cancelled, and the next proposal cannot pass.`);
+  } else if (e.kind === "started"){
+    sys(e.text);
+    if (e.run_id) $("stream-meta").textContent += ` · ${e.run_id}`;
+  } else if (e.kind === "finished"){
+    sys(e.text); stop();
+    say("End of the errand", "The agent has nothing more to propose. Everything above came from the same engine the tests run.");
+  } else if (e.kind === "error"){
+    sys(e.text, "revoked"); toast(e.text);
+  }
+}
+function renderTally(){ $("t-allow").textContent = S.tally.allow; $("t-ask").textContent = S.tally.review; $("t-block").textContent = S.tally.block; }
+async function sync(){
+  if (!S.session) return;
+  const d = await api(`/api/stage/sessions/${S.session}?since=${S.seq}`);
+  if (!S.name && d.customer){ S.name = d.customer; setLeash(d.leash); }
+  d.events.forEach(handle);
+}
+
+// ------------------------------------------------------------------ the field
+function buildDots(n){
+  const box = $("dots"); box.innerHTML = "";
+  const cols = n > 600 ? 32 : n > 300 ? 25 : n > 120 ? 16 : 12;
+  box.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < n; i++) frag.appendChild(document.createElement("i"));
+  box.appendChild(frag);
+}
+function showStep(k){
+  const f = S.field, st = f.steps[k];
+  const dots = $("dots").children;
+  for (let i = 0; i < st.verdicts.length; i++) dots[i].className = st.verdicts[i] === "a" ? "" : st.verdicts[i];
+  $("f-allow").textContent = st.allow; $("f-a").textContent = st.allow; $("f-q").textContent = st.ask; $("f-r").textContent = st.refuse;
+  $("sentence").innerHTML = f.steps.map((s, j) => `<span class="${j < k ? "done" : j === k ? "now" : ""}">${esc(s.added)}</span>`).join(" ");
+}
+async function loadField(instruction, scenario){
+  clearInterval(S.fieldTimer);
+  try { S.field = await api("/api/stage/leash", {instruction, scenario_id: scenario}); }
+  catch (e){ $("sentence").textContent = "The field could not be computed: " + e.message; return; }
+  $("f-universe").textContent = S.field.universe;
+  $("field-cat").textContent = S.field.category.replace("_", " ") + " catalogue";
+  buildDots(S.field.universe);
+  let k = 0; showStep(0);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce){ showStep(S.field.steps.length - 1); return; }
+  S.fieldTimer = setInterval(() => { if (++k >= S.field.steps.length){ clearInterval(S.fieldTimer); return; } showStep(k); }, 1300);
+}
+
+// ------------------------------------------------------------------ controls
+async function start(){
+  stop(); closeSheets(); clearInterval(S.poll);
+  Object.assign(S, {session:null, seq:0, cards:{}, order:[], tally:{allow:0, review:0, block:0}, name:""});
+  renderTally();
+  $("stream").innerHTML = `<div class="idle" id="idle">Press <b>Next purchase</b> or <kbd>→</kbd>. The agent proposes, the wallet decides, the customer stays in control.</div>`;
+  $("activity").innerHTML = ""; $("activity-empty").hidden = false; $("meter").hidden = true;
+  S.revoked = false;
+  $("agent-state").textContent = "On a leash"; $("agent-state").classList.remove("off"); $("pull").disabled = false; $("pull").textContent = "Pull the leash";
+  const scenario = $("scenario").value;
+  const sc = S.caps.scenarios.find(s => s.scenario_id === scenario);
+  say("The leash", `The customer writes one sentence. The wallet turns it into rules, and the dots on the right show what that sentence hands over.`);
+  loadField(sc.instruction, scenario);
+  try {
+    const d = await api("/api/stage/sessions", {scenario_id: scenario, mode: S.mode, acknowledge_unsupported: scenario === "SCEN0000"});
+    S.session = d.session_id; S.name = d.customer || "";
+    $("stream-meta").textContent = `${sc.name} · ${scenario}`;
+    setLeash(d.leash); d.events.forEach(handle);
+    $("mode").className = "mode" + (S.mode === "live" ? " live" : "");
+    $("mode").lastElementChild.textContent = S.mode === "live" ? "Live · Viseca sandbox" : "Replay · official data, local engine";
+    if (S.mode === "live"){ $("next").disabled = true; $("play").disabled = true; S.poll = setInterval(() => sync().catch(() => {}), 700); }
+    else { $("next").disabled = false; $("play").disabled = false; S.poll = setInterval(() => sync().catch(() => {}), 1500); }
+  } catch (e){
+    toast(e.message);
+    if (S.mode === "live"){ setMode("replay"); start(); }
+  }
+}
+async function next(){
+  if (!S.session || S.mode !== "replay" || S.busy) return;
+  if (S.asking){ say("Waiting", `The platform holds the next purchase until ${firstName()} answers.`); $("ask").animate?.([{transform:"translateY(0)"},{transform:"translateY(-6px)"},{transform:"translateY(0)"}], 300); return; }
+  S.busy = true;
+  try {
+    const r = await api(`/api/stage/sessions/${S.session}/advance`, {});
+    if (r.waiting_for) say("Waiting", `The platform holds the next purchase until ${firstName()} answers.`);
+    await sync();
+  } catch (e){ toast(e.message); }
+  finally { S.busy = false; }
+}
+function play(){
+  S.playing = !S.playing; $("play").setAttribute("aria-pressed", String(S.playing)); $("play").textContent = S.playing ? "❚❚ Pause" : "▶ Play";
+  clearInterval(S.playTimer);
+  if (S.playing){ next(); S.playTimer = setInterval(() => { if (!S.asking) next(); }, 3200); }
+}
+function stop(){ if (S.playing) play(); }
+async function pullLeash(){
+  if (!S.session) return;
+  try { await api(`/api/stage/sessions/${S.session}/revoke`, {}); closeSheets(); await sync(); }
+  catch (e){ toast(e.message); }
+}
+function setMode(m){
+  S.mode = m; $("m-replay").setAttribute("aria-pressed", String(m === "replay")); $("m-live").setAttribute("aria-pressed", String(m === "live"));
+}
+
+$("next").onclick = next; $("play").onclick = play; $("restart").onclick = start;
+$("approve").onclick = () => answer("allow"); $("decline").onclick = () => answer("block");
+$("pull").onclick = () => { $("scrim").classList.add("on"); $("stop").classList.add("on"); };
+$("stop-no").onclick = () => { $("stop").classList.remove("on"); if (!S.asking) $("scrim").classList.remove("on"); };
+$("stop-yes").onclick = () => { $("stop").classList.remove("on"); pullLeash(); };
+$("scenario").onchange = start;
+$("m-replay").onclick = () => { if (S.mode !== "replay"){ setMode("replay"); start(); } };
+$("m-live").onclick = () => { if (S.mode !== "live" && S.caps.live){ setMode("live"); start(); } };
+document.addEventListener("keydown", ev => {
+  if (ev.target.closest("select, input, textarea") || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const k = ev.key.toLowerCase();
+  if (k === "arrowright"){ ev.preventDefault(); next(); }
+  else if (k === " "){ ev.preventDefault(); play(); }
+  else if (k === "a" && S.asking) answer("allow");
+  else if (k === "d" && S.asking) answer("block");
+  else if (k === "l" && !$("pull").disabled) $("pull").click();
+  else if (k === "r") start();
+  else if (k === "escape") closeSheets();
+});
+setInterval(() => { const d = new Date(); $("clock").textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; }, 15000);
+
+(async function boot(){
+  try { S.caps = await api("/api/stage/capabilities"); }
+  catch (e){ say("Offline", "The wallet server is not reachable. Start it with uvicorn and reload."); return; }
+  $("scenario").innerHTML = S.caps.scenarios.map(s => `<option value="${esc(s.scenario_id)}">${esc(s.name)}</option>`).join("");
+  $("scenario").value = "SCEN0004";
+  const live = $("m-live"); live.disabled = !S.caps.live;
+  live.title = S.caps.live ? "Run this scenario on the hosted Viseca sandbox" : "The server has no sandbox key (TEAM_API_KEY, LEASH_BASE_URL)";
+  start();
+})();
+</script>
+</body>
+</html>
