@@ -144,7 +144,7 @@
   .muted { color:var(--ink2); font-size:14px; margin:0 0 8px; }
   .tiny { color:var(--ink3); font-size:12px; }
 
-  button.act {
+  button.act, a.act {
     width:100%; min-height:var(--tap); border:none; border-radius:11px; cursor:pointer;
     font:inherit; font-size:15.5px; font-weight:700; padding:12px 16px; margin-top:8px;
   }
@@ -312,10 +312,13 @@
 <!-- ========== HOME ========== -->
 <section class="panel on" id="p-home">
   <div class="card">
-    <p class="lede">Your agent can shop for you — without holding your payment authority.</p>
-    <p class="lede2">A spending limit asks <b>how much</b>.<br>This asks <b>what for</b>.</p>
-    <p class="muted">It proposes purchases. It never decides whether money moves. This wallet
-      decides, from rules built out of your own words, and tells you why.</p>
+    <p class="lede">The authorisation layer for autonomous commerce.</p>
+    <p class="lede2">The agent shops.<br>The wallet decides.</p>
+    <p class="muted" style="margin:6px 0 14px">A spending limit asks <b>how much</b>. This asks <b>what for</b>.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <a class="act b-dark" href="/stage.html" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">Open the demo</a>
+      <button class="act b-ghost" onclick="go('delegate')">Try your own sentence</button>
+    </div>
   </div>
 
   <div class="card">

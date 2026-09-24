@@ -182,7 +182,14 @@ select{padding-right:28px}
 .btn.solid{background:var(--btn); color:var(--btn-text)}
 .btn.ghost{background:transparent; color:var(--ink)}
 .btn.danger{background:var(--alert); border-color:var(--alert); color:#fff}
-.close-errand{height:44px; border:0; background:transparent; color:var(--block); font:600 14px var(--sans); cursor:pointer; text-decoration:underline; text-underline-offset:3px}
+.close-errand{min-height:48px; border:0; border-radius:10px; background:var(--btn); color:var(--btn-text); font:600 15px var(--sans); cursor:pointer; width:100%}
+.sheet.repeat #approve{background:transparent; color:var(--ink); border:1px solid var(--line)}
+.changed{margin:0; font:600 15px/1.4 var(--sans); color:var(--ink)}
+#ask-ref{display:none}
+.more summary{cursor:pointer; font-size:13px; color:var(--link); padding:4px 0}
+.more[open] summary{margin-bottom:10px}
+.tally-h{margin:0; font:700 12px/1 var(--cond); letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+.foot-note{max-width:1520px; margin:0 auto; padding:0 20px 28px; font-size:12px; color:var(--muted)}
 .ring{width:46px; height:46px; flex:0 0 auto}
 .ring circle{fill:none; stroke-width:4}
 .ring .bg{stroke:var(--sunk)} .ring .fg{stroke:var(--accent); stroke-linecap:round; transform:rotate(-90deg); transform-origin:50% 50%; transition:stroke-dashoffset 1s linear}
@@ -270,7 +277,7 @@ kbd{font:500 11px ui-monospace, Menlo, monospace; border:1px solid var(--line); 
 
 <header class="top">
   <div class="top-row">
-    <div class="brand"><b>Agent on a Leash</b><span>A wallet control concept for the Viseca “Agent on a Leash” challenge. Not an official Viseca product.</span></div>
+    <div class="brand"><b>Agent on a Leash</b><span>The agent shops. The wallet decides.</span></div>
     <div class="ctl">
       <label class="sr" for="scenario">Scenario</label>
       <select id="scenario"></select>
@@ -340,7 +347,8 @@ kbd{font:500 11px ui-monospace, Menlo, monospace; border:1px solid var(--line); 
 
         <div class="sheet" id="ask" role="dialog" aria-modal="false" aria-labelledby="ask-merchant">
           <div class="grip"></div>
-          <div class="kicker"><span>Your agent wants to buy</span><span id="ask-ref"></span></div>
+          <div class="kicker"><span>Needs your decision</span><span id="ask-ref"></span></div>
+          <p class="changed" id="ask-changed" hidden></p>
           <div class="sheet-head">
             <svg class="ring" viewBox="0 0 46 46" aria-hidden="true"><circle class="bg" cx="23" cy="23" r="19"/><circle class="fg" id="ring" cx="23" cy="23" r="19" stroke-dasharray="119.4" stroke-dashoffset="0"/><text x="23" y="27" text-anchor="middle" id="ring-t">2:00</text></svg>
             <div><h4 id="ask-merchant"></h4><div class="item" id="ask-item"></div></div>
@@ -348,8 +356,8 @@ kbd{font:500 11px ui-monospace, Menlo, monospace; border:1px solid var(--line); 
           <div class="amt num" id="ask-amount"></div>
           <div class="why" id="ask-why"></div>
           <p class="once">Only this purchase. Your rules stay exactly as they are.</p>
-          <div class="btns"><button type="button" class="btn ghost" id="decline">Decline</button><button type="button" class="btn solid" id="approve">Approve once</button></div>
           <button type="button" class="close-errand" id="close-errand" hidden>I already have it · close this errand</button>
+          <div class="btns"><button type="button" class="btn ghost" id="decline">Decline</button><button type="button" class="btn solid" id="approve">Approve once</button></div>
         </div>
 
         <div class="sheet" id="stop" role="dialog" aria-modal="false" aria-labelledby="stop-h">
@@ -376,13 +384,17 @@ kbd{font:500 11px ui-monospace, Menlo, monospace; border:1px solid var(--line); 
     <div class="field">
       <div class="big"><span class="num" id="f-allow">–</span><span>of <b id="f-universe">–</b> possible purchases go through without asking</span></div>
       <p class="sentence" id="sentence"></p>
-      <div class="dots" id="dots" aria-hidden="true"></div>
-      <div class="legend">
-        <div><span class="num" id="f-a">–</span>go through</div>
-        <div class="q"><span class="num" id="f-q">–</span>ask the customer</div>
-        <div class="r"><span class="num" id="f-r">–</span>refused</div>
-      </div>
-      <p class="fine">Each dot is a basket this catalogue can produce, judged by the same engine for each part of the sentence. Limits over time do not remove any single basket; they limit how often.</p>
+      <details class="more">
+        <summary>See every purchase this shop could produce</summary>
+        <div class="dots" id="dots" aria-hidden="true"></div>
+        <div class="legend">
+          <div><span class="num" id="f-a">–</span>go through</div>
+          <div class="q"><span class="num" id="f-q">–</span>ask the customer</div>
+          <div class="r"><span class="num" id="f-r">–</span>refused</div>
+        </div>
+        <p class="fine">Each dot is a basket this catalogue can produce, judged by the same engine for each part of the sentence. Limits over time do not remove any single basket; they limit how often.</p>
+      </details>
+      <h3 class="tally-h">This run</h3>
       <div class="tally">
         <div><span class="num" id="t-allow">0</span>approved</div>
         <div><span class="num" id="t-ask">0</span>asked</div>
@@ -392,6 +404,8 @@ kbd{font:500 11px ui-monospace, Menlo, monospace; border:1px solid var(--line); 
     </div>
   </aside>
 </main>
+
+<footer class="foot-note">A wallet control concept for the Viseca “Agent on a Leash” challenge. Not an official Viseca product.</footer>
 
 <div class="toast" id="toast" role="status"></div>
 
@@ -491,7 +505,16 @@ function openAsk(card){
   $("ask-why").textContent = sentence(card.reasons.join("; ")) || card.message;
   // A repeat of a one-off errand: the customer who already has the thing can end
   // the errand in the same gesture (decline this one, revoke the mandate).
-  $("close-errand").hidden = !card.reasons.some(r => r.includes("already bought once"));
+  const repeat = card.reasons.some(r => r.includes("already bought once"));
+  $("close-errand").hidden = !repeat;
+  $("ask").classList.toggle("repeat", repeat);
+  $("ask-changed").hidden = !repeat;
+  if (repeat) $("ask-changed").textContent = `Something changed. ${firstName()}'s errand was for one ${(card.lines[0] || {}).name || "item"}. `
+    + `One was already bought; this would be another.`;
+  // Said once: on a plain repeat the sentence above is the whole reason.
+  const others = card.reasons.filter(r => !r.includes("already bought once"));
+  $("ask-why").hidden = repeat && others.length === 0;
+  if (repeat && others.length) $("ask-why").textContent = sentence(others.join("; "));
   $("scrim").classList.add("on"); $("ask").classList.add("on");
   tickRing(); clearInterval(S.askTimer); S.askTimer = setInterval(tickRing, 1000);
 }
@@ -541,7 +564,7 @@ function when(iso){
   const d = new Date(iso);
   return `${String(d.getUTCDate()).padStart(2,"0")}.${String(d.getUTCMonth()+1).padStart(2,"0")}<br>${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`;
 }
-const PILL = {allow:"Approved", review:"Asking", block:"Blocked"};
+const PILL = {allow:"Approved", review:"Needs your decision", block:"Blocked"};
 function cardHTML(card){
   const who = firstName();
   const lines = card.lines.map(l => `${l.qty} × ${esc(l.name)}`).join(" · ");
@@ -550,7 +573,7 @@ function cardHTML(card){
   else if (card.reasons.length) parts.push(...card.reasons.map(r => `<p class="reason">${esc(sentence(r))}</p>`));
   else parts.push(`<p class="reason">${esc(card.message)}</p>`);
   card.lines.filter(l => l.machine.length).forEach(l => parts.push(
-    `<div class="xray"><span class="lbl">What the seller wrote about ${esc(l.name)}</span><p>${xrayHTML(l)}</p><span class="note">Struck through: written for the AI, not for ${esc(who)}. Read as text, never obeyed.</span></div>`));
+    `<div class="xray"><span class="lbl">Merchant claim · what the seller wrote about ${esc(l.name)}</span><p>${xrayHTML(l)}</p><span class="note"><b>Not authorisation.</b> Struck through: written for the AI, not for ${esc(who)}. Seller text is read as evidence, never obeyed, and cannot change ${esc(who)}'s rules.</span></div>`));
   if (card.lookalike) parts.push(
     `<div class="look"><div class="names"><span>${lookalikeHTML(card.merchant, card.lookalike)}</span><s>is not</s><span>${esc(card.lookalike)}</span></div><p>${esc(who)} has paid ${esc(card.lookalike)} before. This is a different shop whose name is almost the same.</p></div>`);
   if (card.window){
@@ -567,7 +590,7 @@ function cardHTML(card){
   const vr = {allow:"met", review:"not sure", block:"broken"}[card.your_rules] || card.your_rules;
   const vw = {allow:"all clear", review:"unsure", block:"stopped it"}[card.wallet_checks] || card.wallet_checks;
   if (card.your_rules || card.wallet_checks) parts.push(`<div class="split">${card.your_rules ? `<span>${esc(who)}'s rules: <b>${esc(vr)}</b></span>` : ""}${card.wallet_checks ? `<span>Wallet checks: <b>${esc(vw)}</b></span>` : ""}</div>`);
-  parts.push(`<details class="tech"><summary>Evidence the engine recorded</summary><ul>${card.evidence.map(e =>
+  parts.push(`<details class="tech"><summary>Technical evidence</summary><ul>${card.evidence.map(e =>
     `<li><b class="${esc(e.outcome)}">${esc(e.outcome)}</b><span>${esc(e.field)} · ${esc(e.detail)}</span></li>`).join("")}</ul></details>`);
   return `<div class="ev-row"><span class="when">${when(card.at)}</span>
     <div class="what"><b>${esc(card.merchant)}</b><span>${lines}</span></div>
@@ -677,7 +700,7 @@ async function start(){
   $("agent-state").textContent = "On a leash"; $("agent-state").classList.remove("off"); $("pull").disabled = false; $("pull").textContent = "Pull the leash";
   const scenario = $("scenario").value;
   const sc = S.caps.scenarios.find(s => s.scenario_id === scenario);
-  say("The leash", `The customer writes one sentence. The wallet turns it into rules, and the dots on the right show what that sentence hands over.`);
+  say("The errand", `The customer writes one sentence; the wallet turns it into the rules on the phone. The agent shops. The wallet decides.`);
   loadField(sc.instruction, scenario);
   try {
     const d = await api("/api/stage/sessions", {scenario_id: scenario, mode: S.mode, acknowledge_unsupported: scenario === "SCEN0000"});
