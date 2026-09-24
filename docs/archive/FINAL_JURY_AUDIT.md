@@ -274,7 +274,7 @@ prior art for is the **agent-facing explanation boundary**: refusing an agent in
 form it can act on (*which class of constraint*) while withholding everything it
 could probe with, and measuring the leak that remains in francs.
 
-**Evidence.** `docs/ARCHITECTURE_PRIOR_ART.md`; the oracle measurement.
+**Evidence.** `docs/archive/ARCHITECTURE_PRIOR_ART.md`; the oracle measurement.
 
 **Limitation.** "We did not find prior art" is not "there is none".
 

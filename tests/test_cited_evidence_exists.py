@@ -32,7 +32,7 @@ def _known_names() -> set[str]:
 def _citations():
     """(document, cited name) for every `test_...` in backticks, skipping renames."""
     out = []
-    for path in sorted([*(ROOT / "docs").glob("*.md"), ROOT / "README.md"]):
+    for path in sorted([*(ROOT / "docs").rglob("*.md"), ROOT / "README.md"]):
         text = path.read_text()
         for match in re.finditer(r"`(test_\w+)\*?`", text):
             after = text[match.end():match.end() + 4]

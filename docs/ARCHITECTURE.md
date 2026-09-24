@@ -51,7 +51,7 @@ proposes" is code the agent does not control -- it does not call
 `item_details` (the only text it can put in front of the engine) is read through
 exactly two narrow regexes (`facts.extract_return_window_days`,
 `facts.extract_stated_size`) that can produce a fact, never a rule. See
-[SECURITY.md](SECURITY.md) for why that specific separation is the actual
+[SECURITY.md](archive/SECURITY.md) for why that specific separation is the actual
 prompt-injection defense.
 
 ## `approve` is not payment
@@ -65,7 +65,7 @@ merchant being charged matches the merchant that authorization was actually
 approved for. A `charge_id` is a one-time idempotency key for one specific
 request, not a free-standing token -- reusing it for a *different*
 authorization_id or amount is refused as a conflict rather than silently treated
-as "already done" (`docs/SECOND_ADVERSARIAL_AUDIT.md`, Finding 7). See
+as "already done" (`docs/archive/SECOND_ADVERSARIAL_AUDIT.md`, Finding 7). See
 `tests/test_payment_boundary.py` for the exhaustive list of ways this is tested to
 refuse.
 
@@ -100,7 +100,7 @@ which:
   call); and raises `ResolutionError` both for an authorization that was never put
   to review at all and for a second resolution with a *different* answer than the
   one already recorded -- a real, conflicting second answer is surfaced, never
-  silently discarded (`docs/SECOND_ADVERSARIAL_AUDIT.md`, Finding 8);
+  silently discarded (`docs/archive/SECOND_ADVERSARIAL_AUDIT.md`, Finding 8);
 - never touches `Mandate` -- there is no code path from a resolution back into
   `tighten_hard_rules` or `set_uncertainty_policy`;
 - uses the amount and the *simulated purchase timestamp* from the original review
@@ -136,7 +136,7 @@ process crash mid-run forgets prior approved spend, which could let a rolling
 window be wrongly bypassed on restart. `LiveWorker` now optionally persists
 `RunState` to a single small JSON checkpoint file per run (not a database) and
 reloads it on restart, plus a best-effort reconciliation against the platform's
-own `GET /v1/authorizations` -- see `docs/SECOND_ADVERSARIAL_AUDIT.md`, Finding 12,
+own `GET /v1/authorizations` -- see `docs/archive/SECOND_ADVERSARIAL_AUDIT.md`, Finding 12,
 including what this does and does not actually guarantee.
 
 ## Money handling
@@ -158,6 +158,6 @@ the model or another external service is unavailable" and "smaller, lower-latenc
 models are preferred" if a model is used at all in the decision path
 (challenge.md, "Technical Preferences"). A model could reasonably be added later
 for *interpreting more open-ended customer instructions* than the current
-lexicon covers -- see docs/FINAL_SENIOR_ENGINEERING_REVIEW.md, "Remaining Known
+lexicon covers -- see docs/archive/FINAL_SENIOR_ENGINEERING_REVIEW.md, "Remaining Known
 Limitations" -- but it would sit at mandate-compile time, behind the same
 human-confirmation step that already exists, never inside `evaluate_authorization`.

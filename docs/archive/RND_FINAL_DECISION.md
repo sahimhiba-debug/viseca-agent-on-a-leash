@@ -69,7 +69,7 @@ information") that argues against building them now.
    17/17 attacks PASS against the hardened wallet.
 4. A new, clearly-synthetic demo scenario built and run through the demo API,
    distinct from the official 45-event data.
-5. `docs/VERIFIABLE_AGENTIC_WALLET.md` written describing the resulting
+5. `docs/archive/VERIFIABLE_AGENTIC_WALLET.md` written describing the resulting
    architecture as actually built (revised from the hypothesis in the brief
    where the implementation diverged).
 

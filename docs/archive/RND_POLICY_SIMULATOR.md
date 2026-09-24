@@ -45,7 +45,7 @@ Given the "select at most 3 concepts" constraint, and that this track's
 underlying value (transparency before confirmation) is already substantially
 delivered by the existing `/compile` response's `guidance`/`open_questions`,
 this was ranked below Tracks A, D+E, and H on the scoring table in
-`docs/RND_FINAL_DECISION.md`.
+`docs/archive/RND_FINAL_DECISION.md`.
 
 ## Recommendation: **PROTOTYPE recommended, deferred this pass**
 

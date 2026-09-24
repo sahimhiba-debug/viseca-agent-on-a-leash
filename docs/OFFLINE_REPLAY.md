@@ -100,7 +100,7 @@ interesting cases here are same-category substitutions, not amount violations:
   (`subscriptions` category) the customer never asked for -- fails `item.category`
   on that second line. (`item.name_contains` is scoped to items in the requested
   category, so it correctly does not also fail here on the addon's unrelated name
-  -- see docs/SECOND_ADVERSARIAL_AUDIT.md, Finding 5.)
+  -- see docs/archive/SECOND_ADVERSARIAL_AUDIT.md, Finding 5.)
 - **AU0019 ALLOW**: correct item, size 43, exactly a 14-day return window (the
   boundary case for `>=`).
 - **AU0020 BLOCK**: a "Cycling helmet", not road-running shoes -- same specialist

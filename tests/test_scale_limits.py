@@ -1,6 +1,6 @@
 """Where this engine stops meeting the 8-second deadline, measured rather than assumed.
 
-`docs/TEMPORAL_CONSISTENCY_AUDIT.md` asserted that `peak_window_spend_chf` is
+`docs/archive/TEMPORAL_CONSISTENCY_AUDIT.md` asserted that `peak_window_spend_chf` is
 "O(n^2), which is fine at run scale and would not be at ledger scale". That was an
 unverified claim about the newest security-critical code, so it is measured here.
 

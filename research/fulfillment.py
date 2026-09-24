@@ -1,7 +1,7 @@
 """RESEARCH MODULE -- a parallel observer, deliberately NOT wired into the official
 decision path. `decision_engine.evaluate_authorization` does not import this, and
 the official replay is unchanged by its existence. See
-docs/ARCHITECTURAL_BREAKTHROUGH.md.
+docs/archive/ARCHITECTURAL_BREAKTHROUGH.md.
 
 --------------------------------------------------------------------------------
 The gap it exists to expose

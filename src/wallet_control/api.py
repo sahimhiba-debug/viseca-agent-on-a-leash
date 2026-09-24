@@ -446,7 +446,7 @@ def customer_sessions() -> dict[str, Any]:
     """The customer's own surface: which sessions exist, by their VIEW id.
 
     A real deployment authenticates this. The demo does not, and we say so rather
-    than implying otherwise -- see `docs/AGENT_VISIBLE_DATA.md`.
+    than implying otherwise -- see `docs/archive/AGENT_VISIBLE_DATA.md`.
     """
     seen: dict[str, "DemoRun"] = {}
     for run in _AGENT_SESSIONS.values():
@@ -882,7 +882,7 @@ def _decision_summary(event: dict[str, Any], result) -> dict[str, Any]:
     # checked) and "wallet safety checks" (control-layer integrity concerns the
     # customer never had to opt into) -- purely a display grouping, computed from
     # the `source` tag on each RuleEvaluation; it can never change the decision
-    # itself, only how it is explained. See docs/MASTER_R_AND_D_AUDIT.md,
+    # itself, only how it is explained. See docs/archive/MASTER_R_AND_D_AUDIT.md,
     # "alternative policy representations."
     policy_evidence = [f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in result.rule_evaluations if e.source == "customer"]
     safety_evidence = [f"{e.rule.field} [{e.outcome}]: {e.detail}" for e in result.rule_evaluations if e.source == "safety"]
@@ -906,7 +906,7 @@ def _decision_summary(event: dict[str, Any], result) -> dict[str, Any]:
         "policy_evidence": policy_evidence,
         "safety_evidence": safety_evidence,
         "idempotent_replay": result.idempotent_replay,
-        # R&D Tracks A/D/E (docs/RND_FINAL_DECISION.md): purely additional, explanatory
+        # R&D Tracks A/D/E (docs/archive/RND_FINAL_DECISION.md): purely additional, explanatory
         # fields -- none of them can change `decision` above, which is still produced
         # entirely by `_decide()` over the rule evaluations already shown.
         "policy_verdict": result.policy_verdict,
@@ -1167,7 +1167,7 @@ def resolve_run_authorization(run_id: str, authorization_id: str, req: ResolveRe
         # mints no PaymentAuthority, which meant it could not be revoked and -- under
         # the old fail-open payment default -- was charged even after the customer
         # revoked. The purchase the customer was actually asked about was the one
-        # that escaped their revocation. See docs/DEEP_SECURITY_RESEARCH.md (V2).
+        # that escaped their revocation. See docs/archive/DEEP_SECURITY_RESEARCH.md (V2).
         result = resolve_authorization(
             authorization_id, req.decision, run.state, resolved_at=datetime.now(timezone.utc), mandate=run.mandate.snapshot()
         )
@@ -1192,7 +1192,7 @@ def revoke_run_mandate(run_id: str) -> dict[str, Any]:
     # Revocation must also stop money that has been authorized but not yet spent.
     # Without this, a customer could hit their emergency brake and an outstanding
     # PaymentAuthority would still execute (fourth-pass finding; see
-    # docs/FINAL_ARCHITECTURE_ATTACK.md). Only our own synthetic capability object
+    # docs/archive/FINAL_ARCHITECTURE_ATTACK.md). Only our own synthetic capability object
     # is affected -- already-recorded decisions are untouched, so nothing the
     # engine previously told the platform changes.
     revoked_authorities = run.state.revoke_outstanding_authorities()

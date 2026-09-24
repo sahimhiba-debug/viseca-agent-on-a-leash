@@ -79,7 +79,7 @@ def test_unknown_run_id_is_404_not_500():
 
 def test_revoking_the_mandate_also_kills_outstanding_payment_authorities():
     """The customer's emergency brake must stop money that has been authorized but
-    not yet spent (fourth-pass finding; docs/FINAL_ARCHITECTURE_ATTACK.md)."""
+    not yet spent (fourth-pass finding; docs/archive/FINAL_ARCHITECTURE_ATTACK.md)."""
     r = client.post("/api/scenarios/SCEN0001/run")
     run_id = r.json()["run_id"]
     allowed = [d for d in r.json()["decisions"] if d["decision"] == "allow" and d["payment_authority"]]

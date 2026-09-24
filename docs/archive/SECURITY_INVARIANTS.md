@@ -1,6 +1,6 @@
 # Security invariants (historical, per-pass record)
 
-> **The authoritative list is `docs/SECURITY_INVARIANTS_FINAL.md`.** This file is
+> **The authoritative list is `docs/archive/SECURITY_INVARIANTS_FINAL.md`.** This file is
 > kept as the chronological record of how each invariant was discovered, pass by
 > pass (I1-I32, in discovery order). Where the two differ, the final list wins --
 > notably I29, which the deep-security pass proved was NOT holding as stated here
@@ -197,7 +197,7 @@ reloads it on restart, closing the specific risk of a rolling-window limit being
 bypassed after an in-process crash. `reconcile_run()` supplements this with a
 best-effort check against the platform's own decided-authorizations list for the
 case where no local checkpoint survives. Neither is a full distributed-transaction
-guarantee -- see docs/MASTER_R_AND_D_AUDIT.md, "Remaining limitations," for what
+guarantee -- see docs/archive/MASTER_R_AND_D_AUDIT.md, "Remaining limitations," for what
 is honestly still open. Tested by:
 `test_live_worker.py::test_checkpoint_persistence_survives_a_simulated_process_restart`
 (constructs a fresh worker + fresh fake client against the same checkpoint

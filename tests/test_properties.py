@@ -1,5 +1,5 @@
 """Property-based tests (Hypothesis) for the invariants in
-docs/SECURITY_INVARIANTS.md that are meaningful to state as universal properties
+docs/archive/SECURITY_INVARIANTS.md that are meaningful to state as universal properties
 rather than hand-picked examples.
 
 These are deliberately NOT tautological: each property is phrased as something

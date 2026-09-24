@@ -88,7 +88,7 @@ def test_the_customer_endpoint_is_unauthenticated_and_we_say_so():
     spent = _spend(opened)
     assert spent > CAP, (
         "self-opened delegations no longer exceed one cap -- if that is deliberate, "
-        "update docs/FINAL_LIMITATIONS_AUDIT.md and this test")
+        "update docs/archive/FINAL_LIMITATIONS_AUDIT.md and this test")
 
 
 # ==================================================== the mitigation

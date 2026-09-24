@@ -1,5 +1,5 @@
 """Regression tests for the three gaps found in the final arbitration pass
-(docs/FINAL_ARCHITECTURE_ATTACK.md). Each one failed before that pass and is a
+(docs/archive/FINAL_ARCHITECTURE_ATTACK.md). Each one failed before that pass and is a
 real security property, not a stylistic preference:
 
   G1  revoking the mandate did not stop an already-issued PaymentAuthority, so a

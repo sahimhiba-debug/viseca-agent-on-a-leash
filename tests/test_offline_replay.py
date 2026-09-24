@@ -4,7 +4,7 @@ reasoning concludes for each purchase -- this suite does not assert a specific
 approve/decline/step_up count, because the challenge pack deliberately contains no
 answer key (data/metadata.json: "contains_expected_decisions: false") and forcing a
 particular distribution would be exactly the "hard-code decisions" the brief warns
-against. See docs/OFFLINE_REPLAY.md and docs/FINAL_SENIOR_ENGINEERING_REVIEW.md for
+against. See docs/OFFLINE_REPLAY.md and docs/archive/FINAL_SENIOR_ENGINEERING_REVIEW.md for
 the actual counts this engine produces and the reasoning behind each one.
 """
 

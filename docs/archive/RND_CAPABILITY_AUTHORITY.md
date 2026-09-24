@@ -104,4 +104,4 @@ Scores highest of all ten tracks on Viseca relevance (directly demonstrates "the
 agent proposes, the wallet grants bounded authority, not a blank cheque" -- the
 challenge's own framing) combined with low implementation cost and zero
 regression risk (additive, with the existing `MockPSP` test suite as a
-regression baseline). See `docs/RND_FINAL_DECISION.md` for the scoring table.
+regression baseline). See `docs/archive/RND_FINAL_DECISION.md` for the scoring table.

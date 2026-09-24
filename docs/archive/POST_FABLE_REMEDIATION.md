@@ -8,7 +8,7 @@
 > description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
 > or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
 
-Fixes for the four findings of `docs/FABLE_INDEPENDENT_AUDIT.md`, and nothing else.
+Fixes for the four findings of `docs/archive/FABLE_INDEPENDENT_AUDIT.md`, and nothing else.
 No new architecture, no new research.
 
 ---

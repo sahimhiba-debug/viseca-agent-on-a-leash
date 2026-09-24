@@ -119,7 +119,12 @@ def test_the_delegation_panel_stays_fast_enough_to_type_against():
     counting two price points instead of three and moving the trade-off to its own
     endpoint. This asserts a BUDGET rather than that number: machines differ, and a
     test that fails on a slow laptop teaches people to ignore it. A 3x regression is
-    a real change in what the panel is, and fails here."""
+    a real change in what the panel is, and fails here.
+
+    The budget is RELATIVE to a fixed pure-Python workload timed in the same process.
+    It used to be 150 ms flat, and on a 4-core cloud container the unchanged panel
+    took 165 ms: the test was measuring the machine. There the panel costs about 1.2x
+    the calibration loop, so 3.6x is the same 3x regression anywhere."""
     import statistics
     import time
 
@@ -134,9 +139,16 @@ def test_the_delegation_panel_stays_fast_enough_to_type_against():
         samples.append((time.perf_counter() - start) * 1000)
 
     median = statistics.median(samples)
-    assert median < 150, (
-        f"the delegation panel took {median:.0f} ms; it is documented as answering "
-        f"as the customer types, and something has made it three times slower")
+    calibration = []
+    for _ in range(5):
+        start = time.perf_counter()
+        sum(i * i for i in range(3_000_000))
+        calibration.append((time.perf_counter() - start) * 1000)
+    ratio = median / statistics.median(calibration)
+    assert ratio < 3.6, (
+        f"the delegation panel took {median:.0f} ms, {ratio:.1f}x a fixed calibration "
+        f"loop on this machine (about 1.2x when measured); it is documented as "
+        f"answering as the customer types, and something has made it three times slower")
 
 
 # --- the replay split, wherever a document claims to be current ----------------------
@@ -191,9 +203,9 @@ MAINTAINED_DOCS = (
     "docs/THE_THESIS.md",
     "docs/ABSENCE.md",
     "docs/A_CHECK_THAT_CANNOT_FAIL.md",
-    "docs/COMPETITION_READINESS.md",
+    "docs/archive/COMPETITION_READINESS.md",
     "docs/FINAL_CLAIMS_REGISTER.md",
-    "docs/FINAL_COMPETITION_READINESS.md",
+    "docs/archive/FINAL_COMPETITION_READINESS.md",
     "docs/WHAT_WE_REFUSE_TO_CLAIM.md",
 )
 
@@ -227,7 +239,7 @@ def _stale_statements(text: str, current: tuple[int, int, int],
             continue
         # NO BARE-ARROW EXEMPTION. An earlier version exempted any paragraph
         # containing "->", on the theory that an arrow means the boundary is being
-        # shown moving. `docs/RESEARCH_LAB_REPORT.md` opens "Baseline fe571b2 (646
+        # shown moving. `docs/archive/RESEARCH_LAB_REPORT.md` opens "Baseline fe571b2 (646
         # tests) -> final 4222f97 ... Official replay 45 / 19 allow / 2 review / 24
         # block, unchanged throughout" -- the arrow is between two COMMITS and the
         # claim about the split is flatly stated, and it was silently excused. An
@@ -346,7 +358,7 @@ def test_every_unmaintained_document_says_so_at_the_top():
 
     Forty of them state an official replay split that is no longer the engine's --
     almost all correctly, because they record what was true when they were written.
-    But nothing on their face said so. Opening `docs/FINAL_GATE_REPORT.md` and reading
+    But nothing on their face said so. Opening `docs/archive/FINAL_GATE_REPORT.md` and reading
     "45 events - 19 allow / 2 review / 24 block", then running the replay and getting
     17/4/24, is enough for a reasonable auditor to stop believing the repository; and
     they would be right to, because one of those forty (`docs/FINAL_AUDIT_PACKAGE.md`,
@@ -365,7 +377,7 @@ def test_every_unmaintained_document_says_so_at_the_top():
     current = tuple(int(g) for g in counts[-1])
 
     undeclared = []
-    for path in sorted(ROOT.glob("docs/*.md")) + [ROOT / "README.md", ROOT / "RUNBOOK.md"]:
+    for path in sorted(ROOT.glob("docs/**/*.md")) + [ROOT / "README.md", ROOT / "RUNBOOK.md"]:
         relative = str(path.relative_to(ROOT))
         text = path.read_text()
         declared = SNAPSHOT_MARKER in text

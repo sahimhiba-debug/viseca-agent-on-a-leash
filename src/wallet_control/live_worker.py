@@ -27,7 +27,7 @@ Crash recovery
 `RunState` lives only in memory. If this process crashes mid-run, an in-memory-only
 design would forget every prior decision and approved-spend entry, risking both a
 duplicate decision submission and a rolling-window limit being silently bypassed on
-restart (see docs/SECOND_ADVERSARIAL_AUDIT.md, "live worker crash consistency").
+restart (see docs/archive/SECOND_ADVERSARIAL_AUDIT.md, "live worker crash consistency").
 Two best-effort mitigations, neither of which is a full distributed-transaction
 guarantee:
 
@@ -545,7 +545,7 @@ class LiveWorker:
             resolved_at=datetime.now(timezone.utc),
             # Required: a human-approved step-up must mint a payment authority like
             # any other approval, or it cannot later be revoked. See
-            # docs/DEEP_SECURITY_RESEARCH.md (V2).
+            # docs/archive/DEEP_SECURITY_RESEARCH.md (V2).
             mandate=handle.mandate,
         )
         self._save_checkpoint(handle)

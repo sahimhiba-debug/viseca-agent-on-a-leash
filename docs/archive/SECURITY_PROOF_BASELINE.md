@@ -64,5 +64,5 @@ the only constructor of `ChargeRecord` in the repository, in order:
 > re-verified against persisted state at the only point money moves."*
 
 Every word of that sentence is a predicate to be attacked in
-`docs/AUTHORITY_ALGEBRA.md`. The findings of this pass are in
-`docs/FINAL_SECURITY_POSITION.md`.
+`docs/archive/AUTHORITY_ALGEBRA.md`. The findings of this pass are in
+`docs/archive/FINAL_SECURITY_POSITION.md`.

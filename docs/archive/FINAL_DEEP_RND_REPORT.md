@@ -51,7 +51,7 @@ corpus 133/133, matrix 17/17, probe 18/18. Every figure confirmed.
 
 ## 4–5. Hypotheses and cross-invariant findings
 
-Full register in `docs/RESEARCH_LOG.md`, R17–R29. The load-bearing ones:
+Full register in `docs/archive/RESEARCH_LOG.md`, R17–R29. The load-bearing ones:
 
 | # | hypothesis | result |
 | --- | --- | --- |

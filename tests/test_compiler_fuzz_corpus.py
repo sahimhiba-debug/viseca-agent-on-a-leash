@@ -9,7 +9,7 @@ Where this corpus finds the compiler genuinely does not understand a phrasing, t
 test asserts the SAFE fallback (no false authority, a visible open_question), not
 full understanding -- and the gap is noted in a comment so it is an honest,
 documented limitation rather than a silent one. See
-docs/MASTER_R_AND_D_AUDIT.md, "Fuzzing results" for the corpus's summary findings.
+docs/archive/MASTER_R_AND_D_AUDIT.md, "Fuzzing results" for the corpus's summary findings.
 """
 
 from wallet_control.mandate import UncertaintyPolicy

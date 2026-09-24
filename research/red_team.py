@@ -1,10 +1,10 @@
 """R&D Track H: a local adversarial shopping-agent simulator and attack matrix
-(docs/RND_RED_TEAM.md). NOT the production shopping agent -- a test-only
+(docs/archive/RND_RED_TEAM.md). NOT the production shopping agent -- a test-only
 adversary attempting a fixed, enumerated list of attacks directly against the
 real decision_engine/payment/mandate code (no mocks of the code under test).
 
 Each attack is a self-contained function returning an `AttackResult`. Every
-attack maps to a specific invariant in docs/SECURITY_INVARIANTS.md, so a failure
+attack maps to a specific invariant in docs/archive/SECURITY_INVARIANTS.md, so a failure
 here points directly at which guarantee broke. This module contains no test
 assertions itself (see tests/test_red_team_matrix.py for the pytest wrapper that
 asserts every result PASSes) -- it exists standalone so `scripts/run_red_team.py`

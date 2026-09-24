@@ -2,7 +2,7 @@
 
 > **A policy is not a list of rules. It is a set of purchases —**
 > **and the set is drawn over facts, some of which the party being judged writes.**
-> [docs/THE_THESIS.md](THE_THESIS.md)
+> [docs/THE_THESIS.md](../THE_THESIS.md)
 
 Every beat below shows the same object from a different side: how big the set is,
 which of your words made it that size, where its boundary is undetermined, what can

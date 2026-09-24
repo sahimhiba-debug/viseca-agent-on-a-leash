@@ -91,7 +91,7 @@ docstring):
 
 ## Payment execution boundary
 
-See [ARCHITECTURE.md](ARCHITECTURE.md#approve-is-not-payment) and
+See [ARCHITECTURE.md](../ARCHITECTURE.md#approve-is-not-payment) and
 `tests/test_payment_boundary.py`: a decline or a pending step_up can never be
 charged, a charge can never exceed the approved amount, one authorization can
 never be charged twice, a charge is bound to the merchant that was actually
