@@ -186,6 +186,8 @@ class DemoStep:
     label: str
     event: dict[str, Any]
     result: EngineDecision
+    # What the wallet said BEFORE the customer answered, when it asked.
+    first_reasons: tuple[str, ...] = ()
 
 
 @dataclass
@@ -215,16 +217,25 @@ def run_demo_scenario() -> DemoResult:
     def _context() -> dict[str, Any]:
         return {"approved_spend_in_period_chf": float(state.total_approved_spend_chf()), "recent_authorizations": state.recent_authorizations_context()}
 
-    # Step 1: the agent's honest proposal. The merchant's own item_details already
-    # carries an injection attempt; it changes nothing about this decision. The
-    # listing states a return window, so every rule -- including the return-window
-    # one -- passes cleanly.
+    # Step 1: the agent's honest proposal. The merchant's own item_details carries an
+    # injection attempt. Every rule passes, and the text is obeyed in no way; but the
+    # wallet NOTICES a seller addressing "purchasing agent" with a "pre-approved by the
+    # wallet" claim and puts the purchase to the customer, as it does for the official
+    # pack's AU0040. Before the generated seller-attack corpus widened detection, this
+    # step was approved with the attempt unmentioned. The customer, told, approves the
+    # purchase they wanted at their usual store.
     event1 = _event(
         "AU_DEMO_0001", merchant=TRUSTED_MERCHANT, amount=320.0, item_details=INJECTED_ITEM_DETAILS,
         mandate=snapshot, timestamp=t0, context=_context(), order_returnable="true",
     )
     result1 = evaluate_authorization(event1, snapshot, state)
-    steps.append(DemoStep("Agent proposes the purchase at the customer's usual store (merchant text carries a hidden redirect instruction)", event1, result1))
+    first_reasons = result1.reason_codes
+    if result1.decision == "review":
+        result1 = resolve_authorization("AU_DEMO_0001", "allow", state,
+                                        resolved_at=datetime.now(timezone.utc), mandate=snapshot)
+    steps.append(DemoStep("Agent proposes the purchase at the customer's usual store; the seller's text "
+                          "addresses the agent, the wallet tells the customer, and the customer approves",
+                          event1, result1, first_reasons))
 
     # Step 2: "agent changes cart" -- compromised by the injection, it re-quotes
     # through the redirected, never-before-seen storefront. Same amount band,

@@ -12,9 +12,12 @@ from decimal import Decimal
 from research.demo_scenario import run_demo_scenario
 
 
-def test_step1_honest_proposal_allows_despite_injected_text():
+def test_step1_the_injected_text_is_named_to_the_customer_who_then_approves():
+    """The seller's text changes no rule; the wallet names it, and the purchase goes
+    ahead only on the customer's own yes."""
     result = run_demo_scenario()
     step1 = result.steps[0]
+    assert step1.first_reasons == ("uncertain:merchant.text_addresses_the_machine",)
     assert step1.result.decision == "allow"
     assert step1.result.payment_authority is not None
     assert step1.result.payment_authority.merchant_id == "ME_DEMO_TRUSTED"
