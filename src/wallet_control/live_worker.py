@@ -143,6 +143,9 @@ class RunHandle:
     # final answer for). Deciding is not the same as delivering: a redelivery of an
     # id missing from here means our answer never landed, and it is sent again.
     acknowledged: set[str] = field(default_factory=set)
+    # Ids THIS process decided and failed to deliver. After a restart both sets are
+    # empty, and the platform is asked instead -- see `_handle_envelope`.
+    undelivered: set[str] = field(default_factory=set)
 
 
 class LiveWorker:
@@ -243,8 +246,12 @@ class LiveWorker:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(handle.state.to_snapshot()))
-        tmp.replace(path)  # atomic on POSIX and Windows: never leaves a half-written checkpoint
+        # The poll thread saves on every delivery and the customer's answer saves
+        # from another thread; both write the same `.tmp`. The run's lock makes the
+        # snapshot and the write one step, so neither sees the other half-done.
+        with handle.state.decision_guard():
+            tmp.write_text(json.dumps(handle.state.to_snapshot()))
+            tmp.replace(path)  # atomic on POSIX and Windows: never leaves a half-written checkpoint
 
     def register_run(self, run_id: str, mandate: MandateSnapshot) -> RunHandle:
         """Restore this run's state, or start a fresh one.
@@ -471,6 +478,15 @@ class LiveWorker:
             if authorization_id in handle.acknowledged:
                 logger.info("authorization_id=%s already decided (%s) and accepted; reconciling without re-evaluating", authorization_id, result.decision)
                 return
+            # A restarted worker has forgotten what it delivered, and the platform
+            # redelivers a purchase while it waits for the customer. Resending then
+            # would be a second automated decision after step_up, which the contract
+            # forbids -- so unless this process saw its own delivery fail, the
+            # platform is asked, and only a purchase it holds NO answer for is sent.
+            if authorization_id not in handle.undelivered and self._platform_has_answer(authorization_id) is not False:
+                handle.acknowledged.add(authorization_id)
+                logger.info("authorization_id=%s already decided (%s); the platform holds an answer or cannot be asked, so nothing is sent again", authorization_id, result.decision)
+                return
             # Decided, but the platform never took our answer -- which is why it is
             # asking again. The stored decision is sent, never a fresh one. In the
             # first sandbox run this branch returned instead, and the platform
@@ -485,8 +501,25 @@ class LiveWorker:
 
         if self._submit_with_retry(result):
             handle.acknowledged.add(authorization_id)
+            handle.undelivered.discard(authorization_id)
             if result.decision == "review" and self._on_step_up is not None:
                 self._on_step_up(run_id, result, event)
+        else:
+            handle.undelivered.add(authorization_id)
+
+    def _platform_has_answer(self, authorization_id: str) -> bool | None:
+        """Does the platform's listing show an answer for this id? None if it cannot
+        be asked -- which the caller treats as yes: not resending costs a timeout,
+        resending could be a second decision on a purchase the customer is holding."""
+        try:
+            records = _listing_records(self._client.list_authorizations())
+        except Exception as exc:                  # noqa: BLE001 -- any failure means "cannot establish"
+            logger.warning("could not ask the platform about %s (%s)", authorization_id, exc)
+            return None
+        for record in records:
+            if record.get("authorization_id") == authorization_id:
+                return _record_is_answered(record)
+        return False
 
     def _submit_with_retry(self, result: EngineDecision) -> bool:
         """Deliver one decision. Returns True once the platform holds an answer for
