@@ -124,4 +124,4 @@ def test_the_official_replay_is_untouched_by_this():
     from wallet_control.offline_replay import replay_all
 
     result = replay_all()
-    assert result.total_counts() == {"allow": 17, "review": 4, "block": 24}
+    assert result.total_counts() == {"allow": 12, "review": 9, "block": 24}

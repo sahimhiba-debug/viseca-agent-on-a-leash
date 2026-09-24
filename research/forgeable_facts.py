@@ -84,7 +84,7 @@ HONEST: dict[str, Any] = {
 
 def _decide(spec: dict[str, Any], *, aid: str, state: RunState | None = None) -> str:
     mandate = make_mandate(instruction="probe", uncertainty_policy=UncertaintyPolicy.ASK,
-                           hard_rules=RULES, card_id=CARD)
+                           hard_rules=RULES + list(spec.get("extra_rules", [])), card_id=CARD)
     merchant = load_merchants()[spec["merchant"]]
     event = make_event(mandate=mandate, authorization_id=aid, amount=spec["unit_price"],
                        merchant_id=spec["merchant"],
@@ -104,6 +104,10 @@ def _decide(spec: dict[str, Any], *, aid: str, state: RunState | None = None) ->
         # something to breach. Recorded directly rather than by deciding a second
         # purchase, which would drag the duplicate machinery into an unrelated probe.
         run.record_decision(f"{aid}_prior", "allow", Decimal(str(spec["prior"])), AT,
+                            merchant_id=spec["merchant"], basket_key=())
+    if spec.get("errand_prior"):
+        # One purchase already approved for this errand, in the wallet's own ledger.
+        run.record_decision(f"{aid}_errand", "allow", Decimal("10"), AT - timedelta(days=1),
                             merchant_id=spec["merchant"], basket_key=())
     return evaluate_authorization(event, mandate, run).decision
 
@@ -140,6 +144,12 @@ PROBES: dict[str, tuple[dict, dict | None]] = {
     "item.unrequested_present": ({"item_id": "IT0005", "item_name": "voucher produce",
                                   "item_category": "gift_card"},
                                  {"item_category": "groceries"}),
+    # THE ERRAND LEDGER. Only for this probe, so the one-off rule does not colour the
+    # others (a prior approval IS a done errand, which would move the clock probe).
+    # The agent has nothing to relabel: the fact is the wallet's own record.
+    "order.errand_already_fulfilled": ({"extra_rules": [HardRule(field="order.errand_already_fulfilled",
+                                                                 operator="=", value="false")],
+                                        "errand_prior": True}, None),
     # THE CLOCK. Spend the rolling ceiling, then try to escape it by claiming the
     # purchase happened in a different week. It works on the decision -- and it is
     # not a forgery, because a purchase at another moment is another purchase. That

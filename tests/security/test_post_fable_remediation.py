@@ -80,13 +80,14 @@ def test_an_amount_that_is_not_a_limit_does_not_become_one(text):
 
 
 def test_unsupported_restrictive_intent_blocks_confirmation():
-    """THE FIX. A quantity is not expressible in the official vocabulary, so a customer
-    who asks for one must see that before the mandate has any authority."""
-    compiled = compile_instruction("Buy one grocery item for CHF 20 or less. Ask me when uncertain.")
+    """THE FIX. A count other than one is not enforced (one is: the one-off errand
+    rule), so a customer who asks for three must see that before the mandate has any
+    authority."""
+    compiled = compile_instruction("Buy three grocery items for CHF 20 or less. Ask me when uncertain.")
     assert compiled.unsupported_restrictions, "the fixture must carry unsupported intent"
 
     draft = Mandate.draft(
-        "Buy one grocery item for CHF 20 or less. Ask me when uncertain.",
+        "Buy three grocery items for CHF 20 or less. Ask me when uncertain.",
         compiled.hard_rules, compiled.uncertainty_policy,
         compiled.guidance, compiled.open_questions, compiled.unsupported_restrictions,
     )

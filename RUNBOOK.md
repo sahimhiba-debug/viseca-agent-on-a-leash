@@ -45,7 +45,7 @@ curl -s localhost:8420/api/health | python3 -m json.tool
 ```
 
 `matches_regression_boundary` must be `true`. It re-runs the official replay and
-compares against 45 events / 17 allow / 4 review / 24 block. If it is `false`,
+compares against 45 events / 12 allow / 9 review / 24 block. If it is `false`,
 something has changed the decision engine — **do not demo**, run the test suite.
 
 ## 4. Run the tests
@@ -68,7 +68,7 @@ python3 -m pytest tests/test_product_surface.py -q # attacks, audit, API
 source .venv/bin/activate && python3 scripts/run_replay.py
 ```
 
-The last line must read `TOTAL events: 45  {'allow': 17, 'review': 4, 'block': 24}`.
+The last line must read `TOTAL events: 45  {'allow': 12, 'review': 9, 'block': 24}`.
 This is a **regression boundary, not a score** — there are no official
 expected-decision labels, and this number must not be "improved".
 

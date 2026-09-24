@@ -395,6 +395,8 @@ function narrate(card){
   if (card.lookalike) return ["Lookalike seller", `A shop named almost like ${card.lookalike}, which ${who} knows. It is not the same shop, so it is blocked.`];
   if (card.retry_at) return ["Rolling limit", `This would go past ${who}'s limit over time. The wallet says exactly when it would fit again.`];
   if (r.includes("already placed")) return ["Possible duplicate", `The same order again. Maybe intended, maybe not, so ${who} decides.`];
+  if (r.includes("already bought once")) return ["Errand already done", `${who} asked for one. One was already approved, so another is a question, not a purchase.`];
+  if (r.includes("more than the one thing")) return ["More than asked for", `${who} asked for one thing. This order is for more, so it is refused.`];
   if (r.includes("device")) return ["Someone else driving?", `The session switched to a device not seen before. Only ${who} can say if it is really them.`];
   if (r.includes("returned") || r.includes("return")) return ["Missing fact", `The seller says nothing about returns. The wallet does not guess; it asks ${who}.`];
   if (card.verdict === "review") return ["Needs the customer", `The wallet cannot tell from the facts, so it asks ${who}.`];

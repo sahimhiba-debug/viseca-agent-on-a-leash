@@ -173,7 +173,7 @@ SPLIT_SPELLINGS = (
 # going quietly blind. That is exactly how 19/2/24 survived in the audit package.
 EXPECTED_STATEMENTS = {
     "README.md": 1,
-    "docs/BASELINE_CURRENT.md": 5,
+    "docs/BASELINE_CURRENT.md": 6,
     "docs/FINAL_AUDIT_PACKAGE.md": 6,
     "docs/THE_THESIS.md": 1,
 }

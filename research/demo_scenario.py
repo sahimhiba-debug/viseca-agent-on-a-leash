@@ -255,7 +255,17 @@ def run_demo_scenario() -> DemoResult:
         mandate=snapshot, timestamp=t2, context=_context(), order_returnable="true",
     )
     result3 = evaluate_authorization(event3, snapshot, state)
-    steps.append(DemoStep("Customer has the agent complete the purchase at the original, trusted store instead", event3, result3))
+    # A monitor was already approved at step 1, and this is a one-off errand ("the
+    # monitor I chose"), so the wallet asks rather than silently buying a second one.
+    # The old story called this continuation legitimate and approved it on its own:
+    # the four-monitor defect, told as a success. The customer now says yes to it.
+    if result3.decision == "review":
+        # Real clock, as the API does: the customer answers now, and the payment
+        # boundary checks the authority's expiry against the real clock.
+        result3 = resolve_authorization("AU_DEMO_0003", "allow", state,
+                                        resolved_at=datetime.now(timezone.utc), mandate=snapshot)
+    steps.append(DemoStep("Customer has the agent complete the purchase at the original, trusted store instead, "
+                          "and confirms it when the wallet asks about a second monitor", event3, result3))
 
     legitimate_charge: ChargeRecord | None = None
     tampered_charge_error: str | None = None

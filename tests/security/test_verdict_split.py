@@ -43,16 +43,19 @@ def test_every_decision_reports_both_verdicts():
             assert decision.security_verdict is not None, decision.authorization_id
 
 
-def test_the_official_corpus_contains_a_policy_allow_that_security_stopped():
-    """The case a single-verdict engine cannot represent, and the reason this
-    mechanism exists. On the official data it is AU0036: CHF 289 at PixelHarbor,
-    every customer rule satisfied, escalated because the wallet could not tell
-    whether it was the same order twice."""
-    found = [(s.scenario_id, d.authorization_id) for s in replay_all().scenarios
-             for d in s.decisions
-             if d.policy_verdict == "allow" and d.security_verdict != "allow"]
-    assert found, "the signature case disappeared from the official corpus"
-    assert ("SCEN0004", "AU0036") in found, found
+def test_the_official_signature_case_is_escalated_by_both_halves():
+    """AU0036 (CHF 289 at PixelHarbor, 25 minutes after the first monitor) used to be
+    the corpus's policy-allow the wallet stopped. Under "the monitor I chose" it is
+    also a second monitor, so the customer's own one-off rule asks about it as well.
+    Both halves say review, for different reasons, and the split still keeps them
+    apart: the policy half does not claim the duplicate check, nor the reverse. The
+    policy-clean, wallet-stopped shape is exercised by the constructed test below."""
+    decision = next(d for s in replay_all().scenarios for d in s.decisions
+                    if d.authorization_id == "AU0036")
+    assert decision.decision == "review"
+    assert decision.policy_verdict == "review" and decision.security_verdict == "review"
+    assert set(decision.reason_codes) == {"uncertain:order.errand_already_fulfilled",
+                                          "uncertain:order.duplicate_suspected"}
 
 
 def test_the_official_corpus_contains_policy_blocks_with_nothing_untrustworthy():

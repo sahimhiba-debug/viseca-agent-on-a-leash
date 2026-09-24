@@ -158,6 +158,11 @@ FACTS: tuple[Provenance, ...] = (
         "official catalogue: a mismatch is refused, and goods it cannot identify are "
         "put to you rather than taken on the agent's word."),
     Provenance(
+        "order.errand_already_fulfilled", "this wallet's own decision ledger", BOUND,
+        "nothing needs to: the agent never supplies it",
+        "The agent cannot affect this. It is the wallet's own record of what it has "
+        "already approved for this errand."),
+    Provenance(
         "item.unrequested_present", "the party proposing the purchase", REFUTABLE,
         "derived from item.category, so it inherits that check",
         "Derived from the kinds of thing in the basket, so it is as strong as those."),

@@ -116,6 +116,7 @@ def rule_label(rule: HardRule) -> str:
         "item.name_contains": f"Only the item you named ({v})",
         "item.size": f"Size {v} only",
         "item.unrequested_present": "Nothing you did not ask for",
+        "order.errand_already_fulfilled": "Once only: after one purchase, it asks you",
         "order.return_window_days": f"Returnable within {v} days",
         "session.integrity_risk": "Pause if someone else seems to be driving",
     }.get(rule.field, rule.field.replace(".", " ").replace("_", " "))

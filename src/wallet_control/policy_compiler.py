@@ -337,6 +337,20 @@ _UNCERTAINTY_DECLINE_RE = re.compile(rf"(?:decline|reject)(?:\s+it)?\s+{_UNCERTA
 _UNCERTAINTY_APPROVE_RE = re.compile(rf"(?:approve|allow)(?:\s+(?:it|anything))?\s+{_UNCERTAIN_TRIGGER}", re.IGNORECASE)
 
 
+# A ONE-OFF errand: a single thing, bought once. Narrow on purpose -- a missed
+# errand is disclosed by the quantity marker below, a false one would turn a
+# customer's second legitimate order into a question.
+_ERRAND_RE = re.compile(
+    r"\b(?:buy|order|purchase|get)\s+(?:exactly\s+|at\s+most\s+|only\s+)?(?:one|a\s+single)\b"
+    r"|\bthe\s+[\w\-' ]{1,40}?\s(?:I|we)\s+(?:have\s+)?(?:chose|chosen|picked|selected|saved|liked|want|wanted)\b"
+    r"|\breplace\s+(?:my|our)\b",
+    re.IGNORECASE)
+_RECURRING_RE = re.compile(
+    r"\b(?:every|each\s+(?:day|week|month|time)|weekly|daily|monthly|whenever|recurring|"
+    r"subscription|regular\s+(?:order|delivery|deliveries)|(?:per|a|an)\s+(?:day|week|month|year))\b",
+    re.IGNORECASE)
+
+
 # --- intent coverage: what the customer wrote that no rule represents ---------------
 #
 # This module's docstring has always claimed that it "never treats absence of a
@@ -369,11 +383,11 @@ _COVERAGE_MARKERS: tuple[tuple[str, "re.Pattern[str]", str, str], ...] = (
                    r"(?:exactly\s+|at\ most\s+|up\ to\s+|a\ single\s+|no\ more\ than\s+)?"
                    r"(?:one|two|three|four|five|ten|twenty|a\ single|\d+)\b",
                    re.IGNORECASE | re.VERBOSE),
-        "",                       # no rule field can express it -- see the message
-        "You asked for a specific number of items. The rule format has no way to express a quantity "
-        "or a total number of purchases -- it can only limit the amount of each order and the amount "
-        "across a rolling window -- so this part of your instruction is NOT enforced. Revoke the "
-        "mandate once you have what you asked for.",
+        # ONE is expressible (see _ERRAND_RE below); any other count is not.
+        "order.errand_already_fulfilled",
+        "You asked for a specific number of items. This wallet enforces a one-off errand (one "
+        "unit, then it asks you before buying again) but not larger counts, so this part of your "
+        "instruction is NOT enforced. Revoke the mandate once you have what you asked for.",
     ),
     (
         "familiarity",
@@ -744,6 +758,21 @@ def compile_instruction(instruction: str) -> CompiledPolicy:
                 "never says WHAT you requested -- so there is nothing to compare a "
                 "basket against, and this part is NOT enforced. Name the kind of thing "
                 "you are buying (for example \"groceries\") and it becomes a rule.")
+
+    # --- a one-off errand ------------------------------------------------------------
+    # "Buy the monitor I chose", "Replace my worn shoes", "Buy one grocery item" name
+    # ONE thing to buy once. Nothing represented that, so the official manipulated-
+    # agent run approved four monitors (CHF 1,430.40) and the running-shoes run three
+    # pairs. The rule format lets a solution name its own facts ("a nonempty string
+    # naming the fact to check"; only extra rule KEYS are forbidden), so this one is
+    # the wallet's own ledger: more than one unit in the order is refused, and a
+    # further order after one was approved is put to the customer, because whether
+    # the first was delivered, cancelled or returned is not something it can see.
+    # A recurring phrasing ("every week", "weekly") is never read as an errand.
+    if _ERRAND_RE.search(text) and not _RECURRING_RE.search(text):
+        rules.append(HardRule(field="order.errand_already_fulfilled", operator="=", value="false"))
+        guidance.append("This is a one-off errand: one unit, and after one approved purchase the "
+                        "wallet asks you before any further purchase.")
 
     # --- session integrity ----------------------------------------------------------
     if _SESSION_INTEGRITY_RE.search(text):

@@ -503,7 +503,7 @@ with what each now has to prove before its passes count:
 ## The numbers, all checkable
 
 ```
-official replay      45 events · 17 allow / 4 ask / 24 block · byte-identical ×3
+official replay      45 events · 12 allow / 9 ask / 24 block · byte-identical ×3
 tests                1,789 passed · 5 reported skips
 mutation             41 mutants applied · 41 killed · 0 survived
 adversarial corpus   133 / 133 held

@@ -180,7 +180,7 @@ data/official/             Read-only copy of the official synthetic data pack
 ui/stage.html              The demo: the customer's phone and the purchase stream
 ui/index.html              The lab: every panel and proof, mobile-first, one file,
                            no framework, no build step
-tests/                     1864 tests
+tests/                     1896 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      The system as it is now: thesis, architecture, security
                            model, claims, demo script
@@ -249,7 +249,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1864 tests**, of which 5 are reported skips rather than silent ones — **6 in a
+**1896 tests**, of which 5 are reported skips rather than silent ones — **6 in a
 fresh clone**, because one test validates the organisers' own example fixture and
 that file lives in their repository rather than this one (`reference/` is not
 vendored). Our events are still checked against the official schema everywhere: that
@@ -269,7 +269,7 @@ breaks 41 security mechanisms in `src/wallet_control/`, one at a time, and check
 suite notices: **41 killed, 0 survived.** Its first run found a real gap and the
 missing test was written.
 
-Official replay: **45 events, 17 allow / 4 review / 24 block** -- a regression
+Official replay: **45 events, 12 allow / 9 review / 24 block** -- a regression
 boundary, not a score. There are no official expected-decision labels.
 
 ## Offline replay results (this engine's actual output, not an answer key)
@@ -286,10 +286,16 @@ behind every one of the 45 decisions.
 | --- | ---: | ---: | ---: | ---: |
 | SCEN0000 Connection check | 1 | 1 | 0 | 0 |
 | SCEN0001 Household budget | 10 | 5 | 0 | 5 |
-| SCEN0002 Requested item and order terms | 12 | 3 | 1 | 8 |
+| SCEN0002 Requested item and order terms | 12 | 1 | 3 | 8 |
 | SCEN0003 Session integrity | 11 | 4 | 1 | 6 |
-| SCEN0004 Manipulated agent | 11 | 4 | 2 | 5 |
-| **Total** | **45** | **17** | **4** | **24** |
+| SCEN0004 Manipulated agent | 11 | 1 | 5 | 5 |
+| **Total** | **45** | **12** | **9** | **24** |
+
+"Buy the 27-inch monitor I chose" and "Replace my worn road-running shoes" are
+one-off errands. The first matching purchase goes through; every further one is put
+to the customer, because the wallet cannot see whether the first was delivered,
+cancelled or returned. Before this rule the manipulated-agent run approved four
+monitors (CHF 1,430.40) and the running-shoes run three pairs.
 
 ## Further reading
 

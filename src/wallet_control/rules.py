@@ -43,6 +43,13 @@ class RuleContext:
     # direction would be a lie. The outcome is `unknown` either way; membership here
     # only changes the sentence they are given.
     unobserved_periods: frozenset[int] = frozenset()
+    # Purchases this run has already APPROVED under this mandate (engine- or
+    # customer-approved), from the wallet's own ledger. Read by the one-off-errand
+    # rule; the agent cannot author it.
+    errand_prior_approvals: tuple[str, ...] = ()
+    # False when this run's state was resumed without its ledger: an empty
+    # `errand_prior_approvals` is then what SURVIVED, not what happened.
+    errand_ledger_complete: bool = True
 
 
 @dataclass(frozen=True)
@@ -245,6 +252,32 @@ def _evaluate_rule(rule: HardRule, facts: PurchaseFacts, ctx: RuleContext) -> Ru
         ok = not outside if rule.operator == "in" else bool(outside)
         detail = f"item_categories={list(facts.item_categories)}" + (f", outside requested set: {outside}" if outside else "")
         return RuleEvaluation(rule, "pass" if ok else "fail", detail)
+
+    if field == "order.errand_already_fulfilled":
+        # A ONE-OFF errand ("the monitor I chose", "replace my shoes", "buy one
+        # item"). Every purchase approved under this mandate passed its item rules, so
+        # an earlier approval is an earlier purchase of the thing asked for. Whether
+        # that order was delivered, cancelled or sent back is not something the wallet
+        # can see, so the second one is UNKNOWN -- a question for the customer under
+        # "ask me", never a silent third monitor and never a guessed refusal.
+        if not facts.items:
+            return RuleEvaluation(rule, "unknown", "the order carries no item lines to count")
+        units = sum(max(1, int(i.quantity)) for i in facts.items)
+        if units > 1 and not _compare(rule.operator, "true", rule.value):
+            # Certain, not uncertain: this one order is already more than one thing.
+            return RuleEvaluation(rule, "fail", f"this order is for {units} units of a one-off errand")
+        if not ctx.errand_prior_approvals and not ctx.errand_ledger_complete:
+            return RuleEvaluation(rule, "unknown", "this wallet restarted without its record of what was "
+                                  "already approved, so it cannot tell whether this errand was done")
+        if not ctx.errand_prior_approvals:
+            ok = _compare(rule.operator, "false", rule.value)
+            return RuleEvaluation(rule, "pass" if ok else "fail", "nothing has been approved for this errand yet")
+        if _compare(rule.operator, "true", rule.value):
+            return RuleEvaluation(rule, "pass", "this errand already has an approved purchase")
+        return RuleEvaluation(
+            rule, "unknown",
+            f"this errand already has an approved purchase ({', '.join(ctx.errand_prior_approvals)}); "
+            "whether it was delivered, cancelled or returned is not something the wallet can see")
 
     if field == "item.unrequested_present":
         if ctx.requested_item_categories is None:

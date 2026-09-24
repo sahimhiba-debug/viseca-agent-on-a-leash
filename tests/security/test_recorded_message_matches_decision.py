@@ -95,13 +95,20 @@ def test_SCEN0004_contains_the_cases_the_demo_is_built_on():
     customer's own policy. Correcting that list surfaced a second and frankly better
     instance of the demo's own sentence: a seller writing instructions to the machine
     that holds the card is a more striking case than a repeated order."""
-    overrides = [d for d in _run("SCEN0004")
-                 if d["policy_verdict"] == "allow" and d["security_verdict"] != "allow"]
+    # SINCE THE ONE-OFF ERRAND RULE both purchases are ALSO the second and fourth
+    # monitor, so the customer's own rule asks about them too and their policy verdict
+    # is no longer "allow". The wallet checks are still what they were, and still
+    # credited to the wallet, which is the attribution this test exists to pin.
+    overrides = [d for d in _run("SCEN0004") if d["security_verdict"] != "allow"
+                 and any(c in d["reason_codes"] for c in ("uncertain:order.duplicate_suspected",
+                                                          "uncertain:merchant.text_addresses_the_machine"))]
     assert len(overrides) == 2, (
-        f"SCEN0004 has {len(overrides)} policy-allow/security-block decisions; the demo "
+        f"SCEN0004 has {len(overrides)} decisions escalated by a wallet check; the demo "
         "script names them on screen")
 
-    by_code = {d["reason_codes"][0]: d for d in overrides}
+    by_code = {next(c for c in d["reason_codes"] if c in ("uncertain:order.duplicate_suspected",
+                                                          "uncertain:merchant.text_addresses_the_machine")): d
+               for d in overrides}
     assert set(by_code) == {"uncertain:order.duplicate_suspected",
                             "uncertain:merchant.text_addresses_the_machine"}, sorted(by_code)
     for decision in overrides:

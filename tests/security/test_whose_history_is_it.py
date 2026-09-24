@@ -143,4 +143,4 @@ def test_a_merchant_initiated_row_counts_as_the_customers_own():
 def test_the_official_replay_does_not_move():
     """The demo card has no agent-only merchants. A latent defect fixed with no
     scenario forcing it."""
-    assert replay_all().total_counts() == {"allow": 17, "review": 4, "block": 24}
+    assert replay_all().total_counts() == {"allow": 12, "review": 9, "block": 24}

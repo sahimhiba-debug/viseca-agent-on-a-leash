@@ -189,7 +189,9 @@ class ResolveRequest(BaseModel):
 # `expected: 17/4/24, matches_regression_boundary: false`. An internally
 # contradictory health check is worse than none: it is the surface a teammate reads
 # thirty seconds before going on stage.
-REGRESSION_BOUNDARY = {"events": 45, "allow": 17, "review": 4, "block": 24}
+# Moved 17/4/24 -> 12/9/24 when "the monitor I chose" and "replace my shoes" became
+# one-off errands: the 2nd-4th monitor and the 2nd-3rd pair are put to the customer.
+REGRESSION_BOUNDARY = {"events": 45, "allow": 12, "review": 9, "block": 24}
 
 
 @app.get("/api/health")

@@ -1,5 +1,8 @@
 # Final agent security audit
 
+<!-- snapshot -->
+> **SNAPSHOT — not maintained.** Figures below were measured when this was written; the official replay split has moved since (see `docs/BASELINE_CURRENT.md`).
+
 Exactly what the agent can see, and what it can do with it.
 
 Updated after the planner was rebuilt around a tool, an objective function and a

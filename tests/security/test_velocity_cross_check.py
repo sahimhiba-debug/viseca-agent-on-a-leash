@@ -166,4 +166,4 @@ def test_the_official_replay_is_unmoved():
     """Asserted, not assumed: observed never exceeds reported on the official corpus."""
     from wallet_control.offline_replay import replay_all
 
-    assert replay_all().total_counts() == {"allow": 17, "review": 4, "block": 24}
+    assert replay_all().total_counts() == {"allow": 12, "review": 9, "block": 24}
