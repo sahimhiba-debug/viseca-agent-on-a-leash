@@ -1,5 +1,34 @@
 # Agent on a Leash -- Wallet Control
 
+## In two minutes
+
+**An AI shopping agent never holds the card.** It proposes a purchase; a wallet,
+independent of the agent, decides from one sentence the customer wrote, asks the
+customer on their phone when it cannot tell, and stops everything with one tap. The
+agent can be clever, wrong or hostile: it can propose, never authorise.
+
+**See it:** `uvicorn wallet_control.api:app --port 8420`, then open
+[`localhost:8420/stage.html`](ui/stage.html). Keys: → next purchase · D decline ·
+L pull the leash · S *same price, different answer*. Script: [docs/FINAL_DEMO_SCRIPT.md](docs/FINAL_DEMO_SCRIPT.md) · jury answers: [docs/JURY_ANSWERS.md](docs/JURY_ANSWERS.md).
+
+**What was measured** (each line re-runs with one command or one test):
+
+| | result | where |
+| --- | --- | --- |
+| official data, 45 purchases | 12 allowed · 9 asked · 24 blocked; "the monitor I chose" is now one monitor, not four | `scripts/run_replay.py` |
+| same CHF 289, eight variations of one purchase | a card set as tightly as a card can be says yes to 8; the wallet says yes to 1 | stage, key **S** · `tests/test_stage.py` |
+| four brains, same wallet: deterministic, Apertus 1.5 70B, gpt-4.1-mini, hostile | **0** purchases approved that break the customer's sentence (independent referee; its negative control finds 23) | [docs/REAL_MODEL_PLANNER.md](docs/REAL_MODEL_PLANNER.md) |
+| 288 generated seller attacks × the 45 official purchases | **0** decisions made more permissive; 67 of 96 held-out attempts named to the customer | [docs/GENERATED_CORPUS.md](docs/GENERATED_CORPUS.md) |
+| 840 generated customer instructions | last blind measurement: 3 of 200 lost a restriction silently, since fixed | [docs/GENERATED_CORPUS.md](docs/GENERATED_CORPUS.md) |
+
+**What it does not do**, said before you ask: spending windows are per run, not per
+mandate; single-use is per process; a seller can still *claim* the fact a rule checks
+("returns within 90 days"); the sentence compiler reads English only (other languages
+are flagged, not read); the model results are one 11-episode benchmark, not a ranking
+of models. Full list: [docs/WHAT_WE_REFUSE_TO_CLAIM.md](docs/WHAT_WE_REFUSE_TO_CLAIM.md).
+
+---
+
 > **A policy is not a list of rules. It is a set of purchases —**
 > **and the set is drawn over facts, some of which the party being judged writes.**
 > The agent is autonomous. The authority is not.
@@ -46,11 +75,13 @@ this codebase are the official integration versus local, demo-only extensions.
 2. **Decides ALLOW / REVIEW / BLOCK for each proposed purchase**, deterministically,
    from that policy plus the purchase facts --
    [`decision_engine.py`](src/wallet_control/decision_engine.py). Merchant-supplied
-   free text *is* read, in exactly one place and under whitelist patterns, and it can
-   only ever **narrow** a decision: no merchant string can raise a ceiling, satisfy a
-   requirement or turn a BLOCK into an ALLOW ([`facts.py`](src/wallet_control/facts.py),
-   invariant I9). We do **not** claim to detect a merchant lying in the narrowing
-   direction -- see [docs/WHAT_WE_REFUSE_TO_CLAIM.md](docs/WHAT_WE_REFUSE_TO_CLAIM.md).
+   free text *is* read, in exactly one place and under whitelist patterns, and it
+   **never changes the policy**: no merchant string raises a ceiling, removes a rule or
+   is obeyed as an instruction ([`facts.py`](src/wallet_control/facts.py), invariant
+   I9; 288 generated attacks widened 0 of 12,960 official decisions). It is, however,
+   the only evidence for two facts -- the return window and the size -- so a seller who
+   **claims** "returns within 90 days" satisfies a return rule, true or not. That is a
+   known limit, not a defence: see [docs/WHAT_WE_REFUSE_TO_CLAIM.md](docs/WHAT_WE_REFUSE_TO_CLAIM.md).
 3. **Separates that decision from actual payment execution.** ALLOW is
    authorization advice, not money moving -- [`payment.py`](src/wallet_control/payment.py).
 4. **Lets the customer confirm, tighten, or revoke** what they allowed, and answer
@@ -180,7 +211,7 @@ data/official/             Read-only copy of the official synthetic data pack
 ui/stage.html              The demo: the customer's phone and the purchase stream
 ui/index.html              The lab: every panel and proof, mobile-first, one file,
                            no framework, no build step
-tests/                     1999 tests
+tests/                     2000 tests
 scripts/                   Replay, adversarial suites, research experiments
 docs/                      The system as it is now: thesis, architecture, security
                            model, claims, demo script
@@ -249,7 +280,7 @@ python scripts/run_live_worker.py SCEN0000
 pytest -q
 ```
 
-**1999 tests**, of which 5 are reported skips rather than silent ones — **6 in a
+**2000 tests**, of which 5 are reported skips rather than silent ones — **6 in a
 fresh clone**, because one test validates the organisers' own example fixture and
 that file lives in their repository rather than this one (`reference/` is not
 vendored). Our events are still checked against the official schema everywhere: that

@@ -168,6 +168,9 @@ SPLIT_SPELLINGS = (
     # The markdown results table's total row. docs/OFFLINE_REPLAY.md stated 19/2/24
     # this way for three boundary moves and no spelling above could read it.
     r"\|\s*\*\*45\*\*\s*\|\s*\*\*(\d{1,2})\*\*\s*\|\s*\*\*(\d{1,2})\*\*\s*\|\s*\*\*(\d{1,2})\*\*\s*\|",
+    # The README's two-minute table: "12 allowed · 9 asked · 24 blocked". Added with
+    # the line, so the newest statement of the split is not the one the guard can't read.
+    r"(\d{1,2})\s*allowed\s*[·,/]\s*(\d{1,2})\s*asked\s*[·,/]\s*(\d{1,2})\s*blocked",
 )
 
 # What the guard must FIND, per document. A search that matches nothing passes every
@@ -175,7 +178,7 @@ SPLIT_SPELLINGS = (
 # a spelling this guard cannot read, the count drops and this fails LOUDLY rather than
 # going quietly blind. That is exactly how 19/2/24 survived in the audit package.
 EXPECTED_STATEMENTS = {
-    "README.md": 2,
+    "README.md": 3,
     "docs/OFFLINE_REPLAY.md": 2,
     "docs/BASELINE_CURRENT.md": 6,
     "docs/FINAL_AUDIT_PACKAGE.md": 6,

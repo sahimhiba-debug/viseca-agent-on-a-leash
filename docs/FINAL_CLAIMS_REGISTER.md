@@ -16,7 +16,8 @@ Every claim we would make in a pitch, classified. Five classes:
 | --- | --- | --- |
 | The agent proposes; the wallet decides | **PROVEN** | `test_runtime_boundary`, `test_NO_POLICY_BYPASS` |
 | An approved purchase is charged at most once, per process | **PROVEN** | 8 concurrent charges → 1; `test_execution_atomicity` |
-| Merchant text can only narrow a decision | **PROVEN** | `test_I7_*`, `test_prompt_injection` |
+| Merchant text never changes the policy (no ceiling raised, no rule removed, no instruction obeyed) | **PROVEN** | `test_I7_*`, `test_prompt_injection`; 0 of 12,960 generated-attack decisions widened |
+| Merchant text can only narrow a decision | **DO NOT CLAIM** | false for the two facts only merchant text supplies: "returns accepted within 90 days" turns a return-rule BLOCK into ALLOW when the platform marks the order returnable (known vulnerability 3) |
 | Revocation reaches a purchase awaiting the customer | **PROVEN** | `test_F1*`, `test_revocation_end_to_end` |
 | A customer's answer binds to the purchase shown | **PROVEN** | `test_human_consent_binding` |
 | Deleting a required field never buys permissiveness | **PROVEN** | `test_required_field_omission` |

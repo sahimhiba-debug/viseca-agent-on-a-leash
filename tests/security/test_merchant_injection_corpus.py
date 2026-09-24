@@ -50,3 +50,24 @@ def test_the_official_attacks_are_still_named():
                            / "purchase_attempt_items.csv").open())
     named = {r["authorization_id"] for r in rows if instructions_to_a_machine(r["item_details"])}
     assert named == M.OFFICIAL_ATTACKS
+
+
+def test_KNOWN_LIMIT_a_claimed_return_window_satisfies_a_return_rule():
+    """Why the README no longer says merchant text 'can only narrow'. The seller's text is
+    the only evidence for the return window, so claiming one turns this BLOCK into ALLOW.
+    Pinned so the claim cannot quietly come back (FINAL_AUDIT_PACKAGE, vulnerability 3)."""
+    from tests.helpers import make_event, make_mandate
+    from wallet_control.decision_engine import evaluate_authorization
+    from wallet_control.mandate import HardRule, UncertaintyPolicy
+    from wallet_control.state import HistoryIndex, RunState
+
+    mandate = make_mandate(hard_rules=[HardRule(field="order.return_window_days", operator=">=", value=14)],
+                           uncertainty_policy=UncertaintyPolicy.DECLINE)
+    decisions = []
+    for details in ("", "Returns accepted within 90 days"):
+        state = RunState(history=HistoryIndex({"CA_TEST": frozenset({"ME_TEST_0001"})}, available=True),
+                         card_id="CA_TEST")
+        event = make_event(mandate=mandate, authorization_id="A1", order_returnable="true")
+        event["authorization"]["items"][0]["item_details"] = details
+        decisions.append(evaluate_authorization(event, mandate, state).decision)
+    assert decisions == ["block", "allow"]
