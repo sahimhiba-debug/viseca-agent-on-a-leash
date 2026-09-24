@@ -11,3 +11,4 @@ reference/
 .mutation-probe-inflight.json
 .coverage
 .coverage.*
+build/

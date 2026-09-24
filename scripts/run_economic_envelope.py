@@ -22,7 +22,7 @@ Read the output with two qualifications, both load-bearing:
     nearer CHF 38,400-60,000 a year than the figures below. The finding is
     unchanged and the magnitude is not: the customer's stated policy contributes
     nothing to the bound, and what does bound it is an account limit they never set
-    as part of this delegation. See docs/SECURITY_OBJECT_FALSIFICATION.md.
+    as part of this delegation. See docs/archive/SECURITY_OBJECT_FALSIFICATION.md.
   * A year is an illustration of a RATE, not a prediction. There is no horizon to
     predict with -- which is the other half of the finding.
 

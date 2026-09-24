@@ -5,7 +5,7 @@ Two cases in this corpus were failing when it was first written, and both were
 real: N03 (the same authorization executed twice across a restart, because the
 payment executor's ledger lived in memory) and a fixture bug of the harness's own
 that briefly looked like a seventh vulnerability. Both are in
-docs/DEEP_SECURITY_RESEARCH.md.
+docs/archive/DEEP_SECURITY_RESEARCH.md.
 """
 
 from __future__ import annotations

@@ -57,7 +57,7 @@ adding only the classification and the explicit before/after pairing.
   explicit `changed_fields=[("item_categories", "{electronics}", "{electronics, subscriptions}")]`
   rather than something only inferable by reading the rule evidence.
 - **The demo scenario built for this pass** (§16 -- see
-  `docs/VERIFIABLE_AGENTIC_WALLET.md`) depends directly on this: an agent
+  `docs/archive/VERIFIABLE_AGENTIC_WALLET.md`) depends directly on this: an agent
   proposal that drifts from the customer's stated intent in a merchant-influenced
   way is the whole point of the demonstration.
 

@@ -1,6 +1,6 @@
 """Authorization drift: a structured, field-level diff between two purchase
 fingerprints -- what changed, not a numeric "risk score" (R&D Track D; see
-docs/RND_AUTHORIZATION_DRIFT.md for why a score was deliberately rejected).
+docs/archive/RND_AUTHORIZATION_DRIFT.md for why a score was deliberately rejected).
 
 Used in two places in `decision_engine.py`:
 

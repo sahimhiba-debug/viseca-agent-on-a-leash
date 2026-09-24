@@ -19,6 +19,7 @@ security failure -- it means a claim has gone stale and a document may now be ly
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -44,6 +45,10 @@ def test_the_module_runs_to_completion(module):
     result = subprocess.run(
         [sys.executable, "-m", f"research.{module}"],
         cwd=ROOT, capture_output=True, text=True, timeout=180,
+        # pytest's `pythonpath` setting does not reach a subprocess, so without this
+        # the suite only passed where the package had been pip-installed.
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(
+            filter(None, [str(ROOT / "src"), str(ROOT), os.environ.get("PYTHONPATH")]))},
     )
     assert result.returncode == 0, (
         f"research/{module}.py exits {result.returncode}; the claims it produces are "

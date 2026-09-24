@@ -185,11 +185,11 @@ agent proposal -> wallet control (deterministic rules on trustworthy facts)
          amount <= approved, not already charged)
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full diagram and code-level detail.
+See [ARCHITECTURE.md](../ARCHITECTURE.md) for the full diagram and code-level detail.
 
 ## Viseca Integration
 
-See [VISECA_INTEGRATION.md](VISECA_INTEGRATION.md) for the complete breakdown.
+See [VISECA_INTEGRATION.md](../VISECA_INTEGRATION.md) for the complete breakdown.
 Short version: `mandate.py`, `viseca_client.py`, `viseca_mapping.py`, and the event
 schema handling in `offline_replay.py`/`facts.py` implement the official contract
 as documented in technical_details.md. `intervention.py`,
@@ -222,7 +222,7 @@ block:  24
 ```
 
 Per-scenario breakdown and the full reasoning behind every decision:
-[OFFLINE_REPLAY.md](OFFLINE_REPLAY.md). These are this engine's own conclusions
+[OFFLINE_REPLAY.md](../OFFLINE_REPLAY.md). These are this engine's own conclusions
 from each scenario's `cardholder_instruction` and the supplied purchase facts --
 the official pack contains no expected-decision answer key
 (`data/official/metadata.json`), so these numbers are reported as this

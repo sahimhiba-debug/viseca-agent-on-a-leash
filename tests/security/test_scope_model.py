@@ -5,7 +5,7 @@ SAME SCOPE as the bound. These tests pin what the falsification pass established
 which scopes are real, which bounds we actually enforce, and the single invariant
 we claim at mandate scope but only deliver at run scope.
 
-Criteria were pre-registered in docs/FINAL_FALSIFICATION_PREREGISTRATION.md.
+Criteria were pre-registered in docs/archive/FINAL_FALSIFICATION_PREREGISTRATION.md.
 Reproduce with `python scripts/run_scope_falsification.py`.
 """
 

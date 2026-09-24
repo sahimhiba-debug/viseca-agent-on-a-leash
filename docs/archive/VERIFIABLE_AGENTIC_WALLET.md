@@ -8,7 +8,7 @@
 > description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
 > or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
 
-> **Superseded in part by `docs/FINAL_ARCHITECTURE_ATTACK.md` (fourth pass).**
+> **Superseded in part by `docs/archive/FINAL_ARCHITECTURE_ATTACK.md` (fourth pass).**
 > That pass found and fixed four real vulnerabilities, three of them in code this
 > document describes as hardened, and narrowed two claims made below:
 > `PaymentAuthority`'s `policy_version` and `basket_fingerprint` are **provenance,
@@ -18,14 +18,14 @@
 
 This document describes the architecture as it was actually built on the
 `rnd/verifiable-agentic-wallet` branch, after the R&D pass in
-`docs/RND_FINAL_DECISION.md`. It supersedes nothing in `docs/ARCHITECTURE.md`
+`docs/archive/RND_FINAL_DECISION.md`. It supersedes nothing in `docs/ARCHITECTURE.md`
 (the baseline architecture is unchanged and still accurate) -- it describes
 what was layered on top, and, per the mission brief, says explicitly where the
 result diverged from the brief's own hypothesized design.
 
 ## What stayed exactly the same
 
-Every invariant in `docs/SECURITY_INVARIANTS.md` I1-I25, every existing test,
+Every invariant in `docs/archive/SECURITY_INVARIANTS.md` I1-I25, every existing test,
 and the official 45-event replay outcome (19 allow / 2 review / 24 block) are
 unchanged. `decision_engine.evaluate_authorization()` still returns exactly one
 of ALLOW/REVIEW/BLOCK from the customer's own hard rules plus a small, fixed
@@ -35,7 +35,7 @@ top of that call, never a rewrite of it.
 
 ## What was added, and why
 
-Of the ten research tracks in `docs/AGENTIC_COMMERCE_RESEARCH.md` and their
+Of the ten research tracks in `docs/archive/AGENTIC_COMMERCE_RESEARCH.md` and their
 `docs/RND_*.md` write-ups, three were selected and built (see
 `RND_FINAL_DECISION.md`'s scoring table for the full comparison):
 

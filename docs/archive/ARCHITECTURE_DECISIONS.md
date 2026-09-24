@@ -82,7 +82,7 @@ Five options were evaluated against seven criteria each:
 gap in Option A's actual coverage that a fixed lexicon cannot close by adding a
 few more patterns. The third-pass fuzz corpus (`tests/test_compiler_fuzz_corpus.py`)
 was built specifically to find such gaps, and it found two (Findings recorded in
-`docs/MASTER_R_AND_D_AUDIT.md`) -- both were closed with regex additions in under
+`docs/archive/MASTER_R_AND_D_AUDIT.md`) -- both were closed with regex additions in under
 ten lines each, not with a language model. No fuzz case required semantic
 understanding beyond what a slightly larger lexicon already provides.
 

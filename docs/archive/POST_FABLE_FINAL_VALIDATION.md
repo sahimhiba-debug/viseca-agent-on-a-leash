@@ -8,7 +8,7 @@
 > description of the present. For current figures see `docs/BASELINE_CURRENT.md`,
 > or run the commands in `docs/FINAL_AUDIT_PACKAGE.md`.
 
-Focused verification that the four findings of `docs/FABLE_INDEPENDENT_AUDIT.md`,
+Focused verification that the four findings of `docs/archive/FABLE_INDEPENDENT_AUDIT.md`,
 remediated in `0e6e17e`, are actually closed. Invariants were re-derived from source
 and then attacked; the remediation report was not taken as evidence.
 

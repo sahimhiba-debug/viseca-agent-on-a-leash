@@ -166,7 +166,7 @@ def test_single_use_does_not_hold_across_two_independent_run_states():
     Closing this needs a single shared store with an atomic compare-and-set on
     consumption, which this prototype deliberately does not build. The guarantee is
     therefore scoped: single-use holds within one run state, in one process. See
-    docs/FINAL_SECURITY_POSITION.md."""
+    docs/archive/FINAL_SECURITY_POSITION.md."""
     state = _state()
     _approved(state)
     snapshot = state.to_snapshot()

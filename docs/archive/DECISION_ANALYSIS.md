@@ -1,6 +1,6 @@
 # Decision analysis: the complete 45-event replay, examined for defensibility
 
-[OFFLINE_REPLAY.md](OFFLINE_REPLAY.md) explains the reasoning behind each of the 45
+[OFFLINE_REPLAY.md](../OFFLINE_REPLAY.md) explains the reasoning behind each of the 45
 decisions narratively, scenario by scenario. This document is the complementary,
 more adversarial pass Section 20 of the third audit asked for: a compact ledger of
 every event plus, for each REVIEW and every genuinely debatable BLOCK/ALLOW, an
@@ -138,7 +138,7 @@ foreign-currency purchases to be treated MORE strictly (e.g., a fixed "penalty" 
 being in an unfamiliar currency), given the FX rates are synthetic and fixed
 rather than live? Nothing in the customer's actual instruction ("...for CHF 400 or
 less") asks for this, and inventing it would be the engine adding a restriction
-the customer never stated -- which `docs/ARCHITECTURE_DECISIONS.md`'s general
+the customer never stated -- which `docs/archive/ARCHITECTURE_DECISIONS.md`'s general
 stance (never override customer intent in either direction) explicitly avoids.
 
 ### AU0023: the "unfamiliar but fully compliant seller" case, examined for the road not taken

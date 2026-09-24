@@ -119,23 +119,23 @@ What IS applicable, adapted rather than copied:
   Token) -- this project already has the *ingredients* (`StoredDecision`'s
   merchant/basket/amount fingerprint, `MockPSP`'s independent re-gating) but not
   a single, explicit, inspectable object representing them. See
-  `docs/RND_CAPABILITY_AUTHORITY.md`.
+  `docs/archive/RND_CAPABILITY_AUTHORITY.md`.
 - **AP2's "prompt playback" concept** (restating the user's own intent back to
   them in plain language before they sign off) is directly analogous to what this
   project's `policy_compiler.py` already does via `guidance`/`open_questions` --
-  worth strengthening, not inventing from scratch. See `docs/RND_POLICY_SIMULATOR.md`.
+  worth strengthening, not inventing from scratch. See `docs/archive/RND_POLICY_SIMULATOR.md`.
 - **The Intent/Cart/Payment three-tier separation's underlying principle**
   ("what the user asked for" vs. "what the agent assembled" vs. "what actually
   gets charged" are three different things that can legitimately diverge) is
   directly relevant to this challenge's own "manipulated agent" scenario theme --
   adapted as a local **authorization drift** analysis, not as a second and third
-  mandate type the official API does not support. See `docs/RND_AUTHORIZATION_DRIFT.md`.
+  mandate type the official API does not support. See `docs/archive/RND_AUTHORIZATION_DRIFT.md`.
 - **Agent identity verification (TAP, Agentic Tokens' per-agent binding, FIDO's
   agent authentication work)** is explicitly **not applicable**: the official
   Viseca schema has no agent identity field at all (`authorization.initiator_type`
   is always the literal string `"agent"`, with no further identifier), and
   inventing one would not be verifiable against anything the platform actually
-  checks. Recorded as a rejected direction in `docs/RND_AGENT_IDENTITY.md`.
+  checks. Recorded as a rejected direction in `docs/archive/RND_AGENT_IDENTITY.md`.
 - **EMVCo's multi-party Intent Services registry** is explicitly **not
   applicable**: it solves a problem (intent visible and retrievable across
   competing payment ecosystem participants) this single-team, single-issuer

@@ -56,7 +56,7 @@ class RuleEvaluation:
     # amount-integrity check -- see decision_engine.py). Purely a display/
     # explainability tag: `_decide()` treats every outcome identically regardless
     # of source, so this can never change what decision is reached, only how it is
-    # explained (docs/MASTER_R_AND_D_AUDIT.md, "alternative policy representations").
+    # explained (docs/archive/MASTER_R_AND_D_AUDIT.md, "alternative policy representations").
     source: Literal["customer", "safety"] = "customer"
 
 
@@ -173,7 +173,7 @@ def _candidate_items(facts: PurchaseFacts, ctx: RuleContext) -> list:
     entirely, already independently caught by `item.category`/
     `item.unrequested_present`) must not make `item.name_contains`/`item.size`
     fail against the CORRECT primary item just because it is sitting in the same
-    basket -- see docs/SECOND_ADVERSARIAL_AUDIT.md, "multi-item aggregation".
+    basket -- see docs/archive/SECOND_ADVERSARIAL_AUDIT.md, "multi-item aggregation".
     Falls back to every item when nothing matches the requested category (so the
     evidence for an all-wrong-category basket still shows a concrete mismatch
     instead of a vague "nothing to check"), and to every item when no category

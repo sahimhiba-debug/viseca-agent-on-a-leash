@@ -1,4 +1,4 @@
-"""Tests for the three R&D concepts selected in docs/RND_FINAL_DECISION.md:
+"""Tests for the three R&D concepts selected in docs/archive/RND_FINAL_DECISION.md:
 
   A. PaymentAuthority -- a narrow, expiring, inspectable capability issued only
      from an ALLOW decision.
@@ -10,7 +10,7 @@
 All three are additive: none of this file's tests modify or depend on removing
 any prior test's behavior, and the full pre-existing suite (test_payment_boundary.py,
 test_decision_engine.py, etc.) is unaffected -- see the "before/after: 187 -> 187"
-note in docs/RND_FINAL_DECISION.md for confirmation this really is additive.
+note in docs/archive/RND_FINAL_DECISION.md for confirmation this really is additive.
 """
 
 from datetime import datetime, timedelta, timezone

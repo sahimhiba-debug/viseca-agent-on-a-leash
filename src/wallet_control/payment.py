@@ -62,7 +62,7 @@ class MockPSP:
         # storage before money is treated as moved. Without it, single-use holds
         # only within this process: a crash restores the last checkpoint, which was
         # written after the DECISION and knows nothing about the charge. See
-        # docs/FINAL_SECURITY_POSITION.md (V10).
+        # docs/archive/FINAL_SECURITY_POSITION.md (V10).
         self._persist = persist
         self._charges: dict[str, ChargeRecord] = {}
         # The clock used for SECURITY decisions (authority expiry) belongs to the
@@ -131,7 +131,7 @@ class MockPSP:
         # constraint") that the previous pass introduced and asserted was safe; it
         # was not. It is what allowed a human-approved step-up (which minted no
         # authority) and a post-restart run (which restored none) to be charged
-        # after the customer had revoked. See docs/DEEP_SECURITY_RESEARCH.md.
+        # after the customer had revoked. See docs/archive/DEEP_SECURITY_RESEARCH.md.
         authority = self._state.get_authority(authorization_id)
         if authority is None:
             raise PaymentError(

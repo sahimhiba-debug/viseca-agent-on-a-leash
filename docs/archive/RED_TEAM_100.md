@@ -438,6 +438,6 @@ exactly what the customer's mandate authorized.
 defeated by this code today. Three of the eight vulnerabilities fixed in this pass
 lived in code that previous passes had declared hardened, which is the honest prior
 on any such claim. The limits that no corpus can close are in
-`docs/DEEP_SECURITY_RESEARCH.md` §7 — chiefly that a lying merchant can satisfy two
+`docs/archive/DEEP_SECURITY_RESEARCH.md` §7 — chiefly that a lying merchant can satisfy two
 customer rules, and that every rolling-window guarantee rests on the platform's
 timestamp being truthful.

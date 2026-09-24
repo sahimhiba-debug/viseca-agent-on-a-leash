@@ -454,19 +454,19 @@ class EngineDecision:
     # afternoon: stale text for two rules whose meaning had changed, and a raw dotted
     # field name on screen for a third that had only just been added.
     plain_reasons: tuple[str, ...] = ()
-    # R&D Track E (docs/RND_POLICY_SECURITY_SPLIT.md): the SAME evaluations, scoped
+    # R&D Track E (docs/archive/RND_POLICY_SECURITY_SPLIT.md): the SAME evaluations, scoped
     # to source=="customer" and source=="safety" respectively, decided by the SAME
     # `_decide()` function. Purely explanatory -- `decision` above is computed
     # exactly as before (over the full, unscoped list) and is provably at least as
     # strict as either sub-verdict (see the module docstring's monotonicity note).
     policy_verdict: Decision | None = None
     security_verdict: Decision | None = None
-    # R&D Track D (docs/RND_AUTHORIZATION_DRIFT.md): a structured diff against a
+    # R&D Track D (docs/archive/RND_AUTHORIZATION_DRIFT.md): a structured diff against a
     # related/conflicting prior authorization, if one exists. Never gates the
     # decision itself -- `rules.py` already does that; this only explains what
     # changed relative to a reference point.
     drift: AuthorizationDrift | None = None
-    # R&D Track A (docs/RND_CAPABILITY_AUTHORITY.md): issued only when decision is
+    # R&D Track A (docs/archive/RND_CAPABILITY_AUTHORITY.md): issued only when decision is
     # "allow" (here or via a later `resolve_authorization` to "allow").
     payment_authority: PaymentAuthority | None = None
 
@@ -484,7 +484,7 @@ def _basket_key(items: list[dict[str, Any]], order_returnable: Any = None) -> Ba
     re-delivery that keeps the same item_id but renames the line from "Monitor" to
     "Gold bar" is a semantically different purchase, and without the name in the
     fingerprint it inherited the original ALLOW unexamined (fourth-pass finding;
-    see docs/FINAL_ARCHITECTURE_ATTACK.md).
+    see docs/archive/FINAL_ARCHITECTURE_ATTACK.md).
 
     `unit_price` is deliberately NOT included: the security-relevant money figure
     is `billing_amount_chf`, which is compared separately, and no rule in the
@@ -1146,7 +1146,7 @@ def evaluate_authorization(event: dict[str, Any], mandate: MandateSnapshot, stat
         # amount but not identity, so a re-delivery carrying a different card_id or
         # mandate_id would otherwise match the fingerprint and be answered with the
         # stored decision -- returning a real answer to an event that was never ours to
-        # answer. See docs/DEEP_SECURITY_RESEARCH.md (V5).
+        # answer. See docs/archive/DEEP_SECURITY_RESEARCH.md (V5).
         binding_failures = _run_binding_failures(
             auth, mandate, state,
             reported_mandate_status=_reported_mandate_status(event),

@@ -6,7 +6,7 @@ Thesis under test:
       SAME SCOPE as the bound;
   T2  the scopes are exactly three -- mandate, authorization, account.
 
-Criteria were pre-registered in docs/FINAL_FALSIFICATION_PREREGISTRATION.md before
+Criteria were pre-registered in docs/archive/FINAL_FALSIFICATION_PREREGISTRATION.md before
 any prototype. Nothing here is in the decision path.
 """
 

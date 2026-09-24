@@ -534,7 +534,7 @@ class RunState:
 
         Takes no `billing_amount_chf`: the amount that matters is the one the
         customer was actually shown when asked to review, never a value a caller
-        could pass in fresh -- see docs/SECOND_ADVERSARIAL_AUDIT.md, "human
+        could pass in fresh -- see docs/archive/SECOND_ADVERSARIAL_AUDIT.md, "human
         resolution scoped to the wrong facts". The spend-window contribution uses
         the ORIGINAL purchase's *simulated* timestamp (`existing.timestamp`), not
         `resolved_at` (a real-clock time), per technical_details.md: "Use simulated
@@ -1003,7 +1003,7 @@ class RunState:
         version cannot change underneath an outstanding authority. That variant
         would be an unreachable branch, and `policy_version` on the authority is
         therefore provenance -- what it was minted under -- not an enforced
-        binding. See docs/FINAL_ARCHITECTURE_ATTACK.md for the full analysis.
+        binding. See docs/archive/FINAL_ARCHITECTURE_ATTACK.md for the full analysis.
         """
         with self._consume_lock:
             # Record the run-level fact FIRST: if anything below were to fail, a run
@@ -1030,7 +1030,7 @@ class RunState:
     # process restarting can resume correctly. It does NOT reconcile against the
     # platform's own authoritative state (see `live_worker.LiveWorker.reconcile_run`
     # for that best-effort, separate mechanism) -- see
-    # docs/SECOND_ADVERSARIAL_AUDIT.md for the residual limitation this leaves.
+    # docs/archive/SECOND_ADVERSARIAL_AUDIT.md for the residual limitation this leaves.
     def to_snapshot(self) -> dict:
         return {
             "card_id": self.card_id,

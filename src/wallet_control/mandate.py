@@ -339,7 +339,7 @@ class MandateSnapshot:
 def mandate_policy_version(mandate: MandateSnapshot) -> str:
     """A short, deterministic fingerprint of a mandate's hard_rules at a point in
     time, used to stamp a `PaymentAuthority` with which version of the policy
-    actually granted it (R&D Track A -- see docs/RND_CAPABILITY_AUTHORITY.md).
+    actually granted it (R&D Track A -- see docs/archive/RND_CAPABILITY_AUTHORITY.md).
     Deliberately not cryptographic (there is no verifier for it to matter to) --
     just stable and collision-resistant enough to distinguish "this authority was
     issued under an earlier, since-tightened policy" from "under the current one."

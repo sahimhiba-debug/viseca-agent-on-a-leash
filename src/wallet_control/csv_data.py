@@ -111,7 +111,7 @@ def load_accounts() -> dict[str, dict[str, str]]:
 
     These are the only TOTAL spending bounds anywhere in the official data. They are
     platform-supplied and the agent cannot forge them -- and the wallet has never
-    read them. See docs/SECURITY_OBJECT_FALSIFICATION.md; an earlier pass of this
+    read them. See docs/archive/SECURITY_OBJECT_FALSIFICATION.md; an earlier pass of this
     project stated that no credit limit existed in the official schema, which was
     wrong: it exists here, at the account level, not on the mandate.
     """

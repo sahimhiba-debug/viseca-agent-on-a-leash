@@ -131,7 +131,7 @@ def test_we_do_not_claim_to_know_who_answered():
         matched = [p for p in parameters if identity_word in p]
         assert not matched, (
             f"a parameter named for identity appeared ({matched}); if real "
-            "authentication has arrived, update docs/FINAL_LIMITATIONS_AUDIT.md "
+            "authentication has arrived, update docs/archive/FINAL_LIMITATIONS_AUDIT.md "
             "rather than leaving this test to fail")
 
 

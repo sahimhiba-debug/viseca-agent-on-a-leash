@@ -1,6 +1,6 @@
 # Deep weakness campaign — report
 
-Plan and pre-registered falsifiers: `docs/DEEP_WEAKNESS_ATTACK_PLAN.md`.
+Plan and pre-registered falsifiers: `docs/archive/DEEP_WEAKNESS_ATTACK_PLAN.md`.
 
 **Thesis under test:** *"A delegation is bounded only where an authoritative record
 exists at the same scope as the bound."*

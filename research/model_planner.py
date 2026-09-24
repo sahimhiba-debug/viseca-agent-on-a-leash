@@ -163,7 +163,7 @@ def anthropic_completer(model: str = "claude-haiku-4-5-20251001",
     if not key:
         raise RuntimeError(
             "ANTHROPIC_API_KEY is not set. This is the real-model arm of the "
-            "comparison and it needs a key; see docs/FINAL_LLM_EXPERIMENT.md for "
+            "comparison and it needs a key; see docs/archive/FINAL_LLM_EXPERIMENT.md for "
             "what was and was not run.")
 
     def complete(prompt: str) -> str:
@@ -198,7 +198,7 @@ def apertus_completer(model: str = "swiss-ai/Apertus-70B-Instruct",
     this file exists to prevent.
 
     NOT RUN. No Apertus key was available on this machine and none was sought. See
-    `docs/FINAL_LLM_EXPERIMENT.md`; nothing in this repository reports a number
+    `docs/archive/FINAL_LLM_EXPERIMENT.md`; nothing in this repository reports a number
     produced by any real model.
     """
     import json as _json
@@ -209,7 +209,7 @@ def apertus_completer(model: str = "swiss-ai/Apertus-70B-Instruct",
     if not key:
         raise RuntimeError(
             "APERTUS_API_KEY is not set. This is a real-model arm of the comparison "
-            "and it needs a key; see docs/FINAL_LLM_EXPERIMENT.md for what was and "
+            "and it needs a key; see docs/archive/FINAL_LLM_EXPERIMENT.md for what was and "
             "was not run.")
 
     def complete(prompt: str) -> str:

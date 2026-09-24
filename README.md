@@ -21,7 +21,7 @@ was understating the delegation fourfold.
 Every wallet answers a customer's sentence by showing them *rules*. This one answers
 the question they actually have -- **how much did I just hand over?** -- by putting
 every purchase this world can produce through the same engine that will judge the
-real ones, and reporting the set that comes back. **47 ms**, live, as they type
+real ones, and reporting the set that comes back. **47 ms** on the machine it was measured on, live, as they type
 (median of nine calls with a fresh instruction each time; it was documented as 18 ms
 and that figure was never true of the shipped panel).
 
@@ -179,7 +179,9 @@ ui/index.html              The whole customer experience: mobile-first, one file
                            no framework, no build step
 tests/                     1834 tests
 scripts/                   Replay, adversarial suites, research experiments
-docs/                      Architecture, security audits, runbook, demo script
+docs/                      The system as it is now: thesis, architecture, security
+                           model, claims, demo script
+docs/archive/              Audits, research logs and red-team reports from the build
 ```
 
 ## Quickstart
@@ -275,31 +277,31 @@ behind every one of the 45 decisions.
 ## Further reading
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) -- the authorization boundary, state/concurrency model, money handling
-- [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
-- [docs/SECURITY.md](docs/SECURITY.md) -- the attack surface and what defends against each attack
+- [docs/archive/ARCHITECTURE_DECISIONS.md](docs/archive/ARCHITECTURE_DECISIONS.md) -- alternative designs actually traced and compared (a structured policy object, an LLM-in-the-loop compiler, an event log, a trained risk model), and why each was rejected or adopted
+- [docs/archive/SECURITY.md](docs/archive/SECURITY.md) -- the attack surface and what defends against each attack
 - [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) -- a field-by-field trust classification for every field the decision engine reads
-- [docs/FINAL_AGENTIC_AUDIT.md](docs/FINAL_AGENTIC_AUDIT.md) -- is the agent credible? The old one gave up on five of nine adversarial episodes; what replaced it, and why there is still no model in the loop
-- [docs/FINAL_AGENT_SECURITY_AUDIT.md](docs/FINAL_AGENT_SECURITY_AUDIT.md) -- every field the agent can reach, and the price of the oracle it cannot be denied
+- [docs/archive/FINAL_AGENTIC_AUDIT.md](docs/archive/FINAL_AGENTIC_AUDIT.md) -- is the agent credible? The old one gave up on five of nine adversarial episodes; what replaced it, and why there is still no model in the loop
+- [docs/archive/FINAL_AGENT_SECURITY_AUDIT.md](docs/archive/FINAL_AGENT_SECURITY_AUDIT.md) -- every field the agent can reach, and the price of the oracle it cannot be denied
 - [docs/FINAL_DEMO_SCRIPT.md](docs/FINAL_DEMO_SCRIPT.md) · [docs/FINAL_JUDGE_QA.md](docs/FINAL_JUDGE_QA.md) · [docs/FINAL_CLAIMS_REGISTER.md](docs/FINAL_CLAIMS_REGISTER.md)
-- [docs/COMPETITION_READINESS.md](docs/COMPETITION_READINESS.md) -- honest assessment against the five jury criteria, the ten questions a judge could ask, and the strongest argument that this project is mediocre
-- [docs/CLAIMS_REGISTER.md](docs/CLAIMS_REGISTER.md) -- every public claim with its scope, evidence, test, and what must NOT be inferred from it
-- [docs/MASTER_ADVERSARIAL_VALIDATION.md](docs/MASTER_ADVERSARIAL_VALIDATION.md) -- validation of the agent boundary, including the invariant that caught my own design error
-- [docs/DEEP_WEAKNESS_REPORT.md](docs/DEEP_WEAKNESS_REPORT.md) -- adversarial campaign against the remaining conceptual weaknesses: a silent weakening found and fixed, and why the run boundary is an implementation artifact standing in for a security boundary
-- [docs/POST_FABLE_FINAL_VALIDATION.md](docs/POST_FABLE_FINAL_VALIDATION.md) -- independent re-verification of those fixes: all four closed, one latent bypass found and fixed during the pass
-- [docs/POST_FABLE_REMEDIATION.md](docs/POST_FABLE_REMEDIATION.md) -- fixes for the independent audit: the confirmation gate for restrictions we cannot enforce, authorization identity, and the platform policy echo
-- [docs/FINAL_PRE_FABLE_AUDIT.md](docs/FINAL_PRE_FABLE_AUDIT.md) -- the freeze audit: attacked as a hostile judge, including the ten questions a senior reviewer could ask and the truthful answers
-- [docs/FINAL_INTENT_FIDELITY_AUDIT.md](docs/FINAL_INTENT_FIDELITY_AUDIT.md) -- does the wallet enforce what the customer asked for, or what the compiler heard? Six defects, including a weekly budget silently compiled as a per-order ceiling
-- [docs/FINAL_DEEP_RND_REPORT.md](docs/FINAL_DEEP_RND_REPORT.md) -- the deep R&D campaign: two security defects found and fixed, the one candidate mechanism built and killed by its own attacks, and why the architecture is saturated under current protocol constraints
-- [docs/MULTI_DAY_RESEARCH_PROGRAM.md](docs/MULTI_DAY_RESEARCH_PROGRAM.md) -- the final research report: what an outside researcher would attack, what happened when we attacked it ourselves, and what is still risky
+- [docs/archive/COMPETITION_READINESS.md](docs/archive/COMPETITION_READINESS.md) -- honest assessment against the five jury criteria, the ten questions a judge could ask, and the strongest argument that this project is mediocre
+- [docs/archive/CLAIMS_REGISTER.md](docs/archive/CLAIMS_REGISTER.md) -- every public claim with its scope, evidence, test, and what must NOT be inferred from it
+- [docs/archive/MASTER_ADVERSARIAL_VALIDATION.md](docs/archive/MASTER_ADVERSARIAL_VALIDATION.md) -- validation of the agent boundary, including the invariant that caught my own design error
+- [docs/archive/DEEP_WEAKNESS_REPORT.md](docs/archive/DEEP_WEAKNESS_REPORT.md) -- adversarial campaign against the remaining conceptual weaknesses: a silent weakening found and fixed, and why the run boundary is an implementation artifact standing in for a security boundary
+- [docs/archive/POST_FABLE_FINAL_VALIDATION.md](docs/archive/POST_FABLE_FINAL_VALIDATION.md) -- independent re-verification of those fixes: all four closed, one latent bypass found and fixed during the pass
+- [docs/archive/POST_FABLE_REMEDIATION.md](docs/archive/POST_FABLE_REMEDIATION.md) -- fixes for the independent audit: the confirmation gate for restrictions we cannot enforce, authorization identity, and the platform policy echo
+- [docs/archive/FINAL_PRE_FABLE_AUDIT.md](docs/archive/FINAL_PRE_FABLE_AUDIT.md) -- the freeze audit: attacked as a hostile judge, including the ten questions a senior reviewer could ask and the truthful answers
+- [docs/archive/FINAL_INTENT_FIDELITY_AUDIT.md](docs/archive/FINAL_INTENT_FIDELITY_AUDIT.md) -- does the wallet enforce what the customer asked for, or what the compiler heard? Six defects, including a weekly budget silently compiled as a per-order ceiling
+- [docs/archive/FINAL_DEEP_RND_REPORT.md](docs/archive/FINAL_DEEP_RND_REPORT.md) -- the deep R&D campaign: two security defects found and fixed, the one candidate mechanism built and killed by its own attacks, and why the architecture is saturated under current protocol constraints
+- [docs/archive/MULTI_DAY_RESEARCH_PROGRAM.md](docs/archive/MULTI_DAY_RESEARCH_PROGRAM.md) -- the final research report: what an outside researcher would attack, what happened when we attacked it ourselves, and what is still risky
 - [docs/FINAL_AUDIT_PACKAGE.md](docs/FINAL_AUDIT_PACKAGE.md) -- **start here if you are auditing this.** Where to attack first, ranked, and how to falsify each claim
 - [docs/WHAT_WE_REFUSE_TO_CLAIM.md](docs/WHAT_WE_REFUSE_TO_CLAIM.md) -- the limitations, stated as refusals rather than buried
 - [docs/FINAL_INVARIANTS.md](docs/FINAL_INVARIANTS.md) -- the I1-I33 invariant register, each with what enforces it and the test that fails if you remove the mechanism. The register is machine-checked: `test_every_test_the_register_cites_exists`. It is *not* a formal proof and does not claim to be
 - [docs/VISECA_INTEGRATION.md](docs/VISECA_INTEGRATION.md) -- official contract vs. local extensions
 - [docs/OFFLINE_REPLAY.md](docs/OFFLINE_REPLAY.md) -- how the 45-event replay works and why each decision came out the way it did
-- [docs/DECISION_ANALYSIS.md](docs/DECISION_ANALYSIS.md) -- the same replay examined adversarially: why so few REVIEWs, and every genuinely debatable call argued both ways
-- [docs/FINAL_SENIOR_ENGINEERING_REVIEW.md](docs/FINAL_SENIOR_ENGINEERING_REVIEW.md) -- the first engineering review, written right after the initial build
-- [docs/SECOND_ADVERSARIAL_AUDIT.md](docs/SECOND_ADVERSARIAL_AUDIT.md) -- a second, hostile audit pass that re-opened the first review's own decisions and fixed 18 further issues, including the most serious one found across all three passes
-- [docs/MASTER_R_AND_D_AUDIT.md](docs/MASTER_R_AND_D_AUDIT.md) -- a third pass: property-based testing, mutation testing, adversarial fuzzing, and a genuine (not assumed) comparison of alternative architectures
+- [docs/archive/DECISION_ANALYSIS.md](docs/archive/DECISION_ANALYSIS.md) -- the same replay examined adversarially: why so few REVIEWs, and every genuinely debatable call argued both ways
+- [docs/archive/FINAL_SENIOR_ENGINEERING_REVIEW.md](docs/archive/FINAL_SENIOR_ENGINEERING_REVIEW.md) -- the first engineering review, written right after the initial build
+- [docs/archive/SECOND_ADVERSARIAL_AUDIT.md](docs/archive/SECOND_ADVERSARIAL_AUDIT.md) -- a second, hostile audit pass that re-opened the first review's own decisions and fixed 18 further issues, including the most serious one found across all three passes
+- [docs/archive/MASTER_R_AND_D_AUDIT.md](docs/archive/MASTER_R_AND_D_AUDIT.md) -- a third pass: property-based testing, mutation testing, adversarial fuzzing, and a genuine (not assumed) comparison of alternative architectures
 
 ## What this is not
 

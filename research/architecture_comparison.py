@@ -114,7 +114,7 @@ def _real_model_arms():
         arms += [(f"REAL {label}, no fallback", complete, False),
                  (f"REAL {label}, hybrid", complete, True)]
     if not arms:
-        print("  See docs/FINAL_LLM_EXPERIMENT.md for what was and was not run.\n")
+        print("  See docs/archive/FINAL_LLM_EXPERIMENT.md for what was and was not run.\n")
     return arms
 
 

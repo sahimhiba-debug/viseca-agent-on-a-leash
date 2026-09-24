@@ -327,7 +327,7 @@ bound to the merchant that was actually approved, not just the amount (Finding 7
 
 ## 10. Final Architecture
 
-Unchanged from [ARCHITECTURE.md](ARCHITECTURE.md) at the diagram level — the
+Unchanged from [ARCHITECTURE.md](../ARCHITECTURE.md) at the diagram level — the
 authorization boundary (agent proposal → deterministic rules → ALLOW/REVIEW/BLOCK
 → human intervention when needed → payment execution, independently re-gated) is
 the same shape. What changed is that several of the boundary's internal trust
