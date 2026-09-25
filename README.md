@@ -102,10 +102,7 @@ python3 scripts/run_mutation_probe.py   # breaks each security mechanism on purp
 tests/                     2006 tests
 ```
 
-**2006 tests**, of which 5 are reported skips rather than silent ones — **6 in a
-fresh clone**, because one test validates the organisers' own example fixture, which
-lives in their repository. The count is not the argument: the mutation probe breaks
-45 security mechanisms one at a time and the suite catches every one.
+At the submission freeze, a fresh checkout collected **2006 tests: 2000 passed, 6 skipped**. The count is not the argument: the mutation probe breaks **45 security mechanisms** one at a time and the suite catches every one. See the [submission baseline](docs/BASELINE_CURRENT.md) and rerun the [pre-demo gate](RUNBOOK.md) before presenting.
 
 Official replay: **45 events, 12 allow / 9 review / 24 block**, a regression
 boundary rather than a score. Per scenario:
