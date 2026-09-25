@@ -96,7 +96,7 @@ for under pressure. Each word, and whether we may use it.
 | --- | --- | --- |
 | **"autonomous agent"** | **yes** | "It plans, proposes, observes the refusal and replans without a human in the loop." It does. It also stops and asks when it cannot proceed, which is part of the claim, not a caveat to it. |
 | **"agentic"** | **yes, with the benchmark in the same breath** | Never alone. "Agentic" is what every project today says; "it scored 5 out of 11 on a benchmark we wrote before we fixed it" is what nobody says. Lead with the second. |
-| **"secure"** | **no, unqualified** | Say what holds: "a hostile planner cannot obtain an approval", "merchant text can only narrow a decision". Never "this is secure". |
+| **"secure"** | **no, unqualified** | Say what holds: "a hostile planner cannot authorise itself" and "merchant text cannot change the policy or be obeyed as an instruction". Do **not** say merchant text can only narrow a decision: merchant-provided facts are a documented limitation. Never "this is secure". |
 | **"policy privacy"** | **no** | The interface leaks ~1 bit per purchase and we publish the price. Say "the wallet never tells the agent a rule value" — that is provable — and then say the price. |
 | **"no bypass"** | **only of the policy path** | `test_NO_POLICY_BYPASS` is real and narrow: a decision cannot be reached that a rule forbids. It is not a claim about the system as a whole. |
 | **"reproducible"** | **yes** | Replay byte-identical; benchmark byte-identical; 40 demo runs across two server lifetimes identical. This one is fully earned. |
