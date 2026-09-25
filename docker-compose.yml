@@ -33,12 +33,17 @@ services:
     # pre-demo gate having run no tests at all. A check that passes without running
     # is worse than no check, so the count is asserted before the suite is trusted.
     command: >
-      sh -c "pip install --no-cache-dir '.[dev]' >/dev/null &&
-             python3 -m pytest --collect-only -q 2>/dev/null | tail -1 |
-               grep -qE '^[0-9]{4,} tests? collected' ||
-               { echo 'REFUSING: pytest collected fewer than 1000 tests -- is tests/ in the image?'; exit 1; } &&
-             python3 -m pytest -q &&
-             python3 scripts/run_authorship_audit.py &&
-             python3 scripts/run_replay.py &&
-             python3 research/planning_benchmark.py &&
+      sh -c "set -e;
+             pip install --no-cache-dir '.[dev]' >/dev/null;
+             collected=$(python3 -m pytest --collect-only -q 2>/dev/null | tail -1);
+             echo \"$collected\";
+             echo \"$collected\" | grep -qE '^[0-9]{4,} tests? collected' ||
+               { echo 'REFUSING: pytest collected fewer than 1000 tests -- is tests/ in the image?'; exit 1; };
+             python3 -m pytest -q;
+             python3 scripts/run_authorship_audit.py;
+             python3 scripts/run_replay.py;
+             python3 scripts/run_mutation_probe.py;
+             python3 scripts/run_red_team_corpus.py;
+             python3 scripts/run_red_team.py;
+             python3 research/planning_benchmark.py;
              python3 research/control_comparison.py"
