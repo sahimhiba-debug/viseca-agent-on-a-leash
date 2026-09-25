@@ -1,7 +1,8 @@
 # Runbook
 
-Every command below was run on the machine that wrote this file, from the repository
-root. A teammate who did not write the code should be able to follow it top to bottom.
+Every command below is intended to be run from the repository root. A teammate who did not write the code should be able to follow it top to bottom.
+
+> **Submission baseline:** commit `3bb934a` (24 September 2026). The freeze immediately before the final delivery recorded **2000 passed, 6 skipped, 2006 collected**, a **45/45** mutation probe, and the official replay at **45 events — 12 allow / 9 review / 24 block**. If a fresh checkout produces different numbers, treat the checkout's results as authoritative and investigate before presenting.
 
 ---
 
@@ -11,11 +12,9 @@ root. A teammate who did not write the code should be able to follow it top to b
 python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
 ```
 
-Requires Python ≥ 3.11 (developed on 3.13.9). There is **no Node build** — the UI is
-one static HTML file with no dependencies, served by the backend.
+Requires Python ≥ 3.11 (developed on 3.13.9). There is **no Node build** — the UI is one static HTML file with no dependencies, served by the backend.
 
-No API key, no database, no network access is needed for anything in this runbook.
-The official synthetic data pack is vendored at `data/official/`.
+No API key, database, or network access is needed for the offline demo and verification path. The official synthetic data pack is vendored at `data/official/`.
 
 ## 2. Run the product
 
@@ -23,98 +22,90 @@ The official synthetic data pack is vendored at `data/official/`.
 source .venv/bin/activate && uvicorn wallet_control.api:app --port 8420
 ```
 
-Then open **http://localhost:8420/stage.html** for the demo, and
-**http://localhost:8420** for the lab (every panel and proof).
+Then open **http://localhost:8420/stage.html** for the demo and **http://localhost:8420** for the lab.
 
 ### Presenting with the stage
 
 - Pick the scenario at the top ("Manipulated agent" shows the most in one run).
-- `→` proposes the next purchase, `Space` plays them automatically. When the wallet
-  asks, the phone shows the question with a 120-second ring; `A` approves once, `D`
-  declines. The next purchase waits for the answer, as on the platform.
-- `L` pulls the leash (with a confirmation on the phone); `R` restarts.
-- **Live sandbox** runs the same scenario on the hosted API. It is enabled only when
-  the server was started with `TEAM_API_KEY` and `LEASH_BASE_URL`. Every live run
-  stays in the team's history (no reset), so rehearse in Replay. If the live start
-  fails, the page falls back to Replay and says so.
+- `→` proposes the next purchase; `Space` plays automatically. When the wallet asks, the phone shows the question; `A` approves once and `D` declines.
+- `L` pulls the leash (with confirmation); `R` restarts.
+- **Live sandbox** is optional and requires `TEAM_API_KEY` and `LEASH_BASE_URL`. Rehearse in Replay because hosted runs persist.
 
-## 3. Check it is healthy before demoing
+## 3. Pre-demo gate
+
+Run these before presenting:
 
 ```bash
+source .venv/bin/activate
+python3 -m pytest -q
+python3 scripts/run_replay.py
+python3 scripts/run_mutation_probe.py
+python3 scripts/run_red_team_corpus.py
+python3 scripts/run_red_team.py
+```
+
+Expected submission baseline:
+
+- tests: **2000 passed, 6 skipped, 2006 collected**
+- official replay: **45 events — 12 allow / 9 review / 24 block**
+- mutation probe: **45 applied, 45 killed, 0 survived**
+- adversarial corpus: **133/133 held**
+- attack matrix: **17/17 defeated**
+
+The test count is not the security argument. The mutation probe deliberately breaks 45 safety mechanisms and checks that the suite detects every break.
+
+Then start the server and check:
+
+```bash
+uvicorn wallet_control.api:app --port 8420
 curl -s localhost:8420/api/health | python3 -m json.tool
 ```
 
-`matches_regression_boundary` must be `true`. It re-runs the official replay and
-compares against 45 events / 12 allow / 9 review / 24 block. If it is `false`,
-something has changed the decision engine — **do not demo**, run the test suite.
+`matches_regression_boundary` must be `true`. If it is false, **do not demo** until the drift is understood.
 
-## 4. Run the tests
+## 4. Official replay
 
 ```bash
-source .venv/bin/activate && python3 -m pytest -q
+python3 scripts/run_replay.py
 ```
 
-Expect **643 passed**. Useful subsets:
+The last line must read `TOTAL events: 45  {'allow': 12, 'review': 9, 'block': 24}`. This is a **regression boundary, not a score**: the official pack contains no expected-decision labels.
+
+## 5. Adversarial checks
 
 ```bash
-python3 -m pytest tests/security -q          # security + invariants + scope model
-python3 -m pytest tests/test_failure_modes.py -q   # dependency failure behaviour
-python3 -m pytest tests/test_product_surface.py -q # attacks, audit, API
+python3 scripts/run_red_team_corpus.py   # 133/133 held at submission freeze
+python3 scripts/run_red_team.py          # 17/17 defeated at submission freeze
+python3 scripts/run_demo_scenario.py
 ```
 
-## 5. Run the official replay
-
-```bash
-source .venv/bin/activate && python3 scripts/run_replay.py
-```
-
-The last line must read `TOTAL events: 45  {'allow': 12, 'review': 9, 'block': 24}`.
-This is a **regression boundary, not a score** — there are no official
-expected-decision labels, and this number must not be "improved".
-
-## 6. Run the adversarial suites
-
-```bash
-source .venv/bin/activate && python3 scripts/run_red_team_corpus.py   # expect 133/133 held
-python3 scripts/run_red_team.py                                       # expect 17/17 defeated
-python3 scripts/run_demo_scenario.py                                  # synthetic R&D walkthrough
-```
-
-The eight judge-facing attack demonstrations are in the product itself (Attacks tab)
-and also available headless:
+The judge-facing attacks are also exposed by the running product:
 
 ```bash
 curl -s localhost:8420/api/attacks | python3 -c "import json,sys; d=json.load(sys.stdin); print(f\"{d['held']}/{d['total']} held\"); [print(' ', a['title'], '->', a['outcome']) for a in d['attacks']]"
 ```
 
-## 7. Research scripts (reproduce the R&D claims)
+## 6. Research scripts
+
+These reproduce R&D claims; they are not required to run the judged product.
 
 ```bash
-python3 scripts/run_fulfilment_differential.py        # 6 disagreements / CHF 1,787.40
-python3 scripts/run_economic_envelope.py              # what a compliant compromised agent extracts
-python3 scripts/run_scope_falsification.py            # the three-scope model under attack
-python3 scripts/run_security_object_falsification.py  # eight candidate security objects
+python3 scripts/run_fulfilment_differential.py
+python3 scripts/run_economic_envelope.py
+python3 scripts/run_scope_falsification.py
+python3 scripts/run_security_object_falsification.py
 ```
 
-## 8. Reset the demo
+## 7. Reset and logs
 
 ```bash
 curl -s -X POST localhost:8420/api/demo/reset
-```
-
-Clears in-memory runs only. It cannot touch the official data or any compiled policy.
-Restarting the server has the same effect — all demo state is in-process by design.
-
-## 9. Inspect logs
-
-The server logs to stdout. Run it in the foreground during a demo. Every decision
-carries its `authorization_id`, and every API error carries the HTTP status.
-
-```bash
 uvicorn wallet_control.api:app --port 8420 --log-level debug
 ```
 
-## 10. The live Viseca integration (not needed for the demo)
+Reset clears in-memory demo runs only. Server logs go to stdout. Every decision carries its `authorization_id`.
+
+## 8. Live Viseca integration (optional)
 
 ```bash
 export LEASH_BASE_URL=https://saw26api.ashyground-364e1d07.switzerlandnorth.azurecontainerapps.io
@@ -122,33 +113,16 @@ export TEAM_API_KEY=...        # never commit it, never paste it into a log
 python3 scripts/run_live_worker.py SCEN0001 --checkpoint-dir .checkpoints
 ```
 
-- **Runs cannot be reset** on the hosted API (`features.reset` is false): every run
-  stays in the team's history. Start each scenario once, on purpose.
-- **Step-ups are asked at the terminal** while the worker keeps polling: `a` approves,
-  `d` declines, Enter leaves it to the platform's 120 s timeout. Nothing answers on
-  the customer's behalf.
-- **If the worker dies**, restart it on the same run; with the same
-  `--checkpoint-dir` it continues exactly where it stopped:
-  `python3 scripts/run_live_worker.py SCEN0001 --resume run_... --checkpoint-dir .checkpoints`.
-  Without the checkpoint it cannot know what was already spent, so rolling limits
-  read as unknown and the customer is asked rather than the limit restarted.
-- SCEN0000's "one grocery item" cannot be expressed as a rule; the script stops and
-  asks for `--acknowledge-unsupported`.
+Runs cannot be reset on the hosted API. Step-ups are answered through the separate `/resolve` path. A worker can resume from its checkpoint. SCEN0000 requires `--acknowledge-unsupported` because "one grocery item" cannot be expressed completely as a rule.
 
-Verified against the sandbox on 24 September 2026: all 45 purchases of the five
-scenarios, 41 automated decisions identical to the offline replay and the four
-step-ups answered through `/resolve`.
+The integration was verified against the sandbox on 24 September 2026: all 45 purchases across five scenarios, with 41 automated decisions matching the offline replay and four step-ups answered through `/resolve`. This is the real integration path (`live_worker.py` / `viseca_client.py`) and shares the same decision engine with the demo.
 
-This is the real integration path (`live_worker.py` / `viseca_client.py`). It shares
-the exact decision engine with the demo, so the demo is not a separate code path.
-**The demo does not require it and does not call it.**
+## 9. Troubleshooting
 
-## 11. Troubleshooting
-
-| symptom | cause | action |
+| symptom | likely cause | action |
 | --- | --- | --- |
-| UI shows "backend unreachable" | server not running, or running an older build | restart uvicorn; hard-reload the page |
-| UI looks like an old version | browser cache on a static file | reload with `?v=2` appended, or hard-refresh |
-| `/api/health` says the replay drifted | the decision engine changed | `python3 -m pytest -q` and fix before demoing |
-| port 8420 in use | a previous server | `lsof -ti:8420 \| xargs kill` |
-| an attack card shows **HOLE** | a real regression in the security core | stop; this is the one failure that must never be demoed past |
+| UI says backend unreachable | server missing or stale | restart uvicorn and hard-refresh |
+| `/api/health` reports replay drift | decision behavior changed | run the full pre-demo gate and investigate |
+| port 8420 is in use | old server process | `lsof -ti:8420 \| xargs kill` |
+| an attack card shows **HOLE** | security regression | stop; do not present past it |
+| fresh test count differs from this file | repository changed since freeze | trust the fresh run, then update the documented baseline |
